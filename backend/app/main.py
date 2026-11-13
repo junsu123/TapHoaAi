@@ -1,4 +1,4 @@
-"""FastAPI entry point: `uvicorn app.main:app --host 127.0.0.1 --port 8000`."""
+"""FastAPI app. Start with `python -m app` (uses CHIBI_PORT, default 8686)."""
 
 from __future__ import annotations
 

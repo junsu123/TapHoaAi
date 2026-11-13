@@ -3,7 +3,7 @@
 Usage (from the repo root):
     python scripts/seed_demo.py
     python scripts/seed_demo.py --admin chu_shop --password "mat-khau-du-dai"
-Without --admin, create the operator on first visit to http://127.0.0.1:8000/dashboard.
+Without --admin, create the operator on first visit to http://127.0.0.1:<CHIBI_PORT>/dashboard (mặc định 8686).
 """
 
 from __future__ import annotations

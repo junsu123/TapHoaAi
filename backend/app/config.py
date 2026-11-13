@@ -19,7 +19,7 @@ class Settings(BaseSettings):
 
     # --- runtime -----------------------------------------------------------
     host: str = "127.0.0.1"
-    port: int = 8000
+    port: int = 8686  # CHIBI_PORT; avoids the commonly busy 8000
     data_dir: Path = REPO_DIR / "data"
     database_url: str | None = None  # default: sqlite:///<data_dir>/chibi.db
     frontend_dist: Path = REPO_DIR / "frontend" / "dist"

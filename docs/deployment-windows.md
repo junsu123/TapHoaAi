@@ -8,7 +8,13 @@
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\dev_windows.ps1
 ```
-Script tạo venv, cài thư viện, build giao diện, chạy migration + tạo cửa hàng demo, rồi mở server ở `127.0.0.1:8000`.
+Script tạo venv, cài thư viện, build giao diện, chạy migration + tạo cửa hàng demo, rồi mở server ở `127.0.0.1:8686`.
+
+## Đổi cổng
+- Lần sau chỉ cần chạy, không cài lại: `scripts\dev_windows.ps1 -SkipInstall`.
+- Chọn cổng: `scripts\dev_windows.ps1 -Port 9090`, hoặc đặt `CHIBI_PORT=9090` trong `backend\.env`.
+- Nếu cổng đang bận, script tự chọn cổng trống kế tiếp và in ra địa chỉ đúng.
+- Nhớ sửa URL Browser Source trong OBS theo cổng mới.
 
 ## Dữ liệu
 - Mặc định trong thư mục `data\` của repo: `chibi.db` (SQLite), `media\` (ảnh/GLB), `secret.key` (khóa mã hóa).

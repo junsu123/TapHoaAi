@@ -28,8 +28,10 @@ cd TapHoaAi
 powershell -ExecutionPolicy Bypass -File scripts\dev_windows.ps1
 ```
 
-1. Mở `http://127.0.0.1:8000/dashboard` → lần đầu tạo tài khoản quản trị (chỉ làm được trên chính máy này).
-2. Mở `http://127.0.0.1:8000/game/live` ở cửa sổ thứ hai (đây là **cửa sổ game chính**; chỉ mở một cái).
+Server chạy ở cổng **8686** (không dùng 8000). Đổi cổng: `scripts\dev_windows.ps1 -Port 9090`; nếu cổng bận, script tự chọn cổng trống kế tiếp và in địa chỉ ra màn hình. Lần chạy sau không cần cài lại: thêm `-SkipInstall`.
+
+1. Mở `http://127.0.0.1:8686/dashboard` → lần đầu tạo tài khoản quản trị (chỉ làm được trên chính máy này).
+2. Mở `http://127.0.0.1:8686/game/live` ở cửa sổ thứ hai (đây là **cửa sổ game chính**; chỉ mở một cái).
 3. Dashboard → **Người trực & Demo** → bấm `@lananh88: trà cà gai leo`.
 
 Chibi “lananh88” đi tới Kệ 2, nhặt hộp trà cà gai leo, quay ra camera 8 giây, rồi trả hộp về kệ. Bấm `@khachle: trà` để thấy bình luận mơ hồ được chuyển cho người trực thay vì đoán.
@@ -40,10 +42,10 @@ Chibi “lananh88” đi tới Kệ 2, nhặt hộp trà cà gai leo, quay ra ca
 cd backend && python3 -m venv .venv && .venv/bin/pip install -e ".[dev]" && cd ..
 cd frontend && npm install && npm run build && cd ..
 backend/.venv/bin/python scripts/seed_demo.py --admin chu_shop --password "mat-khau-du-dai"
-cd backend && .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+cd backend && .venv/bin/python -m app            # hoặc: python -m app --port 9090
 ```
 
-Phát triển giao diện có hot-reload: chạy backend như trên, rồi `cd frontend && npm run dev` (Vite proxy `/api`, `/ws`, `/media` về cổng 8000) và mở `http://127.0.0.1:5173`.
+Phát triển giao diện có hot-reload: chạy backend như trên, rồi `cd frontend && npm run dev` (Vite proxy `/api`, `/ws`, `/media` về cổng `CHIBI_PORT`, mặc định 8686) và mở `http://127.0.0.1:5173`.
 
 ## Kiểm thử
 
