@@ -43,8 +43,8 @@ const state = (page: Page) => page.evaluate(() => (window as any).__chibiDebug.s
 const cameraShot = (page: Page) => page.evaluate(() => (window as any).__chibiDebug.camera()?.shot as string);
 const avatarOf = (s: DebugState, nick: string) => s.avatars.find((a) => a.nickname === nick);
 
-async function openGame(page: Page) {
-  await page.goto("/game/live?debug=1&quality=medium");
+async function openGame(page: Page, quality: string | null = "medium") {
+  await page.goto(`/game/live?debug=1${quality ? `&quality=${quality}` : ""}`);
   await page.waitForFunction(() => (window as any).__chibiDebug?.state().layoutVersion > 0, null, { timeout: 20_000 });
 }
 
@@ -192,7 +192,7 @@ test("Dashboard: login, overview, host page shows comments (Vietnamese UI)", asy
 test("T17 (load, CPU renderer): 60 avatars + 100 comments — no crash, bounded queue, metrics recorded", async ({ page }) => {
   test.setTimeout(240_000);
   const csrf = await login(page.request);
-  await openGame(page);
+  await openGame(page, null); // production default: automatic quality step-down
   const texts = ["trà cà gai leo", "trà ba kích", "trà", "chào shop", "nhảy đi"];
   const t0 = Date.now();
   for (let i = 0; i < 100; i++) await inject(page, csrf, `@load${RUN}${i % 60}: ${texts[i % texts.length]}`);
@@ -212,5 +212,6 @@ test("T17 (load, CPU renderer): 60 avatars + 100 comments — no crash, bounded 
   expect(m.errors).toBe(0);
   expect(m.avatars.visible).toBeLessThanOrEqual(60);
   expect(m.actions.queue_depth).toBeLessThanOrEqual(60 * 3);
-  expect(s.avatars.length).toBeLessThanOrEqual(62); // 60 + any still walking out
+  // at most 60 on stage; evicted Chibis may still be walking to the door
+  expect(s.avatars.filter((a) => a.phase !== "exiting").length).toBeLessThanOrEqual(60);
 });

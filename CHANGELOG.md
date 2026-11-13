@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.0 — 2026-11-13 — Nâng cấp đồ họa 3D
+
+- Hết mờ: render đúng mật độ điểm ảnh của màn hình (không còn 1× cố định, không còn hạ xuống 0,6×).
+- Hết nhạt: bỏ tone mapping làm bạc màu, giảm ánh sáng môi trường, bảng màu đậm hơn, đổ bóng mềm từ mức Medium.
+- Phong cách cel-shading: shading 3 bậc, viền tối cho Chibi, kệ, quầy, hộp sản phẩm.
+- Chibi dễ thương hơn: mắt to có điểm sáng, miệng cười, má hồng, tay tròn.
+- Cửa hàng: sàn gỗ, giấy dán tường sọc, thảm lối đi, dây cờ, lọ trang trí có nắp, cây xanh.
+- Cận cảnh sạch: ẩn Chibi khác che ống kính, ẩn nhãn tên trùng với thẻ sản phẩm; nhãn tên sắc nét gấp đôi.
+- Chibi không đổ bóng thời gian thực (đã có bóng tròn dưới chân) để giảm chi phí GPU.
+
 ## 0.1.0 — 2026-11-13 — M0 + M1
 
 ### Thêm
