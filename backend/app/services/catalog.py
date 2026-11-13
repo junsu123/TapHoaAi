@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.models import Product, Shelf
+from app.services.store_layout import COUNTER, DOOR, STORE_D, STORE_W
 from app.text_norm import normalize_vi
 
 DEFAULT_BOX = {"w": 0.2, "h": 0.28, "d": 0.08}
@@ -27,6 +28,7 @@ class CatalogProduct:
     display_price: int | None  # None when missing or not verified recently
     currency: str
     image_url: str | None
+    model_url: str | None
     box_size: dict[str, float]
     claim_text: str | None
     disclaimer: str | None
@@ -75,8 +77,8 @@ class Catalog:
     def layout_dict(self) -> dict[str, Any]:
         return {
             "version": self.version,
-            "store": {"width": 12.0, "depth": 16.0, "door": {"x": 0.0, "z": 7.6},
-                      "counter": {"x": 0.0, "z": -6.6, "w": 3.2, "d": 0.8}},
+            "store": {"width": STORE_W, "depth": STORE_D, "door": {"x": DOOR["x"], "z": 7.6},
+                      "counter": dict(COUNTER)},
             "shelves": [
                 {
                     "code": s.code, "name": s.name, "transform": s.transform,
@@ -87,7 +89,8 @@ class Catalog:
             ],
             "products": [
                 {"id": p.id, "sku": p.sku, "name": p.name, "price": p.display_price,
-                 "currency": p.currency, "image_url": p.image_url, "box_size": p.box_size}
+                 "currency": p.currency, "image_url": p.image_url, "model_url": p.model_url,
+                 "box_size": p.box_size}
                 for p in self.products.values()
             ],
         }
@@ -98,7 +101,7 @@ def build_catalog(db, version: int, price_valid_days: int = 30) -> Catalog:
     now = datetime.now(UTC)
     with db.session() as s:
         products = s.execute(
-            select(Product).options(selectinload(Product.aliases), selectinload(Product.image_asset))
+            select(Product).options(selectinload(Product.aliases), selectinload(Product.image_asset), selectinload(Product.model_asset))
         ).scalars().all()
         for p in products:
             if not p.approved:
@@ -111,10 +114,11 @@ def build_catalog(db, version: int, price_valid_days: int = 30) -> Catalog:
                 and now - verified <= timedelta(days=price_valid_days)
             )
             image_url = f"/media/{p.image_asset.file_path}" if p.image_asset else None
+            model_url = f"/media/{p.model_asset.file_path}" if p.model_asset else None
             cat.products[p.id] = CatalogProduct(
                 id=p.id, sku=p.sku, name=p.name,
                 display_price=p.price if price_ok else None, currency=p.currency,
-                image_url=image_url, box_size=p.box_size or DEFAULT_BOX,
+                image_url=image_url, model_url=model_url, box_size=p.box_size or DEFAULT_BOX,
                 claim_text=p.claim_text, disclaimer=p.disclaimer,
             )
             names = {(normalize_vi(p.name), False, 100)}

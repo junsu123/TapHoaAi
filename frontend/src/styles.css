@@ -89,3 +89,19 @@ th, td { text-align: left; border-bottom: 1px solid var(--line); padding: 8px 6p
 .product-card-sku { font-size: clamp(11px, 1.7vh, 20px); color: var(--muted); }
 .product-card-price { font-size: clamp(16px, 3.2vh, 40px); font-weight: 800; color: var(--pink-d); }
 @keyframes pop { from { transform: translateY(20px) scale(.95); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* shelf map editor */
+.editor-wrap { display: grid; gap: 10px; }
+.store-map { width: min(100%, 520px); height: auto; aspect-ratio: 12.6 / 16.6; touch-action: none; user-select: none; background: #fff; border: 1px solid var(--line); border-radius: 12px; }
+.map-floor { fill: #f7e3cf; stroke: #c48a5c; stroke-width: 0.05; }
+.map-door { fill: rgba(122, 167, 255, .18); stroke: #7aa7ff; stroke-width: 0.04; stroke-dasharray: 0.15 0.1; }
+.map-counter { fill: #7fd1b9; stroke: #3f2433; stroke-width: 0.03; }
+.map-text { font-size: 0.32px; fill: var(--ink); pointer-events: none; font-weight: 600; }
+.map-shelf { cursor: grab; outline: none; }
+.map-shelf rect { fill: #f4c58f; stroke: #8a5a35; stroke-width: 0.04; }
+.map-shelf.has-product rect { stroke: var(--pink-d); stroke-width: 0.07; }
+.map-shelf.selected rect, .map-shelf:focus-visible rect { fill: #ffd9a8; stroke: #2f6fe0; stroke-width: 0.09; }
+.map-front { stroke: #3f2433; stroke-width: 0.12; stroke-linecap: round; pointer-events: none; }
+.map-stand { fill: #2fa36b; pointer-events: none; }
+.button-link { display: inline-block; border: 1px solid var(--line); background: #fff; border-radius: 10px; padding: 8px 12px; color: var(--ink); text-decoration: none; }
+.button-link:hover { border-color: var(--pink); }

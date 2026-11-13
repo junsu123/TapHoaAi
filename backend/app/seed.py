@@ -14,10 +14,9 @@ from sqlalchemy import select
 from app.config import REPO_DIR
 from app.models import MediaAsset, Product, ProductAlias, Shelf, ShelfSlot
 from app.services.media import store_image
+from app.services.store_layout import SHELF_D, SLOT_XS, shelf_geometry
 from app.text_norm import normalize_vi
 
-SHELF_W, SHELF_D, SHELF_H = 2.4, 0.6, 1.6
-SLOT_XS = (-0.7, 0.0, 0.7)
 SLOT_Y = 0.55  # top of the middle board — reachable by a ~1 m tall Chibi
 SAMPLE_DIR = REPO_DIR / "assets" / "sample-products"
 DISCLAIMER = "Thực phẩm này không phải là thuốc và không có tác dụng thay thế thuốc chữa bệnh."
@@ -40,16 +39,6 @@ PRODUCTS = [
         "aliases": [("ba kích", False), ("trà", True)],
     },
 ]
-
-
-def shelf_geometry(x: float, z: float) -> dict:
-    front = z + SHELF_D / 2 + 0.55
-    return {
-        "transform": {"x": x, "z": z, "rot": 0.0, "w": SHELF_W, "d": SHELF_D, "h": SHELF_H},
-        "stand_positions": [{"x": round(x + dx, 3), "z": round(front, 3)} for dx in SLOT_XS],
-        "wait_positions": [{"x": round(x - 1.75, 3), "z": round(front, 3)},
-                           {"x": round(x + 1.75, 3), "z": round(front, 3)}],
-    }
 
 
 def seed_demo(db, media_dir: Path, *, verify_prices: bool = True) -> dict[str, int]:

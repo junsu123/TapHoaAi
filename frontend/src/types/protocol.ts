@@ -27,6 +27,7 @@ export interface ProductInfo {
   price: number | null; // null = not verified → never shown
   currency: string;
   image_url: string | null;
+  model_url?: string | null; // approved GLB; the photo box is the fallback
   box_size: { w: number; h: number; d: number };
 }
 

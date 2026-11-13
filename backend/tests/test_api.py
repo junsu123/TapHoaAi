@@ -137,3 +137,24 @@ def test_ai_pause_does_not_stop_game(admin_client):
     assert admin_client.post("/api/v1/ai/pause", json={"paused": True}).json()["paused"] is True
     r = admin_client.post("/api/v1/demo/events", json={"raw": "@lananh88: trà cà gai leo"})
     assert r.status_code == 200
+
+
+def test_product_glb_model_reaches_game_layout(admin_client):
+    """GAME-06: an uploaded GLB is attached to the product and sent to the game."""
+    from pathlib import Path
+
+    c = admin_client
+    glb = (Path(__file__).resolve().parents[2] / "assets" / "sample-products" / "sample_tin.glb").read_bytes()
+    up = c.post("/api/v1/assets/upload", files={"file": ("tin.glb", glb, "model/gltf-binary")}, data={"kind": "model"})
+    assert up.status_code == 201, up.text
+    # a model id in the image slot is refused
+    bad = c.patch("/api/v1/products/TRA_BA_KICH", json={"image_asset_id": up.json()["id"]})
+    assert bad.status_code == 422 and bad.json()["error"]["code"] == "bad_asset"
+    r = c.patch("/api/v1/products/TRA_BA_KICH", json={"model_asset_id": up.json()["id"]})
+    assert r.status_code == 200 and r.json()["model_url"].endswith(".glb")
+    layout = c.app.state.container.catalog.layout_dict()
+    p = next(x for x in layout["products"] if x["id"] == "TRA_BA_KICH")
+    assert p["model_url"] == r.json()["model_url"] and p["image_url"]  # photo kept as fallback
+    assert c.get(p["model_url"]).content[:4] == b"glTF"
+    r = c.patch("/api/v1/products/TRA_BA_KICH", json={"model_asset_id": None})
+    assert r.json()["model_url"] is None

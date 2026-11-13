@@ -10,10 +10,13 @@ from app.services.product_matcher import MatchStatus, ProductMatcher
 from app.text_norm import fold
 
 QUESTION_PHRASES = (
-    "bao nhieu", "gia", "thanh phan", "co tot khong", "tot khong", "uong the nao",
-    "dung the nao", "cach dung", "han su dung", "o dau", "the nao", "sao", "khong a",
-    "co ship", "ship khong", "con hang",
+    "bao nhieu", "bn", "bnhiu", "bnh", "may tien", "nhieu tien", "gia", "xin gia", "ib", "inbox",
+    "thanh phan", "co tot khong", "tot khong", "uong the nao", "uong sao", "dung the nao", "dung sao",
+    "cach dung", "ntn", "nhu the nao", "the nao", "han su dung", "o dau", "sao", "con hang",
+    "co ship", "ship", "freeship", "phi ship", "ck", "chuyen khoan", "cod",
 )
+# Vietnamese yes/no questions end with a particle: "còn không", "có ship ko", "được chưa"
+QUESTION_ENDINGS = {"khong", "ko", "k", "hok", "hong", "hem", "chua", "ha", "a ha"}
 GREETING_WORDS = ("chao", "hello", "hi", "xin chao", "alo")
 DANCE_WORDS = ("nhay", "dance", "quay")
 _URL = re.compile(r"(https?://|www\.|\.(com|net|vn|xyz|top)\b)", re.I)
@@ -60,7 +63,13 @@ class CommentIntentRouter:
         if _URL.search(text):
             return Intent(IntentKind.SPAM, normalized=fold(text))
         folded = fold(text)
-        is_question = "?" in text or _has_phrase(folded, QUESTION_PHRASES)
+        tokens = folded.split()
+        is_question = (
+            "?" in text
+            or _has_phrase(folded, QUESTION_PHRASES)
+            or (len(tokens) >= 2 and (tokens[-1] in QUESTION_ENDINGS or " ".join(tokens[-2:]) in QUESTION_ENDINGS))
+            or (len(tokens) >= 3 and tokens[-2] in QUESTION_ENDINGS and tokens[-1] in {"shop", "ad", "a", "vay", "nhi"})
+        )
         m = self.matcher.match(text)
         if m.status == MatchStatus.MATCH:
             kind = IntentKind.QUESTION if is_question else IntentKind.PRODUCT

@@ -12,7 +12,7 @@ Phần mềm cho cửa hàng bán hàng qua TikTok LIVE: khán giả bình luậ
 | --- | --- | --- |
 | M0 | Nền tảng: backend, DB + migration, đăng nhập, Demo provider, event contract, CI | **Xong** |
 | M1 | Vertical slice: bình luận → Chibi đi → cầm hộp → camera cận cảnh → trả hộp | **Xong** (6 kệ, 2 sản phẩm mẫu) |
-| M2 | Editor kéo-thả kệ, GLB, backup, bộ dữ liệu tiếng Việt để tinh chỉnh ngưỡng | Chưa làm |
+| M2 | Editor kéo-thả kệ, GLB sản phẩm, sao lưu/khôi phục, bộ dữ liệu bình luận tiếng Việt, nhãn tên không đè nhau | **Phần lớn xong** — còn Chibi GLB có xương và benchmark trên PC thật |
 | M3 | Kết nối TikTok LIVE thật | Chưa làm — hiện báo **“Không hỗ trợ”**, không bao giờ giả “Đã kết nối” |
 | M4 | Claude AI + ngân sách | Chưa làm — mọi bình luận sản phẩm chạy bằng bộ luật, 0 USD |
 | M5 | OBS & vận hành | Một phần (Browser Source dùng được, hướng dẫn trong `docs/obs-setup.md`) |
@@ -50,9 +50,10 @@ Phát triển giao diện có hot-reload: chạy backend như trên, rồi `cd f
 ## Kiểm thử
 
 ```bash
-cd backend && .venv/bin/pytest -q                 # 94 test: matcher, queue, camera, API, WebSocket, reconnect
-cd frontend && npx vitest run                     # 13 test: A*, FSM, pickup/show, sequence, nhãn tên
-cd frontend && npx playwright test                # 6 test trình duyệt thật (WebGL) + ảnh minh chứng
+cd backend && .venv/bin/pytest -q                 # 120 test: matcher, queue, camera, API, WebSocket, reconnect, editor, backup
+cd frontend && npx vitest run                     # 17 test: A*, FSM, pickup/show, kệ xoay, sequence, nhãn tên
+cd frontend && npx playwright test                # 10 test trình duyệt thật (WebGL) + ảnh minh chứng
+cd backend && .venv/bin/python -m app.eval_matcher tests/fixtures/comments_vi.csv   # đo độ chính xác nhận diện
 ```
 
 Playwright tự khởi động backend sạch qua `scripts/e2e_server.sh`. Ảnh minh chứng nằm ở `frontend/test-results/evidence/` (bản đã chụp: `docs/evidence/`).
@@ -73,6 +74,12 @@ frontend/src/
   dashboard/   DashboardApp · useDashboardFeed
   lib/         api · ws (SequencedSocket)
 ```
+
+## Sao lưu
+
+- Dashboard → **Cài đặt & sao lưu** → *Sao lưu ngay* (tải về file .zip), hoặc `python scripts/backup_db.py backup`.
+- Khôi phục: **tắt server**, rồi `python scripts/backup_db.py restore data\backups\<file>.zip` (tự sao lưu dữ liệu cũ trước).
+- File `data/secret.key` không nằm trong bản sao lưu — hãy cất riêng.
 
 ## Nguyên tắc an toàn đã áp dụng
 

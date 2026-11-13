@@ -6,9 +6,9 @@ Ngày: 13/11/2026 · Commit: xem lịch sử nhánh `m0-m1-vertical-slice`
 
 | Bộ test | Lệnh | Kết quả |
 | --- | --- | --- |
-| Backend (pytest) | `cd backend && .venv/bin/pytest -q` | **94 passed** |
-| Frontend unit (vitest) | `cd frontend && npx vitest run` | **13 passed** |
-| Trình duyệt thật (Playwright + WebGL SwiftShader) | `cd frontend && npx playwright test` | **6 passed** (chạy 3 lần, kể cả trên server mới khởi động) |
+| Backend (pytest) | `cd backend && .venv/bin/pytest -q` | **120 passed** |
+| Frontend unit (vitest) | `cd frontend && npx vitest run` | **17 passed** |
+| Trình duyệt thật (Playwright + WebGL SwiftShader) | `cd frontend && npx playwright test` | **10 passed** (gồm 4 test M2) |
 
 Playwright đọc trạng thái **thật** của client (`window.__chibiDebug`), không mock: một test chỉ PASS khi trình duyệt đã đi, nhặt, giơ và trả đúng hộp.
 
@@ -36,6 +36,19 @@ Playwright đọc trạng thái **thật** của client (`window.__chibiDebug`),
 | T18 | **PASS** — reload giữa lúc đi, nhận snapshot, không nhân bản, lệnh vẫn hoàn tất | `test_t18_…`, Playwright T18; `evidence/T18-after-reload.png` |
 | T19 | **PASS** — “Chưa kết nối Shop”, không có đơn giả | `test_shop_not_configured`, Playwright Dashboard |
 | T20 | **Một phần** — game không phụ thuộc OBS; báo trạng thái obs-websocket là M5 | — |
+
+## M2 — kết quả
+
+| Hạng mục | Kết quả | Bằng chứng |
+| --- | --- | --- |
+| Editor kệ (GAME-02, PRD-02) | **PASS** — kéo thả, phím mũi tên, xoay; vị trí sai bị từ chối kèm lý do tiếng Việt; game nhận bản đồ mới | `test_store_layout.py` (15), Playwright “M2 shelf editor”; `evidence/M2-shelf-editor.png` |
+| Kệ xoay trong game | **PASS** — 90°/180°/270°: đi tới, nhìn vào kệ, giơ hộp ra phía ngoài | vitest “rotated shelves” |
+| GLB sản phẩm (GAME-06) | **PASS** — tải lên, kiểm tra, Chibi cầm đúng mô hình; lỗi → hộp ảnh | `test_product_glb_model_reaches_game_layout`, Playwright “M2 GLB”; `evidence/M2-glb-in-hand.png` |
+| Sao lưu/khôi phục (SYS-03) | **PASS** — zip có manifest, chặn file lạ/đường dẫn ngược, khôi phục tạo bản an toàn trước | `test_backup.py` (9), Playwright “M2 backup” |
+| Bộ dữ liệu tiếng Việt (PRD-03) | 101 bình luận: đúng ý định 100 %, đi đúng sản phẩm 60/60, **đi sai sản phẩm 0** | `test_dataset.py`, `python -m app.eval_matcher` |
+| Nhãn tên không đè nhau (GAME-09) | **PASS** — kiểm tra từng cặp nhãn trên màn hình | Playwright “M2 crowd”; `evidence/M2-crowd-labels.png` |
+
+**Lưu ý trung thực về bộ dữ liệu:** 101 bình luận do người phát triển tự viết (không phải log LIVE thật) và luật đã được chỉnh trên chính bộ này, nên 100 % là con số lạc quan. Cần thêm bình luận thật đã ẩn danh để đo khách quan.
 
 ## Số liệu tải (T17, NFR-01) — Chrome headless + SwiftShader (CPU)
 

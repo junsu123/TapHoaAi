@@ -57,8 +57,9 @@ class ProductMatcher:
             return MatchResult(MatchStatus.NONE, normalized=q)
         aliases = self.catalog.aliases
 
-        # Tier 1 — exact alias
-        exact = [a for a in aliases if a.normalized == q]
+        # Tier 1 — exact alias (spaces ignored too: "cagaileo" == "ca gai leo")
+        compact = q.replace(" ", "")
+        exact = [a for a in aliases if a.normalized == q or a.normalized.replace(" ", "") == compact]
         if exact:
             pids = sorted({a.product_id for a in exact})
             if len(pids) == 1 and not any(a.is_generic for a in exact):
