@@ -7,13 +7,15 @@ import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import type { ProductInfo } from "../types/protocol";
 import type { AvatarController } from "./AvatarController";
-import { appearanceFromSeed, BOX_EDGES, EDGE_MAT, GEO, OUTLINE_MAT, RenderContext, toon, WHITE } from "./palette";
-import { boxMaterials, useFrontMaterial } from "./ProductBox";
+import { appearanceFromSeed, GEO, LabelRegistryContext, OUTLINE_MAT, RenderContext, toon, WHITE } from "./palette";
+import { ProductVisual } from "./ProductBox";
 import { nameTexture } from "./nameTexture";
 
 const tmp = new THREE.Vector3();
 const tmpHand = new THREE.Vector3();
 const ease = (t: number) => t * t * (3 - 2 * t);
+const LABEL_Y = 1.42;
+const OUTLINE_LOD_DISTANCE = 12;
 
 export function ChibiAvatar({ ctl, products, focusedId }: { ctl: AvatarController; products: Map<string, ProductInfo>; focusedId: () => string | null }) {
   const root = useRef<THREE.Group>(null!);
@@ -26,18 +28,34 @@ export function ChibiAvatar({ ctl, products, focusedId }: { ctl: AvatarControlle
   const hand = useRef<THREE.Object3D>(null!); // rightHandSocket
   const label = useRef<THREE.Sprite>(null!);
   const heldBox = useRef<THREE.Group>(null!);
-  const opts = useContext(RenderContext);
   const { camera } = useThree();
+  const labels = useContext(LabelRegistryContext);
+  const outlineMeshes = useRef<THREE.Object3D[]>([]);
+  const outlinesOn = useRef(true);
 
   const look = useMemo(() => appearanceFromSeed(ctl.info.appearance_seed), [ctl.info.appearance_seed]);
   const { texture, aspect } = useMemo(() => nameTexture(ctl.info.nickname, ctl.info.is_demo), [ctl.info.nickname, ctl.info.is_demo]);
   // re-render only when the carried product changes (not every frame)
   const [heldId, setHeldId] = useState<string | null>(ctl.held?.productId ?? null);
   const heldProduct = heldId ? products.get(heldId) : undefined;
-  const frontMat = useFrontMaterial(heldProduct ?? products.values().next().value);
-  const mats = useMemo(() => boxMaterials(frontMat), [frontMat]);
   const labelMat = useMemo(() => new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent: true }), [texture]);
   useEffect(() => () => labelMat.dispose(), [labelMat]);
+  useEffect(() => {
+    const id = ctl.info.avatar_id;
+    labels?.set(id, { sprite: label.current, baseY: LABEL_Y, aspect });
+    return () => {
+      labels?.delete(id);
+    };
+  }, [labels, aspect, ctl.info.avatar_id]);
+  // collect outline meshes once (and whenever the look changes) for distance LOD
+  useEffect(() => {
+    const found: THREE.Object3D[] = [];
+    root.current.traverse((o) => {
+      if ((o as THREE.Mesh).material === OUTLINE_MAT) found.push(o);
+    });
+    outlineMeshes.current = found;
+    outlinesOn.current = true;
+  }, [look]);
 
   useFrame((state) => {
     const t = state.clock.elapsedTime + (ctl.info.appearance_seed % 100) * 0.1;
@@ -119,7 +137,6 @@ export function ChibiAvatar({ ctl, products, focusedId }: { ctl: AvatarControlle
       const k = ease(held.t);
       box.position.lerpVectors(tmp, tmpHand, k);
       box.rotation.set(0, held.mode === "inHand" ? ctl.yaw : THREE.MathUtils.lerp(0, ctl.yaw, k), 0);
-      box.scale.set(s.w, s.h, s.d);
       box.visible = true;
     } else {
       box.visible = false;
@@ -131,10 +148,16 @@ export function ChibiAvatar({ ctl, products, focusedId }: { ctl: AvatarControlle
     // Chibi's own label is dropped (the product card already names the viewer)
     const focused = focusedId() === ctl.info.avatar_id;
     root.current.visible = focused || dist > 1.7;
+    // outline LOD: far-away Chibis are a few pixels tall — skip their outline draw calls
+    const wantOutlines = dist < OUTLINE_LOD_DISTANCE;
+    if (wantOutlines !== outlinesOn.current) {
+      outlinesOn.current = wantOutlines;
+      for (const o of outlineMeshes.current) o.visible = wantOutlines;
+    }
     label.current.visible = !(focused && dist < 3.2);
     const sc = THREE.MathUtils.clamp(dist * 0.045, 0.34, 1.7);
     label.current.scale.set(sc * aspect * 0.42, sc * 0.42, 1);
-  });
+  }, -1);
 
   const skin = toon(look.skin);
   const hairM = toon(look.hair);
@@ -201,12 +224,11 @@ export function ChibiAvatar({ ctl, products, focusedId }: { ctl: AvatarControlle
             </mesh>
           </group>
         </group>
-        <sprite ref={label} material={labelMat} position={[0, 1.42, 0]} renderOrder={10} />
+        <sprite ref={label} material={labelMat} position={[0, LABEL_Y, 0]} renderOrder={10} />
       </group>
       {/* the carried visual copy lives in world space so it can fly from the slot to the hand */}
       <group ref={heldBox} visible={false}>
-        <mesh geometry={GEO.box} material={mats} castShadow />
-        {opts.outlines && <lineSegments geometry={BOX_EDGES} material={EDGE_MAT} />}
+        {heldProduct && <ProductVisual product={heldProduct} />}
       </group>
     </>
   );

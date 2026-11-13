@@ -214,4 +214,106 @@ test("T17 (load, CPU renderer): 60 avatars + 100 comments — no crash, bounded 
   expect(m.actions.queue_depth).toBeLessThanOrEqual(60 * 3);
   // at most 60 on stage; evicted Chibis may still be walking to the door
   expect(s.avatars.filter((a) => a.phase !== "exiting").length).toBeLessThanOrEqual(60);
+  await page.request.post("/api/v1/live/disconnect", { headers: { "X-CSRF-Token": csrf } }); // clean store for later tests
+});
+
+// ---------------------------------------------------------------- M2
+test("M2 shelf editor: drag a shelf, refused overlap snaps back, game gets the new layout", async ({ page, context }) => {
+  const csrf = await login(page.request);
+  const game = await context.newPage();
+  await game.goto("/game/live?debug=1&quality=low&role=viewer");
+  await game.waitForFunction(() => (window as any).__chibiDebug?.state().layoutVersion > 0);
+  const v0 = (await state(game)).layoutVersion;
+
+  await page.setViewportSize({ width: 1280, height: 1000 });
+  await page.goto("/dashboard/shelves");
+  const map = page.getByTestId("store-map");
+  await expect(map).toBeVisible();
+  const shelf = page.getByTestId("shelf-KE_05");
+  const box = (await shelf.locator("rect").boundingBox())!;
+  const mapBox = (await map.boundingBox())!;
+  const pxPerM = mapBox.width / 12.6;
+  // drag KE_05 one metre towards the centre (+x) and half a metre back (−z)
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 + pxPerM * 0.5, box.y + box.height / 2 - pxPerM * 0.25, { steps: 5 });
+  await page.mouse.move(box.x + box.width / 2 + pxPerM * 1.0, box.y + box.height / 2 - pxPerM * 0.5, { steps: 5 });
+  await page.mouse.up();
+  await expect.poll(async () => {
+    const shelves = await (await page.request.get("/api/v1/shelves")).json();
+    return shelves.find((s: { code: string }) => s.code === "KE_05").transform.x;
+  }).toBeCloseTo(-2, 1);
+  await game.waitForFunction((v) => (window as any).__chibiDebug.state().layoutVersion > v, v0);
+  await page.screenshot({ path: `${SHOTS}/M2-shelf-editor.png`, fullPage: true });
+
+  // an overlapping move is refused with a reason and the shelf stays put
+  const r = await page.request.patch("/api/v1/shelves/KE_05", { data: { x: 3, z: 3.5 }, headers: { "X-CSRF-Token": csrf } });
+  expect(r.status()).toBe(422);
+  // keyboard: step right (0.25 m per key) until the server refuses — it must say why
+  for (let i = 0; i < 12; i++) {
+    await page.getByTestId("shelf-KE_05").focus();
+    await page.keyboard.press("ArrowRight");
+    await page.waitForTimeout(400);
+    if (await page.getByTestId("layout-error").count()) break;
+  }
+  await expect(page.getByTestId("layout-error")).toContainText("quá sát");
+  const x = (await (await page.request.get("/api/v1/shelves")).json()).find((s: { code: string }) => s.code === "KE_05").transform.x;
+  expect(x).toBeLessThanOrEqual(-0.25); // never accepted a position too close to KE_06
+  // put it back where the seed had it so later tests see the standard store
+  await page.request.patch("/api/v1/shelves/KE_05", { data: { x: -3, z: 3.5 }, headers: { "X-CSRF-Token": csrf } });
+});
+
+test("M2 GLB product: the Chibi carries the 3D model, the photo box is the fallback", async ({ page }) => {
+  const csrf = await login(page.request);
+  const glb = fs.readFileSync("../assets/sample-products/sample_tin.glb");
+  const up = await page.request.post("/api/v1/assets/upload", {
+    multipart: { kind: "model", file: { name: "tin.glb", mimeType: "model/gltf-binary", buffer: glb } },
+    headers: { "X-CSRF-Token": csrf },
+  });
+  expect(up.status()).toBe(201);
+  const modelId = (await up.json()).id;
+  const p = await page.request.patch("/api/v1/products/TRA_BA_KICH", { data: { model_asset_id: modelId }, headers: { "X-CSRF-Token": csrf } });
+  expect(p.ok()).toBeTruthy();
+  const modelUrl = (await p.json()).model_url as string;
+  await openGame(page);
+  const nick = `glb${RUN}`;
+  await inject(page, csrf, `@${nick}: trà ba kích`);
+  await waitFor(page, (s) => avatarOf(s, nick)?.phase === "show");
+  await page.waitForTimeout(1500);
+  const status = await page.evaluate((u) => (globalThis as any).__chibiModels?.[u], modelUrl);
+  expect(status).toBe("loaded");
+  await page.screenshot({ path: `${SHOTS}/M2-glb-in-hand.png` });
+  await page.request.patch("/api/v1/products/TRA_BA_KICH", { data: { model_asset_id: null }, headers: { "X-CSRF-Token": csrf } });
+});
+
+test("M2 backup from the dashboard", async ({ page }) => {
+  await login(page.request);
+  await page.goto("/dashboard/settings");
+  const before = await page.getByTestId("backup-row").count();
+  await page.getByRole("button", { name: "Sao lưu ngay" }).click();
+  await expect(page.getByTestId("backup-row")).toHaveCount(before + 1);
+  const href = await page.getByTestId("backup-row").first().locator("a").getAttribute("href");
+  const zip = await page.request.get(href!);
+  expect((await zip.body()).subarray(0, 2).toString()).toBe("PK");
+});
+
+test("M2 crowd: name labels do not overlap", async ({ page }) => {
+  const csrf = await login(page.request);
+  await page.goto("/game/live?debug=1&quality=medium");
+  await page.waitForFunction(() => (window as any).__chibiDebug?.state().layoutVersion > 0);
+  for (let i = 0; i < 14; i++) await inject(page, csrf, `@dong${RUN}${i}: chào`);
+  await page.waitForTimeout(4000);
+  await page.screenshot({ path: `${SHOTS}/M2-crowd-labels.png` });
+  // no two visible labels overlap on screen
+  const L = await page.evaluate(() => (window as any).__chibiLabels);
+  const vis = L.boxes
+    .filter((b: any) => L.placement[b.id].visible)
+    .map((b: any) => ({ ...b, y: b.y - L.placement[b.id].lift * (b.h + 2) }));
+  expect(vis.length).toBeGreaterThan(5);
+  for (let i = 0; i < vis.length; i++)
+    for (let j = i + 1; j < vis.length; j++) {
+      const a = vis[i], c = vis[j];
+      const overlap = Math.abs(a.x - c.x) < (a.w + c.w) / 2 && Math.abs(a.y - c.y) < (a.h + c.h) / 2;
+      expect(overlap, `${a.id} vs ${c.id}`).toBe(false);
+    }
 });

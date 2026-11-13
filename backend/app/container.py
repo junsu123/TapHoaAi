@@ -11,6 +11,7 @@ from collections import deque
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from cryptography.fernet import InvalidToken
 from sqlalchemy import delete, select
 
 from app.config import Settings
@@ -107,9 +108,16 @@ class AppContainer:
         with self.db.session() as s:
             row = s.get(Setting, "game_token")
             if row:
-                return self.box.decrypt(row.encrypted_value)
+                try:
+                    return self.box.decrypt(row.encrypted_value)
+                except InvalidToken:
+                    # DB restored on a machine with a different secret.key: issue a new token
+                    log.warning("game token could not be decrypted (different secret.key); regenerating")
             token = secrets.token_urlsafe(18)
-            s.add(Setting(key="game_token", encrypted_value=self.box.encrypt(token), is_secret=True))
+            if row:
+                row.encrypted_value = self.box.encrypt(token)
+            else:
+                s.add(Setting(key="game_token", encrypted_value=self.box.encrypt(token), is_secret=True))
             return token
 
     # ------------------------------------------------------------------ catalog

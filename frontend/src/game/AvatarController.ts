@@ -66,6 +66,7 @@ export class AvatarController {
   preempt = false;
   removed = false;
   waitingFor: string | null = null;
+  private waitShelf: string | null = null;
   lastFailure: string | null = null;
   completed: string[] = [];
 
@@ -120,6 +121,7 @@ export class AvatarController {
     const spot = shelf?.wait_positions[waitIndex % Math.max(1, shelf.wait_positions.length)];
     if (!spot) return;
     this.waitingFor = commandId;
+    this.waitShelf = shelfCode;
     if (this.walkTo(spot)) this.phase = "to_wait";
   }
 
@@ -276,8 +278,16 @@ export class AvatarController {
     return false;
   }
 
+  /** Look at the shelf being used (works for any shelf rotation). */
   private faceShelf(): void {
-    this.targetYaw = Math.PI; // shelves face +z, so the avatar looks towards −z
+    const code = this.cmd?.shelf_id ?? this.waitShelf;
+    const s = code ? this.world.shelf(code) : undefined;
+    if (!s) {
+      this.targetYaw = Math.PI;
+      return;
+    }
+    // the shelf front faces (sin rot, cos rot); the avatar looks the opposite way
+    this.targetYaw = s.transform.rot + Math.PI;
   }
 
   // ------------------------------------------------------------------ frame update
@@ -322,7 +332,9 @@ export class AvatarController {
         if (this.fsm.elapsed >= HOLD_SECONDS) {
           this.phase = "show";
           this.fsm.force("show");
-          this.targetYaw = 0; // turn to the camera
+          // present the box facing out of the shelf (the close-up camera goes there, so a
+          // shelf never sits between the lens and the product); rot=0 → towards the main camera
+          this.targetYaw = this.world.shelf(this.cmd!.shelf_id)?.transform.rot ?? 0;
           this.showLeft = this.cmd?.parameters.show_seconds ?? 8;
           this.progress("show");
         }

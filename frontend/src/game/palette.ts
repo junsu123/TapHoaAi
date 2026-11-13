@@ -95,3 +95,11 @@ export interface RenderOptions {
   shadows: boolean;
 }
 export const RenderContext = createContext<RenderOptions>({ outlines: true, shadows: true });
+
+/** Nickname sprites registered for screen-space overlap avoidance. */
+export interface LabelEntry {
+  sprite: THREE.Sprite;
+  baseY: number;
+  aspect: number;
+}
+export const LabelRegistryContext = createContext<Map<string, LabelEntry> | null>(null);

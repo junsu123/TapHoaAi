@@ -138,6 +138,7 @@ class Product(Base):
         back_populates="product", cascade="all, delete-orphan", order_by="ProductAlias.id"
     )
     image_asset: Mapped[MediaAsset | None] = relationship(foreign_keys=[image_asset_id])
+    model_asset: Mapped[MediaAsset | None] = relationship(foreign_keys=[model_asset_id])
 
     @property
     def approved(self) -> bool:

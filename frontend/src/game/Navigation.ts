@@ -31,12 +31,13 @@ export class NavGrid {
     this.rows = Math.round(d / CELL);
     this.blocked = new Uint8Array(this.cols * this.rows);
     const r = AGENT_RADIUS;
-    this.obstacles = layout.shelves.map((s) => ({
-      minX: s.transform.x - s.transform.w / 2 - r,
-      maxX: s.transform.x + s.transform.w / 2 + r,
-      minZ: s.transform.z - s.transform.d / 2 - r,
-      maxZ: s.transform.z + s.transform.d / 2 + r,
-    }));
+    this.obstacles = layout.shelves.map((s) => {
+      // shelves rotate in 90° steps: a quarter turn swaps the footprint's width and depth
+      const quarter = Math.round(Math.abs(Math.sin(s.transform.rot))) === 1;
+      const hw = (quarter ? s.transform.d : s.transform.w) / 2;
+      const hd = (quarter ? s.transform.w : s.transform.d) / 2;
+      return { minX: s.transform.x - hw - r, maxX: s.transform.x + hw + r, minZ: s.transform.z - hd - r, maxZ: s.transform.z + hd + r };
+    });
     const c = layout.store.counter;
     this.obstacles.push({ minX: c.x - c.w / 2 - r, maxX: c.x + c.w / 2 + r, minZ: c.z - c.d / 2 - r, maxZ: c.z + c.d / 2 + r });
     for (let row = 0; row < this.rows; row++) {

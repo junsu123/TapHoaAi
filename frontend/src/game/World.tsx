@@ -3,7 +3,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { ChibiAvatar } from "./ChibiAvatar";
 import type { GameEngine } from "./GameEngine";
-import { RenderContext } from "./palette";
+import { layoutLabels, type LabelBox } from "./labelLayout";
+import { LabelRegistryContext, RenderContext, type LabelEntry } from "./palette";
 import { StoreScene } from "./StoreScene";
 
 export type Quality = "low" | "medium" | "high";
@@ -58,6 +59,43 @@ function CameraRig({ engine }: { engine: GameEngine }) {
       position: camera.position.toArray().map((v) => +v.toFixed(2)),
       lookAt: look.current.toArray().map((v) => +v.toFixed(2)),
     };
+  }, -2); // after engine.step, before avatars and labels
+  return null;
+}
+
+const tmpV = new THREE.Vector3();
+const tmpTop = new THREE.Vector3();
+const camUp = new THREE.Vector3();
+
+/** Runs after avatars and camera each frame: lifts or hides overlapping name labels. */
+function LabelLayoutSystem({ registry }: { registry: Map<string, LabelEntry> }) {
+  const { camera, size } = useThree();
+  useFrame(() => {
+    const boxes: LabelBox[] = [];
+    // sprites face the camera, so their height lies along the camera's own up axis
+    camUp.set(0, 1, 0).applyQuaternion(camera.quaternion);
+    for (const [id, e] of registry) {
+      const sp = e.sprite;
+      sp.position.y = e.baseY;
+      if (!sp.visible || !sp.parent?.visible) continue;
+      sp.getWorldPosition(tmpV);
+      tmpTop.copy(tmpV).addScaledVector(camUp, sp.scale.y);
+      const depth = camera.position.distanceTo(tmpV);
+      tmpV.project(camera);
+      tmpTop.project(camera);
+      if (tmpV.z > 1) continue;
+      const h = Math.abs(tmpTop.y - tmpV.y) * (size.height / 2);
+      boxes.push({ id, x: ((tmpV.x + 1) / 2) * size.width, y: ((1 - tmpV.y) / 2) * size.height + h / 2, w: h * e.aspect, h, depth });
+    }
+    const placement = layoutLabels(boxes);
+    const w = window as unknown as { __chibiDebug?: object; __chibiLabels?: object };
+    if (w.__chibiDebug) w.__chibiLabels = { boxes, placement: Object.fromEntries(placement) }; // tests only
+    for (const [id, p] of placement) {
+      const e = registry.get(id)!;
+      e.sprite.visible = p.visible;
+      // lift along the screen's vertical (camera up), in world units
+      e.sprite.position.y = e.baseY + (p.lift * e.sprite.scale.y * 1.08) / Math.max(0.3, camUp.y);
+    }
   });
   return null;
 }
@@ -74,7 +112,7 @@ function FrameLoop({ engine, onFps }: { engine: GameEngine; onFps: (fps: number)
       frames.current = 0;
       acc.current = 0;
     }
-  });
+  }, -3); // game logic first
   return null;
 }
 
@@ -110,6 +148,7 @@ function Scene({ engine }: { engine: GameEngine }) {
 export function World({ engine, quality, onFps }: { engine: GameEngine; quality: Quality; onFps: (fps: number) => void }) {
   const q = QUALITY[quality];
   const opts = useMemo(() => ({ outlines: q.outlines, shadows: q.shadows }), [q.outlines, q.shadows]);
+  const labelRegistry = useMemo(() => new Map<string, LabelEntry>(), []);
   return (
     <Canvas
       key={quality /* shadow-map settings need a fresh renderer */}
@@ -138,7 +177,10 @@ export function World({ engine, quality, onFps }: { engine: GameEngine; quality:
         />
         <directionalLight position={[-6, 6, 10]} intensity={0.35} color="#ffd9ec" />
         <Scene engine={engine} />
-        <Avatars engine={engine} />
+        <LabelRegistryContext.Provider value={labelRegistry}>
+          <Avatars engine={engine} />
+          <LabelLayoutSystem registry={labelRegistry} />
+        </LabelRegistryContext.Provider>
         <CameraRig engine={engine} />
         <FrameLoop engine={engine} onFps={onFps} />
       </RenderContext.Provider>

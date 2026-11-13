@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { api, ApiError, formatVnd, setCsrf } from "../lib/api";
+import { ShelfEditor } from "./ShelfEditor";
 import { useDashboardFeed, type CommentRecord, type HostItem, type LiveStatus, type Metrics } from "./useDashboardFeed";
 
 interface Me {
@@ -334,6 +335,7 @@ interface Product {
   status: string;
   disclaimer: string | null;
   image_url: string | null;
+  model_url: string | null;
   aliases: { id: number; alias: string; is_generic: boolean }[];
   location: { shelf_id: string; slot_id: string } | null;
 }
@@ -351,6 +353,8 @@ function ProductEditor({ p, onSaved }: { p: Product | null; onSaved: () => void 
     verify: false,
   });
   const [file, setFile] = useState<File | null>(null);
+  const [glb, setGlb] = useState<File | null>(null);
+  const [dropModel, setDropModel] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const save = async (e: FormEvent) => {
     e.preventDefault();
@@ -363,6 +367,13 @@ function ProductEditor({ p, onSaved }: { p: Product | null; onSaved: () => void 
         fd.append("kind", "image");
         image_asset_id = (await api.upload<{ id: number }>("/assets/upload", fd)).id;
       }
+      let model: { model_asset_id?: number | null } = dropModel ? { model_asset_id: null } : {};
+      if (glb) {
+        const fd = new FormData();
+        fd.append("file", glb);
+        fd.append("kind", "model");
+        model = { model_asset_id: (await api.upload<{ id: number }>("/assets/upload", fd)).id };
+      }
       const body = {
         sku: f.sku,
         name: f.name,
@@ -371,6 +382,7 @@ function ProductEditor({ p, onSaved }: { p: Product | null; onSaved: () => void 
         disclaimer: f.disclaimer || null,
         verify_price: f.verify,
         ...(image_asset_id ? { image_asset_id } : {}),
+        ...model,
       };
       if (p) await api.patch(`/products/${p.id}`, body);
       else await api.post("/products", { id: f.id, ...body });
@@ -432,6 +444,15 @@ function ProductEditor({ p, onSaved }: { p: Product | null; onSaved: () => void 
         Ảnh mặt trước hộp thật (PNG/JPEG/WebP ≤ 5 MB)
         <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
       </label>
+      <label>
+        Mô hình 3D GLB (tùy chọn, ≤ 20 MB) — nếu lỗi, game tự dùng hộp ảnh
+        <input type="file" accept=".glb,model/gltf-binary" onChange={(e) => setGlb(e.target.files?.[0] ?? null)} />
+      </label>
+      {p?.model_url && (
+        <label className="check">
+          <input type="checkbox" checked={dropModel} onChange={(e) => setDropModel(e.target.checked)} /> Gỡ mô hình GLB hiện tại
+        </label>
+      )}
       <ErrorText err={err} />
       <button className="primary">Lưu</button>
     </form>
@@ -460,6 +481,7 @@ function ProductsPage() {
               <th>Giá</th>
               <th>Duyệt</th>
               <th>Kệ</th>
+              <th>3D</th>
               <th>Từ khóa</th>
               <th />
             </tr>
@@ -476,6 +498,7 @@ function ProductsPage() {
                 </td>
                 <td>{p.status === "approved" ? "Đã duyệt" : p.status === "draft" ? "Nháp" : "Ngừng"}</td>
                 <td>{p.location ? `${p.location.shelf_id}/${p.location.slot_id}` : "—"}</td>
+                <td>{p.model_url ? "GLB" : "Hộp ảnh"}</td>
                 <td>{p.aliases.map((a) => a.alias + (a.is_generic ? "*" : "")).join(", ")}</td>
                 <td>
                   <button onClick={() => setEditing(p)}>Sửa</button>{" "}
@@ -528,8 +551,12 @@ function ShelvesPage() {
   };
   useEffect(load, []);
   return (
-    <Card title="Bản đồ kệ">
-      <p className="muted">Gắn mỗi sản phẩm vào một ô kệ. Thay đổi có hiệu lực ngay với bình luận mới. (Trình kéo-thả vị trí kệ: mốc M2.)</p>
+    <div className="stack">
+    <Card title="Sơ đồ cửa hàng">
+      <ShelfEditor onChanged={load} />
+    </Card>
+    <Card title="Gắn sản phẩm vào kệ">
+      <p className="muted">Gắn mỗi sản phẩm vào một ô kệ. Thay đổi có hiệu lực ngay với bình luận mới.</p>
       <ErrorText err={err} />
       <table>
         <thead>
@@ -575,6 +602,7 @@ function ShelvesPage() {
         </tbody>
       </table>
     </Card>
+    </div>
   );
 }
 
@@ -614,6 +642,88 @@ function GameSetupPage() {
   );
 }
 
+function SettingsPage() {
+  const [items, setItems] = useState<{ name: string; size_bytes: number; created_at: string }[]>([]);
+  const [hint, setHint] = useState<{ restore_hint: string; secret_key_note: string } | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const load = () =>
+    api.get<{ items: typeof items; restore_hint: string; secret_key_note: string }>("/backups").then((r) => {
+      setItems(r.items);
+      setHint(r);
+    });
+  useEffect(() => {
+    load();
+  }, []);
+  return (
+    <div className="stack">
+      <Card title="Sao lưu">
+        <div className="row">
+          <button
+            className="primary"
+            disabled={busy}
+            onClick={async () => {
+              setErr(null);
+              setBusy(true);
+              try {
+                await api.post("/backups");
+                await load();
+              } catch (x) {
+                setErr(x instanceof ApiError ? x.message : String(x));
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            Sao lưu ngay
+          </button>
+          <span className="muted">Gồm cơ sở dữ liệu và ảnh/mô hình sản phẩm.</span>
+        </div>
+        <ErrorText err={err} />
+        <table>
+          <thead>
+            <tr>
+              <th>Bản sao lưu</th>
+              <th>Thời gian</th>
+              <th>Dung lượng</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((b) => (
+              <tr key={b.name} data-testid="backup-row">
+                <td>
+                  <a href={`/api/v1/backups/${b.name}`} download>
+                    {b.name}
+                  </a>
+                </td>
+                <td>{new Date(b.created_at).toLocaleString("vi-VN")}</td>
+                <td>{(b.size_bytes / 1024).toFixed(0)} KB</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {hint && (
+          <>
+            <p className="muted">Khôi phục: {hint.restore_hint}</p>
+            <p className="muted">{hint.secret_key_note}</p>
+          </>
+        )}
+      </Card>
+      <Card title="Xuất cấu hình">
+        <div className="row wrap">
+          <a className="button-link" href="/api/v1/config/export" download="cau-hinh.json">
+            Tải cấu hình (JSON)
+          </a>
+          <a className="button-link" href="/api/v1/config/products.csv" download>
+            Tải danh sách sản phẩm (CSV, mở bằng Excel)
+          </a>
+        </div>
+        <p className="muted">Không chứa mật khẩu, khóa API hay ảnh.</p>
+      </Card>
+    </div>
+  );
+}
+
 // ------------------------------------------------------------------ shell
 export function DashboardApp() {
   const [me, setMe] = useState<Me | null>(null);
@@ -646,6 +756,7 @@ export function DashboardApp() {
     ["products", "Sản phẩm"],
     ["shelves", "Bản đồ kệ"],
     ["game", "Game 3D & OBS"],
+    ["settings", "Cài đặt & sao lưu"],
   ];
   return (
     <div className="dash">
@@ -679,6 +790,7 @@ export function DashboardApp() {
           <Route path="products" element={<ProductsPage />} />
           <Route path="shelves" element={<ShelvesPage />} />
           <Route path="game" element={<GameSetupPage />} />
+          <Route path="settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/dashboard" />} />
         </Routes>
       </main>

@@ -224,3 +224,60 @@ describe("nickname labels (GAME-09)", () => {
     expect(sanitizeLabel("   ")).toBe("khách");
   });
 });
+
+describe("rotated shelves (editor)", () => {
+  function rshelf(code: string, x: number, z: number, deg: number, productSlot1: string | null) {
+    const rot = (deg * Math.PI) / 180;
+    const [fx, fz, rx, rz] = [Math.sin(rot), Math.cos(rot), Math.cos(rot), -Math.sin(rot)];
+    const front = 0.3 + 0.55;
+    return {
+      code, name: code, transform: { x, z, rot, w: 2.4, d: 0.6, h: 1.6 },
+      stand_positions: [-0.7, 0, 0.7].map((dx) => ({ x: x + fx * front + rx * dx, z: z + fz * front + rz * dx })),
+      wait_positions: [-1, 1].map((sg) => ({ x: x + fx * front + rx * sg * 1.75, z: z + fz * front + rz * sg * 1.75 })),
+      slots: [-0.7, 0, 0.7].map((dx, i) => ({ code: `S${i + 1}`, product_id: i === 0 ? productSlot1 : null, local: { x: dx, y: 0.55, z: 0.18 } })),
+    };
+  }
+
+  for (const deg of [90, 180, 270]) {
+    it(`walks to a shelf rotated ${deg}°, faces it, then presents the box away from it`, () => {
+      const layout: StoreLayout = { ...LAYOUT, version: 2, shelves: [rshelf("KE_R", 0, 0, deg, "TRA_CA_GAI_LEO"), ...LAYOUT.shelves.filter((s) => s.code !== "KE_03" && s.code !== "KE_04")] };
+      const nav = new NavGrid(layout);
+      // the shelf body itself is not walkable, its stand points are
+      expect(nav.isPointFree({ x: 0, z: 0 })).toBe(false);
+      for (const p of layout.shelves[0].stand_positions) expect(nav.isPointFree(p)).toBe(true);
+      const sent: ClientGameMessage[] = [];
+      const e = new GameEngine((m) => sent.push(m));
+      e.applySnapshot({ type: "SNAPSHOT", sequence: 0, session_id: "s", live_status: "Đã kết nối", is_demo: true, layout, avatars: [{ avatar_id: "a", nickname: "a", unique_id: "a", appearance_seed: 1, is_demo: true }], active_commands: [], camera: { mode: "overview" }, settings: { show_seconds: 2 } });
+      e.handle({ ...action("c1", "a", "TRA_CA_GAI_LEO", "KE_R", 1), parameters: { show_seconds: 2, camera_priority: 50 }, sequence: 1, slot_id: "S1" });
+      const rot = (deg * Math.PI) / 180;
+      const norm = (v: number) => Math.atan2(Math.sin(v), Math.cos(v));
+      let sawInspectFacing = false;
+      let sawShowFacing = false;
+      run(e, 40, () => {
+        const a = e.avatars.get("a")!;
+        if (a.phase === "pickup") sawInspectFacing ||= Math.abs(norm(a.yaw - (rot + Math.PI))) < 0.3;
+        if (a.phase === "show" && a.fsm.elapsed > 1) {
+          sawShowFacing ||= Math.abs(norm(a.yaw - rot)) < 0.3;
+          expect(a.held?.productId).toBe("TRA_CA_GAI_LEO");
+        }
+      });
+      expect(sawInspectFacing).toBe(true);
+      expect(sawShowFacing).toBe(true);
+      expect(sent.some((m) => m.type === "ACTION_COMPLETED")).toBe(true);
+    });
+  }
+});
+
+describe("label layout (GAME-09)", () => {
+  it("keeps the nearest label, lifts the next, hides when there is no room", async () => {
+    const { layoutLabels } = await import("./labelLayout");
+    const box = (id: string, depth: number) => ({ id, x: 100, y: 200, w: 80, h: 20, depth });
+    const out = layoutLabels([box("far", 9), box("near", 3), box("mid", 5), box("x", 7), box("y", 8)]);
+    expect(out.get("near")).toEqual({ lift: 0, visible: true });
+    expect(out.get("mid")).toEqual({ lift: 1, visible: true });
+    expect(out.get("x")).toEqual({ lift: 2, visible: true });
+    expect(out.get("y")!.visible).toBe(false);
+    const apart = layoutLabels([box("a", 1), { ...box("b", 2), x: 400 }]);
+    expect(apart.get("b")).toEqual({ lift: 0, visible: true });
+  });
+});

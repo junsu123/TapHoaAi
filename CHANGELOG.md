@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0 — 2026-11-13 — M2: editor kệ, GLB, sao lưu, dữ liệu tiếng Việt
+
+- Sơ đồ cửa hàng kéo-thả: thêm/di chuyển/xoay/xóa kệ, kiểm tra lối đi, cửa, quầy và khả năng đi tới; khóa kệ đang có khách.
+- Game hỗ trợ kệ xoay 90°.
+- Sản phẩm có thể dùng mô hình GLB; lỗi tải tự quay về hộp ảnh.
+- Sao lưu/khôi phục (dashboard + `scripts/backup_db.py`), xuất cấu hình JSON và CSV sản phẩm.
+- Bộ dữ liệu 101 bình luận tiếng Việt + công cụ đo; hiểu “bn”, “còn ko”, “ntn”, “ship”, chữ viết dính.
+- Nhãn tên không đè nhau; bỏ viền Chibi ở xa để nhẹ máy.
+
 ## 0.2.0 — 2026-11-13 — Nâng cấp đồ họa 3D
 
 - Hết mờ: render đúng mật độ điểm ảnh của màn hình (không còn 1× cố định, không còn hạ xuống 0,6×).

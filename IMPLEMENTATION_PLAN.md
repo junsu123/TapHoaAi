@@ -26,13 +26,18 @@ Theo SPEC mục N. `[x]` = có code + test trong repo; `[ ]` = chưa làm.
 - [x] Dashboard tiếng Việt: Tổng quan, Kết nối, Người trực & Demo, Sản phẩm (CRUD + ảnh + alias), Bản đồ kệ (gắn slot), Game & OBS
 - [x] Playwright: T03, T05, T06/T07, T14, T18, T17 (tải) + dashboard; ảnh minh chứng
 
-## M2 — Toàn bộ sản phẩm và kệ
-- [ ] Editor kéo-thả kệ/slot/điểm đứng với kiểm tra chồng lấn (POST `/shelves`)
-- [ ] Nhận GLB trong game (đã có kiểm tra upload GLB phía server), Chibi GLB skeleton chung giữ `rightHandSocket`
-- [ ] Bộ dữ liệu `comments_vi.csv` + báo cáo precision/recall để tinh chỉnh ngưỡng matcher
-- [ ] Nhãn tên chống đè nhau (screen-space), instancing cho 60+ avatar
-- [ ] Backup/restore DB + media (SYS-03), xuất/nhập JSON cấu hình
+## M2 — Toàn bộ sản phẩm và kệ (phần lớn xong)
+- [x] Nâng cấp đồ họa: render đúng độ phân giải, cel-shading, viền, cửa hàng chi tiết hơn
+- [x] Editor kéo-thả kệ (thêm/di chuyển/xoay 90°/xóa) với kiểm tra: trong cửa hàng, lối đi ≥ 0,9 m, không chắn cửa/quầy, khách đi tới được mọi điểm đứng; từ chối khi kệ đang có khách lấy hàng
+- [x] Game hỗ trợ kệ xoay (đường đi, hướng nhìn, giơ hộp ra phía ngoài kệ)
+- [x] Sản phẩm dùng mô hình GLB (giữ tỷ lệ, cầm trên tay), lỗi tải → tự dùng hộp ảnh
+- [x] Bộ dữ liệu `tests/fixtures/comments_vi.csv` (101 bình luận) + `python -m app.eval_matcher`; hiểu teencode hỏi giá/tồn kho, chữ viết dính
+- [x] Nhãn tên không đè nhau (bố trí theo màn hình), bỏ viền Chibi ở xa (giảm draw call)
+- [x] Sao lưu/khôi phục DB + media (zip có manifest, kiểm tra an toàn), xuất JSON cấu hình và CSV sản phẩm
+- [ ] Chibi dùng GLB có xương + hoạt ảnh (cần chọn bộ mô hình có giấy phép rõ ràng)
+- [ ] Instancing cho 60+ avatar nếu benchmark trên PC thật cho thấy cần
 - [ ] Benchmark FPS trên PC phát LIVE thật
+- [ ] Bổ sung bình luận thật (đã ẩn danh) vào bộ dữ liệu; nhập cấu hình JSON
 
 ## M3 — TikTok LIVE
 - [ ] `TikTokLiveAdapter` dựa TikTokLive (rà soát giấy phép AGPL trước), map event → raw dict

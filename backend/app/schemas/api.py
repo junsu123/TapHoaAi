@@ -103,6 +103,7 @@ class ProductOut(BaseModel):
     claim_text: str | None
     disclaimer: str | None
     image_url: str | None
+    model_url: str | None
     box_size: dict[str, float] | None
     aliases: list[dict[str, Any]]
     location: dict[str, str] | None
@@ -115,3 +116,18 @@ class SlotPatch(BaseModel):
 
 class AiPauseIn(BaseModel):
     paused: bool
+
+
+class ShelfIn(BaseModel):
+    code: str = Field(pattern=r"^[A-Z0-9_]{2,32}$")
+    name: str = Field(min_length=1, max_length=100)
+    x: float = Field(ge=-6, le=6)
+    z: float = Field(ge=-8, le=8)
+    rot: Literal[0, 90, 180, 270] = 0
+
+
+class ShelfPatch(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    x: float | None = Field(default=None, ge=-6, le=6)
+    z: float | None = Field(default=None, ge=-8, le=8)
+    rot: Literal[0, 90, 180, 270] | None = None
