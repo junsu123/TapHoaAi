@@ -22,3 +22,6 @@ frontend/playwright-report/
 # os
 .DS_Store
 Thumbs.db
+
+# TypeScript incremental build cache (regenerated on every build)
+*.tsbuildinfo
