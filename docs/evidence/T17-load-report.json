@@ -1,0 +1,49 @@
+{
+  "renderer": "headless Chrome + SwiftShader (CPU) — not the streaming-PC benchmark",
+  "injected_comments": 100,
+  "seconds": 21.075,
+  "client_avatars": 60,
+  "backend_avatars": {
+    "total": 68,
+    "visible": 60,
+    "overflow": 0
+  },
+  "queue_depth": 24,
+  "latency": {
+    "p50_ms": 472.8,
+    "p95_ms": 619.3,
+    "samples": 11,
+    "dispatch_to_ack": {
+      "p50_ms": 246.5,
+      "p95_ms": 604.4,
+      "samples": 14
+    },
+    "intentional_wait": {
+      "p50_ms": 8983.2,
+      "p95_ms": 8989.1,
+      "samples": 3
+    }
+  },
+  "fps_last_20": [
+    4.4,
+    2.7,
+    2.5,
+    2.9,
+    2.9,
+    2.5,
+    2.4,
+    2.6,
+    3.2,
+    4.9,
+    6.2,
+    6.9,
+    8.1,
+    9.3,
+    9.9,
+    10,
+    13.7,
+    13.9
+  ],
+  "js_heap_bytes": 20305952,
+  "backend_errors": 0
+}
