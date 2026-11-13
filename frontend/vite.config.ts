@@ -1,7 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-const backend = process.env.CHIBI_BACKEND ?? "http://127.0.0.1:8000";
+const backend = process.env.CHIBI_BACKEND ?? `http://127.0.0.1:${process.env.CHIBI_PORT ?? 8686}`;
 
 export default defineConfig({
   plugins: [react()],
