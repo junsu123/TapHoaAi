@@ -1,0 +1,117 @@
+from __future__ import annotations
+
+import re
+from datetime import datetime
+from typing import Any, Literal
+
+from pydantic import BaseModel, Field, field_validator
+
+_PRODUCT_ID = re.compile(r"^[A-Z0-9_]{2,64}$")
+
+
+class LoginIn(BaseModel):
+    username: str = Field(min_length=1, max_length=64)
+    password: str = Field(min_length=1, max_length=256)
+
+
+class SetupIn(BaseModel):
+    username: str = Field(min_length=3, max_length=64, pattern=r"^[A-Za-z0-9_.\-]+$")
+    password: str = Field(min_length=10, max_length=256)
+
+
+class MeOut(BaseModel):
+    username: str
+    role: str
+    csrf_token: str
+
+
+class ConnectIn(BaseModel):
+    url: str = Field(max_length=600)
+
+
+class DemoEventIn(BaseModel):
+    type: Literal["COMMENT", "JOIN", "LIKE", "FOLLOW", "GIFT", "SPAWN_RANDOM"] = "COMMENT"
+    raw: str | None = Field(default=None, max_length=400)
+    unique_id: str | None = Field(default=None, max_length=32)
+    nickname: str | None = Field(default=None, max_length=64)
+    text: str | None = Field(default=None, max_length=300)
+    count: int | None = Field(default=None, ge=1, le=100)
+    gift_id: str | None = None
+    gift_name: str | None = None
+    repeat_count: int | None = Field(default=None, ge=1, le=10000)
+    repeat_end: bool | None = None
+    streakable: bool | None = None
+    group_id: str | None = None
+    event_id: str | None = Field(default=None, max_length=64)
+    seed: int | None = None
+
+
+class AliasIn(BaseModel):
+    alias: str = Field(min_length=1, max_length=200)
+    is_generic: bool = False
+    priority: int = 0
+
+
+class AliasesIn(BaseModel):
+    aliases: list[AliasIn]
+    replace: bool = False
+
+
+class ProductIn(BaseModel):
+    id: str
+    sku: str = Field(min_length=1, max_length=64)
+    name: str = Field(min_length=1, max_length=200)
+    price: int | None = Field(default=None, ge=0, le=1_000_000_000)
+    currency: str = "VND"
+    status: Literal["draft", "approved", "disabled"] = "draft"
+    claim_text: str | None = Field(default=None, max_length=2000)
+    disclaimer: str | None = Field(default=None, max_length=1000)
+    image_asset_id: int | None = None
+    model_asset_id: int | None = None
+    box_size: dict[str, float] | None = None
+    verify_price: bool = False
+
+    @field_validator("id")
+    @classmethod
+    def _id(cls, v: str) -> str:
+        if not _PRODUCT_ID.match(v):
+            raise ValueError("Mã sản phẩm chỉ gồm A-Z, 0-9, dấu gạch dưới (ví dụ TRA_CA_GAI_LEO)")
+        return v
+
+
+class ProductPatch(BaseModel):
+    sku: str | None = Field(default=None, max_length=64)
+    name: str | None = Field(default=None, max_length=200)
+    price: int | None = Field(default=None, ge=0, le=1_000_000_000)
+    status: Literal["draft", "approved", "disabled"] | None = None
+    claim_text: str | None = Field(default=None, max_length=2000)
+    disclaimer: str | None = Field(default=None, max_length=1000)
+    image_asset_id: int | None = None
+    model_asset_id: int | None = None
+    box_size: dict[str, float] | None = None
+    verify_price: bool = False
+
+
+class ProductOut(BaseModel):
+    id: str
+    sku: str
+    name: str
+    price: int | None
+    currency: str
+    price_verified_at: datetime | None
+    status: str
+    claim_text: str | None
+    disclaimer: str | None
+    image_url: str | None
+    box_size: dict[str, float] | None
+    aliases: list[dict[str, Any]]
+    location: dict[str, str] | None
+    updated_at: datetime | None
+
+
+class SlotPatch(BaseModel):
+    product_id: str | None
+
+
+class AiPauseIn(BaseModel):
+    paused: bool
