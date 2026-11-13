@@ -133,10 +133,38 @@ function Overview({ live, metrics }: { live: LiveStatus | null; metrics: Metrics
   );
 }
 
+const POLICY_ITEMS = [
+  "Có người thật trên webcam, nói chuyện và giới thiệu sản phẩm thật trong suốt buổi.",
+  "Cảnh chính là webcam (Shop LIVE); game Chibi chỉ là lớp phụ.",
+  "Không phát giọng AI; không tuyên bố chữa bệnh hay cam kết hiệu quả.",
+  "Giá trên thẻ sản phẩm đã được xác nhận; không bịa khuyến mãi, tồn kho.",
+  "Phát qua OBS / LIVE Manager / LIVE Studio theo quyền tài khoản (không quay màn hình bằng điện thoại).",
+];
+
+const CAP_LABEL: Record<string, string> = {
+  comment: "Bình luận", join: "Người vào", like: "Thả tim", follow: "Theo dõi", share: "Chia sẻ",
+  gift: "Quà tặng", viewer_count: "Số người xem",
+};
+
+function capText(v: string, isDemo: boolean) {
+  if (isDemo) return "Mô phỏng";
+  if (v === "available") return "✓ Đã nhận được";
+  if (v === "unavailable") return "✗ Không có";
+  if (v === "degraded") return "▲ Không ổn định";
+  return "… Chưa thấy sự kiện nào";
+}
+
 function ConnectPage({ live }: { live: LiveStatus | null }) {
   const [url, setUrl] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [checks, setChecks] = useState<boolean[]>(POLICY_ITEMS.map(() => false));
+  const [settings, setSettings] = useState<{ sign_api_key: string | null; library_installed: boolean; sign_server: string } | null>(null);
+  const [keyInput, setKeyInput] = useState("");
+  useEffect(() => {
+    api.get<typeof settings>("/settings/live").then(setSettings);
+  }, []);
+  const allChecked = checks.every(Boolean);
   const run = async (fn: () => Promise<unknown>) => {
     setErr(null);
     setBusy(true);
@@ -151,21 +179,26 @@ function ConnectPage({ live }: { live: LiveStatus | null }) {
   return (
     <div className="stack">
       <Card title="Kết nối TikTok LIVE">
+        {settings && !settings.library_installed && (
+          <p className="error" role="alert">
+            Chưa cài thư viện kết nối TikTok. Chạy <code>pip install -e "backend[tiktok]"</code> rồi khởi động lại phần mềm.
+          </p>
+        )}
         <form
           className="row"
           onSubmit={(e) => {
             e.preventDefault();
-            run(() => api.post("/live/connect", { url }));
+            run(() => api.post("/live/connect", { url, policy_ack: allChecked }));
           }}
         >
           <input
             aria-label="Link TikTok LIVE"
-            placeholder="https://www.tiktok.com/@tên_tài_khoản/live"
+            placeholder="https://www.tiktok.com/@tên_tài_khoản/live hoặc link vm.tiktok.com"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             className="grow"
           />
-          <button className="primary" disabled={busy || !url}>
+          <button className="primary" disabled={busy || !url || !allChecked} title={allChecked ? "" : "Hãy đánh dấu đủ danh sách bên dưới"}>
             Kết nối
           </button>
           <button type="button" onClick={() => run(() => api.post("/live/disconnect"))} disabled={busy}>
@@ -173,26 +206,31 @@ function ConnectPage({ live }: { live: LiveStatus | null }) {
           </button>
         </form>
         <ErrorText err={err} />
+        <fieldset className="policy">
+          <legend>Xác nhận trước khi LIVE bán hàng (bắt buộc)</legend>
+          {POLICY_ITEMS.map((t, i) => (
+            <label key={i} className="check">
+              <input type="checkbox" checked={checks[i]} onChange={(e) => setChecks(checks.map((c, k) => (k === i ? e.target.checked : c)))} />
+              {t}
+            </label>
+          ))}
+          <p className="muted small">Quy định TikTok Shop có thể thay đổi — đối chiếu lại trang chính sách trước mỗi đợt LIVE (docs/policy-checklist-vn.md).</p>
+        </fieldset>
         <p className="muted">
-          Kết nối TikTok thật thuộc mốc M3 và hiện báo “Không hỗ trợ”. Hệ thống không bao giờ báo “Đã kết nối” khi nguồn chưa xác nhận.
+          Kết nối qua thư viện TikTokLive (không chính thức): có thể ngừng hoạt động khi TikTok thay đổi. Để kết nối, tên tài khoản LIVE được gửi tới máy chủ ký
+          {settings ? ` ${settings.sign_server}` : ""} của bên thứ ba; thông tin người xem không được gửi đi. Hệ thống không vượt CAPTCHA hay chặn truy cập.
         </p>
-      </Card>
-      <Card title="Chế độ Demo">
-        <div className="row">
-          <button className="primary" onClick={() => run(() => api.post("/demo/start"))} disabled={busy}>
-            Bật Demo
-          </button>
-          <span className="muted">Dùng cùng đường ống sự kiện với LIVE thật; mọi người xem giả đều có nhãn DEMO.</span>
-        </div>
       </Card>
       <Card title="Trạng thái">
         <StatusPill status={live?.status ?? "Chưa kết nối"} />
-        {live?.detail && <p>{live.detail}</p>}
+        {live?.detail && <p data-testid="live-detail">{live.detail}</p>}
         <dl className="kv">
           <dt>Nguồn</dt>
-          <dd>{live?.provider ?? "—"}</dd>
+          <dd>{live?.provider === "tiktok_unofficial" ? "TikTok LIVE (TikTokLive)" : live?.provider === "demo" ? "Demo" : "—"}</dd>
           <dt>Tài khoản</dt>
-          <dd>{live?.unique_id ?? "—"}</dd>
+          <dd>{live?.unique_id ? `@${live.unique_id}` : "—"}</dd>
+          <dt>Phòng</dt>
+          <dd>{live?.room_id ?? "—"}</dd>
           <dt>Phiên</dt>
           <dd>{live?.session_id ?? "—"}</dd>
         </dl>
@@ -201,14 +239,14 @@ function ConnectPage({ live }: { live: LiveStatus | null }) {
             <thead>
               <tr>
                 <th>Loại sự kiện</th>
-                <th>Khả dụng</th>
+                <th>Thực tế trong phiên này</th>
               </tr>
             </thead>
             <tbody>
               {Object.entries(live.capabilities).map(([k, v]) => (
                 <tr key={k}>
-                  <td>{k}</td>
-                  <td>{v}</td>
+                  <td>{CAP_LABEL[k] ?? k}</td>
+                  <td>{capText(v, live.is_demo)}</td>
                 </tr>
               ))}
             </tbody>
@@ -227,6 +265,37 @@ function ConnectPage({ live }: { live: LiveStatus | null }) {
             </ul>
           </>
         )}
+      </Card>
+      <Card title="Chế độ Demo">
+        <div className="row">
+          <button className="primary" onClick={() => run(() => api.post("/demo/start"))} disabled={busy}>
+            Bật Demo
+          </button>
+          <span className="muted">Dùng cùng đường ống sự kiện với LIVE thật; mọi người xem giả đều có nhãn DEMO.</span>
+        </div>
+      </Card>
+      <Card title="Khóa máy chủ ký Euler Stream (tùy chọn)">
+        <p className="muted">
+          Bản miễn phí giới hạn số lần kết nối. Nếu hay gặp lỗi “giới hạn lượt”, mua khóa tại eulerstream.com và nhập ở đây. Khóa được mã hóa và không bao giờ hiện lại đầy đủ.
+        </p>
+        <form
+          className="row"
+          onSubmit={(e) => {
+            e.preventDefault();
+            run(async () => {
+              setSettings(await api.patch("/settings/live", { sign_api_key: keyInput }));
+              setKeyInput("");
+            });
+          }}
+        >
+          <input type="password" aria-label="Khóa Euler Stream" className="grow" value={keyInput} onChange={(e) => setKeyInput(e.target.value)} placeholder={settings?.sign_api_key ?? "Chưa có khóa"} />
+          <button>Lưu khóa</button>
+          {settings?.sign_api_key && (
+            <button type="button" onClick={() => run(async () => setSettings(await api.patch("/settings/live", { sign_api_key: null })))}>
+              Xóa khóa
+            </button>
+          )}
+        </form>
       </Card>
     </div>
   );

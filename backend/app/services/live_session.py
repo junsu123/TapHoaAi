@@ -11,6 +11,7 @@ import contextlib
 import logging
 import random
 import secrets
+import time
 from collections import deque
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
@@ -27,6 +28,7 @@ from app.security.crypto import redact
 log = logging.getLogger("chibi.live")
 
 TERMINAL_STATUSES = {ProviderStatus.ENDED, ProviderStatus.OFFLINE, ProviderStatus.UNSUPPORTED}
+STABLE_SECONDS = 60.0
 
 
 class Backoff:
@@ -131,10 +133,13 @@ class LiveSessionService:
         while not self._manual_stop:
             try:
                 await provider.start()
-                if provider.status in TERMINAL_STATUSES or provider.status == ProviderStatus.CONNECTED:
-                    backoff.reset()
                 if provider.status in TERMINAL_STATUSES:
                     return
+                # only a connection that stayed up a while resets the backoff, so a socket
+                # that drops instantly does not turn into a reconnect storm
+                connected_at = getattr(provider, "connected_at", None)
+                if connected_at is not None and time.monotonic() - connected_at > STABLE_SECONDS:
+                    backoff.reset()
                 # A well-behaved provider's start() returns when its connection drops.
                 if self._manual_stop:
                     return

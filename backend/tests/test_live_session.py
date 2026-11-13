@@ -77,3 +77,43 @@ async def test_manual_stop_cancels_retry_loop(db):
     assert svc.status == ProviderStatus.LOST
     await asyncio.wait_for(svc.stop(), timeout=1)
     assert p.starts == 1 and svc.status == ProviderStatus.DISCONNECTED
+
+
+class InstantDropProvider(LiveEventProvider):
+    """Connects, then the socket closes immediately — every time."""
+    name = "dropper"
+
+    def __init__(self):
+        super().__init__()
+        self.starts = 0
+        self.connected_at = None
+
+    async def start(self):
+        import time as _t
+        self.starts += 1
+        self.connected_at = _t.monotonic()
+        await self._set_status(ProviderStatus.CONNECTED)
+
+    async def stop(self):
+        pass
+
+    def capabilities(self):
+        return {}
+
+
+async def test_instant_drops_back_off_instead_of_storming(db):
+    sleeps = []
+
+    async def fake_sleep(d):
+        sleeps.append(d)
+
+    svc = LiveSessionService(db, EventBus(), Deduper(), lambda _s: None, lambda _st: None, sleep=fake_sleep)
+    p = InstantDropProvider()
+    await svc.start(p)
+    for _ in range(200):
+        await asyncio.sleep(0)
+        if p.starts >= 6:
+            break
+    await svc.stop()
+    assert len(sleeps) >= 4
+    assert sleeps[3] > sleeps[0] * 3  # grows (1, 2, 4, 8 … with jitter) — never reset by a 0-second "connection"

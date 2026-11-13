@@ -13,7 +13,7 @@ Phần mềm cho cửa hàng bán hàng qua TikTok LIVE: khán giả bình luậ
 | M0 | Nền tảng: backend, DB + migration, đăng nhập, Demo provider, event contract, CI | **Xong** |
 | M1 | Vertical slice: bình luận → Chibi đi → cầm hộp → camera cận cảnh → trả hộp | **Xong** (6 kệ, 2 sản phẩm mẫu) |
 | M2 | Editor kéo-thả kệ, GLB sản phẩm, sao lưu/khôi phục, bộ dữ liệu bình luận tiếng Việt, nhãn tên không đè nhau | **Phần lớn xong** — còn Chibi GLB có xương và benchmark trên PC thật |
-| M3 | Kết nối TikTok LIVE thật | Chưa làm — hiện báo **“Không hỗ trợ”**, không bao giờ giả “Đã kết nối” |
+| M3 | Kết nối TikTok LIVE thật (TikTokLive, link rút gọn, kết nối lại, khóa Euler tùy chọn) | **Code xong, chưa thử LIVE thật** — làm theo `docs/provider-limitations.md` |
 | M4 | Claude AI + ngân sách | Chưa làm — mọi bình luận sản phẩm chạy bằng bộ luật, 0 USD |
 | M5 | OBS & vận hành | Một phần (Browser Source dùng được, hướng dẫn trong `docs/obs-setup.md`) |
 | M6 | Đơn hàng TikTok Shop | Chưa làm — trạng thái `Not configured` |
@@ -50,9 +50,9 @@ Phát triển giao diện có hot-reload: chạy backend như trên, rồi `cd f
 ## Kiểm thử
 
 ```bash
-cd backend && .venv/bin/pytest -q                 # 120 test: matcher, queue, camera, API, WebSocket, reconnect, editor, backup
+cd backend && .venv/bin/pytest -q                 # 142 test: matcher, queue, camera, API, WebSocket, reconnect, editor, backup, TikTok adapter
 cd frontend && npx vitest run                     # 17 test: A*, FSM, pickup/show, kệ xoay, sequence, nhãn tên
-cd frontend && npx playwright test                # 10 test trình duyệt thật (WebGL) + ảnh minh chứng
+cd frontend && npx playwright test                # 11 test trình duyệt thật (WebGL) + ảnh minh chứng
 cd backend && .venv/bin/python -m app.eval_matcher tests/fixtures/comments_vi.csv   # đo độ chính xác nhận diện
 ```
 
@@ -74,6 +74,10 @@ frontend/src/
   dashboard/   DashboardApp · useDashboardFeed
   lib/         api · ws (SequencedSocket)
 ```
+
+## Kết nối TikTok LIVE
+
+Dashboard → **Kết nối TikTok** → dán link LIVE (hoặc link `vm.tiktok.com`) → đánh dấu danh sách chính sách → **Kết nối**. Trước khi dùng cho buổi bán hàng, làm bài thử 9 bước trong [`docs/provider-limitations.md`](docs/provider-limitations.md) — trong đó có tóm tắt giấy phép TikTokLive (dùng cho cửa hàng của bạn được; **không** đem làm dịch vụ SaaS cho người khác) và việc tên tài khoản LIVE được gửi tới máy chủ ký Euler Stream.
 
 ## Sao lưu
 

@@ -39,11 +39,15 @@ Theo SPEC mục N. `[x]` = có code + test trong repo; `[ ]` = chưa làm.
 - [ ] Benchmark FPS trên PC phát LIVE thật
 - [ ] Bổ sung bình luận thật (đã ẩn danh) vào bộ dữ liệu; nhập cấu hình JSON
 
-## M3 — TikTok LIVE
-- [ ] `TikTokLiveAdapter` dựa TikTokLive (rà soát giấy phép AGPL trước), map event → raw dict
-- [ ] Giải link rút gọn `vm.tiktok.com` (≤ 3 redirect, kiểm host + IP private mỗi bước)
-- [ ] Capability monitoring thật (available/unavailable/degraded) và contract test cho adapter
-- [ ] Báo cáo sự kiện nào đọc được thực tế (`docs/provider-limitations.md`)
+## M3 — TikTok LIVE (code xong, chờ thử LIVE thật)
+- [x] Rà soát giấy phép TikTokLive 7.0.1 ("Modified AGPL-3.0": dùng cho game/overlay của shop được, SaaS thì không) — ghim phiên bản
+- [x] `TikTokLiveAdapter`: map bình luận/quà/thả tim/vào/theo dõi/chia sẻ/số người xem → raw dict; kết thúc LIVE → `Đã kết thúc`
+- [x] Lỗi thật thành trạng thái thật: không LIVE, không tìm thấy, giới hạn độ tuổi, bị chặn, cần gói trả phí, giới hạn lượt, lỗi mạng
+- [x] Giải link rút gọn `vm.tiktok.com` (≤ 3 chuyển hướng, kiểm host + IP nội bộ mỗi bước)
+- [x] Theo dõi loại sự kiện thực tế nhận được trong phiên; chống bão kết nối lại
+- [x] Bắt buộc xác nhận danh sách chính sách trước khi kết nối; khóa Euler Stream tùy chọn (mã hóa)
+- [x] Contract test với lớp sự kiện/lỗi thật của TikTokLive; luồng end-to-end bình luận LIVE → Chibi
+- [ ] **Thử với buổi LIVE thật** và ghi kết quả từng loại sự kiện (`docs/provider-limitations.md`)
 
 ## M4 — Claude AI & người trực
 - [ ] Nhập API key (mã hóa, trả về dạng che), test connection, chọn model (mặc định `claude-haiku-5-5` — kiểm tra lại giá trước khi bật)

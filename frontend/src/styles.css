@@ -105,3 +105,7 @@ th, td { text-align: left; border-bottom: 1px solid var(--line); padding: 8px 6p
 .map-stand { fill: #2fa36b; pointer-events: none; }
 .button-link { display: inline-block; border: 1px solid var(--line); background: #fff; border-radius: 10px; padding: 8px 12px; color: var(--ink); text-decoration: none; }
 .button-link:hover { border-color: var(--pink); }
+.policy { border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; margin: 12px 0; display: grid; gap: 6px; }
+.policy legend { font-weight: 600; padding: 0 6px; }
+.policy label.check { align-items: flex-start; font-size: 14px; }
+code { background: #f6eef2; padding: 1px 5px; border-radius: 6px; }
