@@ -3,11 +3,11 @@
 // shared skeleton, keeping the `rightHandSocket` contract.
 
 import { useFrame, useThree } from "@react-three/fiber";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import type { ProductInfo } from "../types/protocol";
 import type { AvatarController } from "./AvatarController";
-import { appearanceFromSeed, GEO, toon } from "./palette";
+import { appearanceFromSeed, BOX_EDGES, EDGE_MAT, GEO, OUTLINE_MAT, RenderContext, toon, WHITE } from "./palette";
 import { boxMaterials, useFrontMaterial } from "./ProductBox";
 import { nameTexture } from "./nameTexture";
 
@@ -15,7 +15,7 @@ const tmp = new THREE.Vector3();
 const tmpHand = new THREE.Vector3();
 const ease = (t: number) => t * t * (3 - 2 * t);
 
-export function ChibiAvatar({ ctl, products }: { ctl: AvatarController; products: Map<string, ProductInfo> }) {
+export function ChibiAvatar({ ctl, products, focusedId }: { ctl: AvatarController; products: Map<string, ProductInfo>; focusedId: () => string | null }) {
   const root = useRef<THREE.Group>(null!);
   const body = useRef<THREE.Group>(null!);
   const head = useRef<THREE.Group>(null!);
@@ -25,7 +25,8 @@ export function ChibiAvatar({ ctl, products }: { ctl: AvatarController; products
   const legR = useRef<THREE.Group>(null!);
   const hand = useRef<THREE.Object3D>(null!); // rightHandSocket
   const label = useRef<THREE.Sprite>(null!);
-  const heldBox = useRef<THREE.Mesh>(null!);
+  const heldBox = useRef<THREE.Group>(null!);
+  const opts = useContext(RenderContext);
   const { camera } = useThree();
 
   const look = useMemo(() => appearanceFromSeed(ctl.info.appearance_seed), [ctl.info.appearance_seed]);
@@ -126,70 +127,109 @@ export function ChibiAvatar({ ctl, products }: { ctl: AvatarController; products
 
     // ---- nickname label: constant on-screen size, always readable
     const dist = camera.position.distanceTo(root.current.position);
+    // close-up hygiene: other Chibis right in front of the lens are hidden, and the focused
+    // Chibi's own label is dropped (the product card already names the viewer)
+    const focused = focusedId() === ctl.info.avatar_id;
+    root.current.visible = focused || dist > 1.7;
+    label.current.visible = !(focused && dist < 3.2);
     const sc = THREE.MathUtils.clamp(dist * 0.045, 0.34, 1.7);
     label.current.scale.set(sc * aspect * 0.42, sc * 0.42, 1);
   });
 
   const skin = toon(look.skin);
   const hairM = toon(look.hair);
+  const shirt = toon(look.shirt);
+  const pants = toon(look.pants);
+  const eyeM = toon("#2b1d24");
   return (
     <>
       <group ref={root}>
-        <mesh geometry={GEO.shadow} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.005, 0]}>
-          <meshBasicMaterial color="#000000" transparent opacity={0.12} />
+        <mesh geometry={GEO.shadow} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.006, 0]}>
+          <meshBasicMaterial color="#5a3040" transparent opacity={0.22} depthWrite={false} />
         </mesh>
         <group ref={body}>
           {/* legs */}
           <group ref={legL} position={[-0.08, 0.2, 0]}>
-            <mesh geometry={GEO.leg} material={toon(look.pants)} position={[0, -0.09, 0]} />
+            <Part geometry={GEO.leg} material={pants} position={[0, -0.09, 0]} />
           </group>
           <group ref={legR} position={[0.08, 0.2, 0]}>
-            <mesh geometry={GEO.leg} material={toon(look.pants)} position={[0, -0.09, 0]} />
+            <Part geometry={GEO.leg} material={pants} position={[0, -0.09, 0]} />
           </group>
           {/* torso */}
-          <mesh geometry={GEO.body} material={toon(look.shirt)} position={[0, 0.36, 0]} castShadow />
+          <Part geometry={GEO.body} material={shirt} position={[0, 0.36, 0]} />
           {/* arms: pivot at the shoulder; hand socket at the end of the right arm */}
           <group ref={armL} position={[-0.2, 0.47, 0]}>
-            <mesh geometry={GEO.arm} material={toon(look.shirt)} position={[0, -0.13, 0]} />
-            <mesh geometry={GEO.eye} material={skin} position={[0, -0.25, 0]} scale={1.4} />
+            <Part geometry={GEO.arm} material={shirt} position={[0, -0.13, 0]} />
+            <Part geometry={GEO.hand} material={skin} position={[0, -0.26, 0]} />
           </group>
           <group ref={armR} position={[0.2, 0.47, 0]}>
-            <mesh geometry={GEO.arm} material={toon(look.shirt)} position={[0, -0.13, 0]} />
-            <mesh geometry={GEO.eye} material={skin} position={[0, -0.25, 0]} scale={1.4} />
+            <Part geometry={GEO.arm} material={shirt} position={[0, -0.13, 0]} />
+            <Part geometry={GEO.hand} material={skin} position={[0, -0.26, 0]} />
             <object3D ref={hand} name="rightHandSocket" position={[0, -0.27, 0.04]} />
           </group>
           {/* head */}
           <group ref={head} position={[0, 0.8, 0]}>
-            <mesh geometry={GEO.head} material={skin} castShadow />
-            <mesh geometry={GEO.hairCap} material={hairM} position={[0, 0.02, -0.01]} rotation={[-0.25, 0, 0]} />
+            <Part geometry={GEO.head} material={skin} />
+            <Part geometry={GEO.hairCap} material={hairM} position={[0, 0.02, -0.01]} rotation={[-0.25, 0, 0]} outlineScale={1.03} />
             {look.hairStyle === 1 && (
               <>
-                <mesh geometry={GEO.bun} material={hairM} position={[-0.22, 0.22, -0.05]} />
-                <mesh geometry={GEO.bun} material={hairM} position={[0.22, 0.22, -0.05]} />
+                <Part geometry={GEO.bun} material={hairM} position={[-0.22, 0.22, -0.05]} />
+                <Part geometry={GEO.bun} material={hairM} position={[0.22, 0.22, -0.05]} />
               </>
             )}
             {look.hairStyle === 2 && (
               <>
-                <mesh geometry={GEO.hairCap} material={toon("#ffffff")} position={[0, 0.05, 0]} scale={1.04} rotation={[-0.2, 0, 0]} />
-                <mesh geometry={GEO.capBrim} material={toon("#ffffff")} position={[0, 0.12, 0.22]} rotation={[0.25, 0, 0]} />
+                <Part geometry={GEO.hairCap} material={toon("#ffffff")} position={[0, 0.05, 0]} scale={1.04} rotation={[-0.2, 0, 0]} outlineScale={1.03} />
+                <Part geometry={GEO.capBrim} material={toon("#ffffff")} position={[0, 0.12, 0.22]} rotation={[0.25, 0, 0]} />
               </>
             )}
             {look.hairStyle === 3 &&
-              [-0.15, 0, 0.15].map((x) => <mesh key={x} geometry={GEO.spike} material={hairM} position={[x, 0.3, -0.02]} />)}
-            <mesh geometry={GEO.eye} material={toon("#2b1d24")} position={[-0.1, -0.02, 0.27]} />
-            <mesh geometry={GEO.eye} material={toon("#2b1d24")} position={[0.1, -0.02, 0.27]} />
-            <mesh geometry={GEO.blush} position={[-0.17, -0.09, 0.245]} rotation={[0, -0.45, 0]}>
-              <meshBasicMaterial color="#ff9fb5" transparent opacity={0.7} />
+              [-0.15, 0, 0.15].map((x) => <Part key={x} geometry={GEO.spike} material={hairM} position={[x, 0.3, -0.02]} />)}
+            {/* big shiny eyes + smile */}
+            {[-1, 1].map((sx) => (
+              <group key={sx} position={[sx * 0.1, -0.01, 0.262]}>
+                <mesh geometry={GEO.eye} material={eyeM} scale={[1, 1.25, 0.6]} />
+                <mesh geometry={GEO.eyeShine} material={WHITE} position={[0.014, 0.022, 0.03]} />
+              </group>
+            ))}
+            <mesh geometry={GEO.mouth} material={eyeM} position={[0, -0.1, 0.285]} rotation={[0, 0, Math.PI]} />
+            <mesh geometry={GEO.blush} position={[-0.17, -0.085, 0.247]} rotation={[0, -0.5, 0]}>
+              <meshBasicMaterial color="#ff7f9f" transparent opacity={0.55} depthWrite={false} />
             </mesh>
-            <mesh geometry={GEO.blush} position={[0.17, -0.09, 0.245]} rotation={[0, 0.45, 0]}>
-              <meshBasicMaterial color="#ff9fb5" transparent opacity={0.7} />
+            <mesh geometry={GEO.blush} position={[0.17, -0.085, 0.247]} rotation={[0, 0.5, 0]}>
+              <meshBasicMaterial color="#ff7f9f" transparent opacity={0.55} depthWrite={false} />
             </mesh>
           </group>
         </group>
         <sprite ref={label} material={labelMat} position={[0, 1.42, 0]} renderOrder={10} />
       </group>
       {/* the carried visual copy lives in world space so it can fly from the slot to the hand */}
-      <mesh ref={heldBox} geometry={GEO.box} material={mats} visible={false} castShadow />
+      <group ref={heldBox} visible={false}>
+        <mesh geometry={GEO.box} material={mats} castShadow />
+        {opts.outlines && <lineSegments geometry={BOX_EDGES} material={EDGE_MAT} />}
+      </group>
     </>
+  );
+}
+
+/** A body part with optional inverted-hull outline (cel-shaded look). */
+function Part({
+  geometry, material, position, rotation, scale, outlineScale = 1.07,
+}: {
+  geometry: THREE.BufferGeometry;
+  material: THREE.Material;
+  position?: [number, number, number];
+  rotation?: [number, number, number];
+  scale?: number;
+  outlineScale?: number;
+}) {
+  // Chibis do not cast real-time shadows: the blob shadow under their feet is enough and
+  // this halves their GPU cost (60 avatars × ~20 parts).
+  const { outlines } = useContext(RenderContext);
+  return (
+    <group position={position} rotation={rotation} scale={scale}>
+      <mesh geometry={geometry} material={material} />
+      {outlines && <mesh geometry={geometry} material={OUTLINE_MAT} scale={outlineScale} />}
+    </group>
   );
 }

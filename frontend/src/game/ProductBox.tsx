@@ -1,14 +1,14 @@
 // Product box (SPEC H2): the FRONT face shows exactly the approved photo; every other face
 // is a neutral colour — we never invent back-of-pack text, ingredients or logos.
 
-import { useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import * as THREE from "three";
 import type { ProductInfo } from "../types/protocol";
-import { GEO } from "./palette";
+import { BOX_EDGES, EDGE_MAT, GEO, RenderContext } from "./palette";
 
 const loader = new THREE.TextureLoader();
 const texCache = new Map<string, Promise<THREE.Texture>>();
-const NEUTRAL = new THREE.MeshToonMaterial({ color: "#f3efe8" });
+const NEUTRAL = new THREE.MeshToonMaterial({ color: "#f6f1ea" });
 
 export function loadTexture(url: string): Promise<THREE.Texture> {
   let p = texCache.get(url);
@@ -77,9 +77,13 @@ export function ProductBoxMesh({ product, position }: { product: ProductInfo; po
   const front = useFrontMaterial(product);
   const mats = useMemo(() => boxMaterials(front), [front]);
   const s = product.box_size;
+  const { outlines, shadows } = useContext(RenderContext);
   return (
     <group position={position}>
-      <mesh geometry={GEO.box} material={mats} scale={[s.w, s.h, s.d]} position={[0, s.h / 2, 0]} castShadow />
+      <group scale={[s.w, s.h, s.d]} position={[0, s.h / 2, 0]}>
+        <mesh geometry={GEO.box} material={mats} castShadow={shadows} />
+        {outlines && <lineSegments geometry={BOX_EDGES} material={EDGE_MAT} />}
+      </group>
     </group>
   );
 }

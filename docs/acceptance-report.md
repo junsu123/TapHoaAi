@@ -39,14 +39,15 @@ Playwright đọc trạng thái **thật** của client (`window.__chibiDebug`),
 
 ## Số liệu tải (T17, NFR-01) — Chrome headless + SwiftShader (CPU)
 
-| Chỉ số | Giá trị |
-| --- | --- |
-| Avatar hiển thị phía client | 60 |
-| Độ sâu hàng đợi lệnh | 24 (giới hạn 180) |
-| Event → game ACK (lệnh không phải chờ), p50 / p95 | **473 ms / 619 ms** (mục tiêu < 1 s) |
-| Dispatch → ACK, p50 / p95 | 247 ms / 604 ms |
-| JS heap | ≈ 20 MB |
-| FPS | 2–14 FPS — **không phải số liệu hiệu năng**: WebGL chạy bằng CPU (SwiftShader). Phải benchmark trên PC phát LIVE có GPU (M2). |
+Từ bản nâng cấp đồ họa (viền cel-shading, bóng đổ mềm, render đúng độ phân giải màn hình), mỗi khung hình nặng hơn. Trên renderer CPU của môi trường test, 60 Chibi làm luồng trình duyệt quá tải, nên độ trễ đo được cũng tăng theo:
+
+| Chỉ số | Bản đầu (đồ họa đơn giản) | Bản đồ họa mới |
+| --- | --- | --- |
+| Event → game ACK (lệnh không phải chờ), p50 / p95 | 473 ms / 619 ms | 12 ms / 1 448 ms |
+| FPS khi 60 avatar | 2–14 | 1–2 |
+| Lỗi backend / hàng đợi | 0 / 24 | 0 / ≤ 180 |
+
+Những con số FPS và p95 này **không phải số liệu hiệu năng thật** — WebGL chạy bằng CPU. Việc bắt buộc tiếp theo là benchmark trên PC phát LIVE có GPU. Nếu máy yếu, dùng `?quality=low` (tắt viền và bóng) hoặc để chế độ tự giảm chất lượng; tối ưu instancing cho 60+ Chibi thuộc M2.
 
 ## Trạng thái tích hợp bên thứ ba (SPEC O.7)
 
@@ -59,4 +60,4 @@ Playwright đọc trạng thái **thật** của client (`window.__chibiDebug`),
 
 ## Ảnh minh chứng
 
-`docs/evidence/`: `T03-1-walking.png`, `T03-2-closeup-holding-box.png`, `T03-3-returned.png`, `T07-queue.png`, `T17-load.png`, `T18-after-reload.png`, `dashboard-overview.png`, `dashboard-host.png`.
+`docs/evidence/`: so sánh đồ họa trước/sau `so-sanh-overview.png`, `so-sanh-follow.png`, `so-sanh-show.png`; `T03-1-walking.png`, `T03-2-closeup-holding-box.png`, `T03-3-returned.png`, `T07-queue.png`, `T17-load.png`, `T18-after-reload.png`, `dashboard-overview.png`, `dashboard-host.png`.

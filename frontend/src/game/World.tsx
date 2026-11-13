@@ -3,10 +3,18 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { ChibiAvatar } from "./ChibiAvatar";
 import type { GameEngine } from "./GameEngine";
+import { RenderContext } from "./palette";
 import { StoreScene } from "./StoreScene";
 
 export type Quality = "low" | "medium" | "high";
-export const QUALITY_DPR: Record<Quality, number> = { low: 0.6, medium: 1, high: 1.5 };
+
+/** Render at the screen's real pixel density (never below 1×) — the old 1×/0.6× made it blurry. */
+const deviceDpr = () => Math.max(1, typeof window === "undefined" ? 1 : window.devicePixelRatio || 1);
+export const QUALITY: Record<Quality, { dpr: number; shadows: boolean; shadowMap: number; outlines: boolean }> = {
+  low: { dpr: 1, shadows: false, shadowMap: 512, outlines: false },
+  medium: { dpr: Math.min(deviceDpr(), 1.5), shadows: true, shadowMap: 1024, outlines: true },
+  high: { dpr: Math.min(deviceDpr(), 2), shadows: true, shadowMap: 2048, outlines: true },
+};
 
 const OVERVIEW_POS = new THREE.Vector3(0, 17.5, 12.2);
 const OVERVIEW_LOOK = new THREE.Vector3(0, 0, 0.2);
@@ -80,10 +88,11 @@ function Avatars({ engine }: { engine: GameEngine }) {
     }
   });
   const products = engine.products;
+  const focusedId = () => (engine.camera.mode === "follow" ? engine.camera.avatarId : null);
   return (
     <>
       {[...engine.avatars.values()].map((a) => (
-        <ChibiAvatar key={a.info.avatar_id} ctl={a} products={products} />
+        <ChibiAvatar key={a.info.avatar_id} ctl={a} products={products} focusedId={focusedId} />
       ))}
     </>
   );
@@ -99,31 +108,40 @@ function Scene({ engine }: { engine: GameEngine }) {
 }
 
 export function World({ engine, quality, onFps }: { engine: GameEngine; quality: Quality; onFps: (fps: number) => void }) {
-  const shadows = quality === "high";
+  const q = QUALITY[quality];
+  const opts = useMemo(() => ({ outlines: q.outlines, shadows: q.shadows }), [q.outlines, q.shadows]);
   return (
     <Canvas
-      dpr={QUALITY_DPR[quality]}
-      shadows={shadows}
+      key={quality /* shadow-map settings need a fresh renderer */}
+      dpr={q.dpr}
+      shadows={q.shadows ? "soft" : false}
+      flat /* no filmic tone mapping: keeps the cel-shaded colours crisp, not washed out */
       camera={{ fov: 50, near: 0.1, far: 80, position: OVERVIEW_POS.toArray() }}
-      gl={{ antialias: quality !== "low", preserveDrawingBuffer: true }}
-      style={{ background: "linear-gradient(#ffe9f1, #fff7ec)" }}
+      gl={{ antialias: true, preserveDrawingBuffer: true, powerPreference: "high-performance" }}
+      style={{ background: "linear-gradient(#ffd9e6, #fff1e0)" }}
     >
-      <ambientLight intensity={0.55} />
-      <hemisphereLight args={["#fff6fb", "#f3d9c4", 0.55]} />
-      <directionalLight
-        position={[5, 12, 8]}
-        intensity={1.35}
-        castShadow={shadows}
-        shadow-mapSize={[1024, 1024]}
-        shadow-camera-left={-9}
-        shadow-camera-right={9}
-        shadow-camera-top={10}
-        shadow-camera-bottom={-10}
-      />
-      <Scene engine={engine} />
-      <Avatars engine={engine} />
-      <CameraRig engine={engine} />
-      <FrameLoop engine={engine} onFps={onFps} />
+      <RenderContext.Provider value={opts}>
+        <ambientLight intensity={0.45} color="#fff4f8" />
+        <hemisphereLight args={["#fff2f7", "#e7b48c", 0.55]} />
+        <directionalLight
+          position={[6, 13, 7]}
+          intensity={1.9}
+          color="#fff6ea"
+          castShadow={q.shadows}
+          shadow-mapSize={[q.shadowMap, q.shadowMap]}
+          shadow-bias={-0.0004}
+          shadow-normalBias={0.02}
+          shadow-camera-left={-9}
+          shadow-camera-right={9}
+          shadow-camera-top={10}
+          shadow-camera-bottom={-10}
+        />
+        <directionalLight position={[-6, 6, 10]} intensity={0.35} color="#ffd9ec" />
+        <Scene engine={engine} />
+        <Avatars engine={engine} />
+        <CameraRig engine={engine} />
+        <FrameLoop engine={engine} onFps={onFps} />
+      </RenderContext.Provider>
     </Canvas>
   );
 }
