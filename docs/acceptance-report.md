@@ -6,9 +6,9 @@ Ngày: 13/11/2026 · Commit: xem lịch sử nhánh `m0-m1-vertical-slice`
 
 | Bộ test | Lệnh | Kết quả |
 | --- | --- | --- |
-| Backend (pytest) | `cd backend && .venv/bin/pytest -q` | **120 passed** |
+| Backend (pytest) | `cd backend && .venv/bin/pytest -q` | **142 passed** |
 | Frontend unit (vitest) | `cd frontend && npx vitest run` | **17 passed** |
-| Trình duyệt thật (Playwright + WebGL SwiftShader) | `cd frontend && npx playwright test` | **10 passed** (gồm 4 test M2) |
+| Trình duyệt thật (Playwright + WebGL SwiftShader) | `cd frontend && npx playwright test` | **11 passed** (gồm 4 test M2, 1 test M3) |
 
 Playwright đọc trạng thái **thật** của client (`window.__chibiDebug`), không mock: một test chỉ PASS khi trình duyệt đã đi, nhặt, giơ và trả đúng hộp.
 
@@ -16,7 +16,7 @@ Playwright đọc trạng thái **thật** của client (`window.__chibiDebug`),
 
 | ID | Kết quả | Bằng chứng |
 | --- | --- | --- |
-| T01 | **Một phần** — kết nối TikTok thật là M3; hiện báo “Không hỗ trợ”, test xác nhận không bao giờ báo “Đã kết nối” | `test_live_connect_never_claims_success_before_provider` |
+| T01 | **PASS (giả lập)** — streamer offline → “Không phát LIVE”, không bao giờ “Đã kết nối”; chưa thử với tài khoản thật | `test_terminal_failures_show_the_real_reason`, `test_t01_offline_streamer_via_api` |
 | T02 | **PASS** — URL ngoài allowlist bị từ chối, không có request mạng | `test_invalid_live_urls`, `test_live_connect_validation`, Playwright Dashboard |
 | T03 | **PASS** — 1 avatar → Kệ 2 → cầm `TRA_CA_GAI_LEO` → close-up → trả hộp → COMPLETED sau khi client xác nhận | `test_t03_comment_to_completed_action`, Playwright T03; ảnh `evidence/T03-*.png` |
 | T04 | **PASS** — `ca gai leo` cùng SKU | `test_ca_gai_leo_variants_match_same_sku` |
@@ -24,7 +24,7 @@ Playwright đọc trạng thái **thật** của client (`window.__chibiDebug`),
 | T06 | **PASS** — không tạo avatar thứ 2, preempt, không cầm 2 hộp | `test_same_user_two_products_in_one_second`, Playwright T06/T07 |
 | T07 | **PASS** — 3 điểm đứng, người thứ 4 chờ cạnh kệ rồi được phục vụ | `test_four_users_same_product_queue_at_stand_positions`; ảnh `evidence/T07-queue.png` |
 | T08 | **PASS** — gift streak chỉ cộng một lần khi kết thúc chuỗi | `test_gift_streak_counted_once_at_end` |
-| T09 | **Một phần** — reconnect backoff + chống trùng sau reconnect đã test với provider giả lập lỗi; chưa thử ngắt mạng với TikTok thật (M3) | `test_reconnects_after_failures_and_dedupes_replay`, `test_replayed_events_are_deduplicated` |
+| T09 | **Một phần** — reconnect backoff, chống bão kết nối, chống trùng sau reconnect đã test; chưa thử ngắt mạng với LIVE thật | `test_reconnects_after_failures_and_dedupes_replay`, `test_replayed_events_are_deduplicated` |
 | T10 | **PASS** — không cần join, bình luận tạo Chibi | `test_t10_…` |
 | T11 | **Chưa làm (M4)** — hiện chỉ có chế độ không-AI, game chạy bình thường | — |
 | T12 | **Chưa làm (M4)** | — |
@@ -50,6 +50,19 @@ Playwright đọc trạng thái **thật** của client (`window.__chibiDebug`),
 
 **Lưu ý trung thực về bộ dữ liệu:** 101 bình luận do người phát triển tự viết (không phải log LIVE thật) và luật đã được chỉnh trên chính bộ này, nên 100 % là con số lạc quan. Cần thêm bình luận thật đã ẩn danh để đo khách quan.
 
+## M3 — kết quả
+
+| Hạng mục | Kết quả | Bằng chứng |
+| --- | --- | --- |
+| Map sự kiện TikTokLive → F1 | **PASS** với lớp `CommentEvent`, `GiftEvent`, `LikeEvent`, `JoinEvent`, `FollowEvent`, `RoomUserSeqEvent` thật | `test_tiktok_adapter.py` |
+| Lỗi → trạng thái thật | **PASS** — offline, không tìm thấy, giới hạn tuổi, bị chặn, giới hạn lượt, lỗi mạng, mất WebSocket, kết thúc LIVE | `test_tiktok_adapter.py` |
+| Bình luận LIVE → Chibi (end-to-end) | **PASS** — sự kiện thật đi qua adapter, normalizer, router, hàng đợi lệnh | `test_live_comment_drives_a_chibi_end_to_end` |
+| Link rút gọn (NFR-05) | **PASS** — chặn chuyển hướng ra ngoài, http, IP nội bộ, vòng lặp | `test_short_link_*` |
+| Chống bão kết nối lại | **PASS** | `test_instant_drops_back_off_instead_of_storming` |
+| Xác nhận chính sách trước khi kết nối (NFR-12) | **PASS** | `test_api_connect_requires_policy_ack`, Playwright Dashboard |
+| Giao diện khi không tới được TikTok | **PASS** — “Mất kết nối”, nhật ký thử lại, không bao giờ “Đã kết nối” | Playwright “M3 connect page”; `evidence/M3-connect-page.png` |
+| Với buổi LIVE thật | **Not tested** | — |
+
 ## Số liệu tải (T17, NFR-01) — Chrome headless + SwiftShader (CPU)
 
 Từ bản nâng cấp đồ họa (viền cel-shading, bóng đổ mềm, render đúng độ phân giải màn hình), mỗi khung hình nặng hơn. Trên renderer CPU của môi trường test, 60 Chibi làm luồng trình duyệt quá tải, nên độ trễ đo được cũng tăng theo:
@@ -66,7 +79,7 @@ Những con số FPS và p95 này **không phải số liệu hiệu năng thậ
 
 | Tích hợp | Trạng thái |
 | --- | --- |
-| TikTok LIVE (TikTokLive, không chính thức) | **Unavailable** — chưa triển khai (M3) |
+| TikTok LIVE (TikTokLive 7.0.1, không chính thức) | **Not tested** — adapter xong, contract test với lớp sự kiện thật; cần thử LIVE thật theo `docs/provider-limitations.md` |
 | Claude API | **Not tested** — chưa triển khai (M4) |
 | OBS Studio Browser Source | **Not tested** trên OBS thật; trang `/game/live` đã chạy trong Chrome |
 | TikTok Shop API/webhook | **Unavailable** — M6, cần quyền chính thức |

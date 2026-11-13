@@ -13,7 +13,7 @@ jobs:
         working-directory: backend
         run: |
           python -m venv .venv
-          .venv/bin/pip install -e ".[dev]"
+          .venv/bin/pip install -e ".[dev,tiktok]"
           .venv/bin/pytest -q
       - name: Frontend unit tests + build
         working-directory: frontend

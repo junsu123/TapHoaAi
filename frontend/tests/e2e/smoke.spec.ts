@@ -185,6 +185,8 @@ test("Dashboard: login, overview, host page shows comments (Vietnamese UI)", asy
   await page.screenshot({ path: `${SHOTS}/dashboard-overview.png`, fullPage: true });
   await page.getByRole("link", { name: "Kết nối TikTok" }).click();
   await page.getByLabel("Link TikTok LIVE").fill("https://evil.example/");
+  await expect(page.getByRole("button", { name: "Kết nối", exact: true })).toBeDisabled(); // policy checklist first
+  for (const box of await page.locator(".policy input[type=checkbox]").all()) await box.check();
   await page.getByRole("button", { name: "Kết nối", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("chỉ chấp nhận tên miền tiktok.com"); // T02
 });
@@ -316,4 +318,28 @@ test("M2 crowd: name labels do not overlap", async ({ page }) => {
       const overlap = Math.abs(a.x - c.x) < (a.w + c.w) / 2 && Math.abs(a.y - c.y) < (a.h + c.h) / 2;
       expect(overlap, `${a.id} vs ${c.id}`).toBe(false);
     }
+});
+
+// ---------------------------------------------------------------- M3
+test("M3 connect page: real TikTok attempt never shows a fake connection; failure is visible", async ({ page }) => {
+  // CI has no route to TikTok, so this exercises the honest failure path end to end.
+  const csrf = await login(page.request);
+  await page.request.post("/api/v1/live/disconnect", { headers: { "X-CSRF-Token": csrf } }); // end any Demo session
+  await page.setViewportSize({ width: 1280, height: 1000 });
+  await page.goto("/dashboard/connect");
+  await expect(page.getByTestId("live-status")).toContainText("Chưa kết nối");
+  await page.getByLabel("Link TikTok LIVE").fill("https://www.tiktok.com/@shoptra/live");
+  for (const box of await page.locator(".policy input[type=checkbox]").all()) await box.check();
+  await page.getByRole("button", { name: "Kết nối", exact: true }).click();
+  const pill = page.getByTestId("live-status");
+  const seen = new Set<string>();
+  for (let i = 0; i < 40; i++) {
+    seen.add((await pill.textContent()) ?? "");
+    await page.waitForTimeout(250);
+  }
+  expect([...seen].some((s) => s.includes("Đã kết nối"))).toBe(false);
+  await expect(pill).toContainText(/Mất kết nối|Đang kết nối|Đang kiểm tra/);
+  await page.screenshot({ path: `${SHOTS}/M3-connect-page.png`, fullPage: true });
+  await page.getByRole("button", { name: "Ngắt kết nối" }).click();
+  await expect(pill).toContainText("Chưa kết nối");
 });

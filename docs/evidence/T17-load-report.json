@@ -1,7 +1,7 @@
 {
   "renderer": "headless Chrome + SwiftShader (CPU) — not the streaming-PC benchmark",
   "injected_comments": 100,
-  "seconds": 21.954,
+  "seconds": 23.092,
   "client_avatars": 68,
   "backend_avatars": {
     "total": 68,
@@ -10,36 +10,36 @@
   },
   "queue_depth": 18,
   "latency": {
-    "p50_ms": 10.6,
-    "p95_ms": 1476.1,
+    "p50_ms": 1035.4,
+    "p95_ms": 1291.5,
     "samples": 11,
     "dispatch_to_ack": {
-      "p50_ms": 599.9,
-      "p95_ms": 1371.5,
+      "p50_ms": 1045.8,
+      "p95_ms": 1194.7,
       "samples": 20
     },
     "intentional_wait": {
-      "p50_ms": 16265.3,
-      "p95_ms": 19168.5,
+      "p50_ms": 16034,
+      "p95_ms": 19257.1,
       "samples": 9
     }
   },
   "fps_last_20": [
-    1.9,
-    1.3,
+    2.4,
+    1.1,
     0.8,
-    0.9,
     0.8,
-    1.6,
-    1.2,
-    1.3,
-    1.4,
-    1.4,
+    0.8,
     1.5,
-    1.8,
-    2,
-    1.7
+    0.9,
+    1.1,
+    1.2,
+    1.2,
+    1.4,
+    1.3,
+    1.4,
+    1.3
   ],
-  "js_heap_bytes": 46862498,
+  "js_heap_bytes": 29178786,
   "backend_errors": 0
 }

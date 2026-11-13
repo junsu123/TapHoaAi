@@ -6,8 +6,9 @@ from sqlalchemy import select
 from app.models import AuditLog, LiveEventRow
 from app.providers.demo_adapter import DemoProvider
 from app.providers.tiktoklive_adapter import TikTokLiveAdapter
-from app.providers.url_validator import InvalidLiveUrl, parse_live_url
-from app.schemas.api import ConnectIn, DemoEventIn
+from app.providers.url_validator import InvalidLiveUrl, parse_live_url, resolve_short_link
+from app.schemas.api import ConnectIn, DemoEventIn, LiveSettingsPatch
+from app.security.crypto import mask_secret
 from app.security.sessions import AdminDep, CurrentAdmin
 
 router = APIRouter(tags=["live"])
@@ -18,15 +19,41 @@ async def connect(body: ConnectIn, request: Request, admin: CurrentAdmin = Admin
     c = request.app.state.container
     try:
         parsed = parse_live_url(body.url)
+        if parsed.needs_resolution:
+            parsed = await resolve_short_link(parsed.url)
     except InvalidLiveUrl as exc:
         raise HTTPException(422, detail={"code": f"invalid_url_{exc.code}", "message": exc.message}) from exc
-    if parsed.needs_resolution:
-        raise HTTPException(422, detail={"code": "short_link", "message":
-                            "Link rút gọn (vm.tiktok.com) sẽ được hỗ trợ ở M3. Hãy dán link dạng https://www.tiktok.com/@tên/live"})
+    if not body.policy_ack:
+        raise HTTPException(422, detail={"code": "policy_ack_required", "message":
+                            "Hãy xác nhận danh sách kiểm tra chính sách Shop LIVE trước khi kết nối."})
     with c.db.session() as s:
         s.add(AuditLog(admin_id=admin.id, action="live_connect", resource=parsed.url))
-    await c.live.start(TikTokLiveAdapter(parsed.unique_id), url=parsed.url, unique_id=parsed.unique_id)
+    adapter = TikTokLiveAdapter(parsed.unique_id, sign_api_key=c.get_setting("tiktok_sign_api_key"),
+                                client_factory=c.tiktok_client_factory)
+    await c.live.start(adapter, url=parsed.url, unique_id=parsed.unique_id)
     return c.live.status_dict()
+
+
+@router.get("/settings/live")
+def live_settings(request: Request, admin: CurrentAdmin = AdminDep) -> dict:
+    c = request.app.state.container
+    try:
+        import TikTokLive  # noqa: F401
+        installed = True
+    except ImportError:
+        installed = False
+    return {"sign_api_key": mask_secret(c.get_setting("tiktok_sign_api_key")), "library_installed": installed,
+            "library": "TikTokLive 7.0.1 (không chính thức)", "sign_server": "api.eulerstream.com"}
+
+
+@router.patch("/settings/live")
+def patch_live_settings(body: LiveSettingsPatch, request: Request, admin: CurrentAdmin = AdminDep) -> dict:
+    """Optional Euler Stream key for higher signing limits. Stored encrypted, never returned."""
+    c = request.app.state.container
+    c.set_setting("tiktok_sign_api_key", (body.sign_api_key or "").strip() or None, secret=True)
+    with c.db.session() as s:
+        s.add(AuditLog(admin_id=admin.id, action="live_settings_update", resource="tiktok_sign_api_key"))
+    return live_settings(request, admin)
 
 
 @router.post("/live/disconnect")

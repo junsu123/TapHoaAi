@@ -112,20 +112,6 @@ def test_live_connect_validation(admin_client):
     assert admin_client.get("/api/v1/live/status").json()["status"] == "Chưa kết nối"
 
 
-def test_live_connect_never_claims_success_before_provider(admin_client):
-    """LIVE-02 / T01: the M3 adapter is not implemented, so status must not be 'Đã kết nối'."""
-    r = admin_client.post("/api/v1/live/connect", json={"url": "https://www.tiktok.com/@shoptra/live"})
-    assert r.status_code == 200
-    import time
-    for _ in range(50):
-        st = admin_client.get("/api/v1/live/status").json()
-        if st["status"] != "Đang kiểm tra":
-            break
-        time.sleep(0.02)
-    assert st["status"] == "Không hỗ trợ" and st["status"] != "Đã kết nối"
-    assert admin_client.post("/api/v1/live/disconnect").json()["status"] == "Chưa kết nối"
-
-
 def test_shop_not_configured(admin_client):
     """T19."""
     r = admin_client.get("/api/v1/shop/status").json()

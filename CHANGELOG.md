@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.0 — 2026-11-14 — M3: kết nối TikTok LIVE
+
+- Adapter TikTokLive 7.0.1 (tùy chọn `backend[tiktok]`, đã cài sẵn qua `dev_windows.ps1`): bình luận, quà, thả tim, người vào, theo dõi, chia sẻ, số người xem, kết thúc LIVE.
+- Trạng thái trung thực cho từng lỗi: không LIVE, không tìm thấy, giới hạn tuổi, bị chặn, cần gói trả phí, giới hạn lượt, lỗi mạng.
+- Link rút gọn `vm.tiktok.com` với kiểm tra chống SSRF.
+- Bắt buộc xác nhận danh sách chính sách trước khi kết nối; khóa Euler Stream tùy chọn (mã hóa).
+- Kết nối lại có thời gian chờ tăng dần, không bão khi kết nối rớt ngay.
+- Tài liệu giấy phép, quyền riêng tư và bài thử LIVE thật 9 bước.
+
 ## 0.3.0 — 2026-11-13 — M2: editor kệ, GLB, sao lưu, dữ liệu tiếng Việt
 
 - Sơ đồ cửa hàng kéo-thả: thêm/di chuyển/xoay/xóa kệ, kiểm tra lối đi, cửa, quầy và khả năng đi tới; khóa kệ đang có khách.

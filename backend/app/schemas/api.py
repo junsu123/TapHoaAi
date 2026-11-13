@@ -27,6 +27,11 @@ class MeOut(BaseModel):
 
 class ConnectIn(BaseModel):
     url: str = Field(max_length=600)
+    policy_ack: bool = False  # NFR-12: operator confirmed the Shop LIVE policy checklist
+
+
+class LiveSettingsPatch(BaseModel):
+    sign_api_key: str | None = Field(default=None, max_length=300)
 
 
 class DemoEventIn(BaseModel):

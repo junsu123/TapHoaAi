@@ -68,6 +68,8 @@ class AppContainer:
         self.fps_reports: deque[dict[str, Any]] = deque(maxlen=120)
         self.started_at = time.time()
         self.game_token = self._load_or_create_game_token()
+        # TikTok client factory: None = the real TikTokLive client (tests inject a fake)
+        self.tiktok_client_factory = None
         self._tasks: list[asyncio.Task] = []
 
     # ------------------------------------------------------------------ wiring helpers
@@ -119,6 +121,32 @@ class AppContainer:
             else:
                 s.add(Setting(key="game_token", encrypted_value=self.box.encrypt(token), is_secret=True))
             return token
+
+    # ------------------------------------------------------------------ settings
+    def get_setting(self, key: str) -> str | None:
+        with self.db.session() as s:
+            row = s.get(Setting, key)
+            if not row:
+                return None
+            try:
+                return self.box.decrypt(row.encrypted_value)
+            except InvalidToken:
+                return None
+
+    def set_setting(self, key: str, value: str | None, *, secret: bool) -> None:
+        with self.db.session() as s:
+            row = s.get(Setting, key)
+            if value in (None, ""):
+                if row:
+                    s.delete(row)
+                return
+            enc = self.box.encrypt(value)
+            if row:
+                row.encrypted_value = enc
+                row.is_secret = secret
+                row.updated_at = datetime.now(UTC)
+            else:
+                s.add(Setting(key=key, encrypted_value=enc, is_secret=secret))
 
     # ------------------------------------------------------------------ catalog
     def reload_catalog(self) -> None:

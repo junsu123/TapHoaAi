@@ -15,6 +15,7 @@ dependencies = [
     "rapidfuzz>=3.9",
     "pillow>=10.3",
     "python-multipart>=0.0.9",
+    "httpx>=0.27",
 ]
 
 [project.optional-dependencies]
@@ -24,7 +25,9 @@ dev = [
     "httpx>=0.27",
 ]
 ai = ["anthropic>=0.40"]
-tiktok = []  # M3: TikTokLive (AGPL — review licence before commercial distribution)
+# TikTokLive: unofficial, "Modified AGPL-3.0" (see docs/provider-limitations.md). Pinned to the
+# version the adapter was tested against — upgrade deliberately and re-run the contract tests.
+tiktok = ["TikTokLive==7.0.1"]
 
 [build-system]
 requires = ["setuptools>=69"]
