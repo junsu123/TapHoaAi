@@ -9,6 +9,7 @@ import { QuestionCard, VoiceBar } from "./HostDesk";
 import { KnowledgePage } from "./KnowledgePage";
 import { LogsPage } from "./LogsPage";
 import { BOX_FACE_LABEL, PdfFacePicker, type RenderedFaces } from "./PdfFacePicker";
+import { SceneSettings } from "./SceneSettings";
 import { ShelfEditor } from "./ShelfEditor";
 import { useDashboardFeed, type CommentRecord, type HostItem, type LiveStatus, type Metrics, type SpeechState } from "./useDashboardFeed";
 
@@ -847,6 +848,9 @@ function GameSetupPage() {
         </div>
       </Card>
       <div className="stack">
+        <Card title="🍵 Không gian cửa hàng & banner sản phẩm">
+          <SceneSettings />
+        </Card>
         <Card title="Mở màn hình LIVE 9:16">
           <p>
             <a href="/game/live" target="_blank" rel="noreferrer">

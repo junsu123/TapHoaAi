@@ -7,6 +7,7 @@ from app.models import ActionJob
 from app.models import AuditLog
 from app.schemas.api import AiPauseIn, GameSettingsPatch
 from app.security.sessions import AdminDep, CurrentAdmin
+from app.services.scene_config import THEMES, SceneConfig, save_scene
 from app.services.shop_integration import shop_status
 
 router = APIRouter(tags=["system"])
@@ -65,6 +66,27 @@ def patch_game_settings(body: GameSettingsPatch, request: Request, admin: Curren
         s.add(AuditLog(admin_id=admin.id, action="game_settings_update", resource="avatar_idle_exit_seconds",
                        detail={"seconds": seconds}))
     return game_settings(request, admin)
+
+
+def _scene_out(c) -> dict:
+    return {"config": c.scene.model_dump(), "themes": THEMES}
+
+
+@router.get("/settings/scene")
+def scene_settings(request: Request, admin: CurrentAdmin = AdminDep) -> dict:
+    return _scene_out(request.app.state.container)
+
+
+@router.put("/settings/scene")
+def put_scene_settings(body: SceneConfig, request: Request, admin: CurrentAdmin = AdminDep) -> dict:
+    c = request.app.state.container
+    body.banner_product_ids = [i for i in dict.fromkeys(body.banner_product_ids) if i in c.catalog.products]
+    save_scene(c, body)
+    with c.db.session() as s:
+        s.add(AuditLog(admin_id=admin.id, action="scene_settings_update", resource="scene_config",
+                       detail={"theme": body.theme, "banner": body.banner_enabled,
+                               "products": len(body.banner_product_ids)}))
+    return _scene_out(c)
 
 
 @router.get("/shop/status")

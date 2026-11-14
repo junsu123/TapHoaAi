@@ -8,10 +8,12 @@ import type {
   GameSnapshot,
   Point2,
   ProductInfo,
+  SceneConfig,
   ServerGameMessage,
   ShelfLayout,
   StoreLayout,
 } from "../types/protocol";
+import { DEFAULT_SCENE } from "../types/protocol";
 import { AvatarController, type Vec3, type WorldQuery } from "./AvatarController";
 import { NavGrid } from "./Navigation";
 
@@ -43,6 +45,9 @@ export class GameEngine {
   liveStatus = "Chưa kết nối";
   sessionId: string | null = null;
   layoutVersion = 0;
+  scene: SceneConfig = DEFAULT_SCENE;
+  /** bumps when the shop look changes (re-builds the 3D scene) */
+  sceneVersion = 0;
   /** bumps whenever the set of avatars or the layout changes (React re-render trigger) */
   version = 0;
   sent: ClientGameMessage[] = [];
@@ -79,6 +84,19 @@ export class GameEngine {
     this.products = new Map(layout.products.map((p) => [p.id, p]));
     this.shelves = new Map(layout.shelves.map((s) => [s.code, s]));
     this.version++;
+  }
+
+  setScene(scene: SceneConfig): void {
+    this.scene = { ...DEFAULT_SCENE, ...scene };
+    this.sceneVersion++;
+    this.version++;
+  }
+
+  /** Products shown on the banner/posters: the chosen ones, else every product with a photo. */
+  bannerProducts(): ProductInfo[] {
+    const withPhoto = (p: ProductInfo | undefined): p is ProductInfo => !!p && !!(p.card_image_url || p.image_url);
+    const chosen = this.scene.banner_product_ids.map((id) => this.products.get(id)).filter(withPhoto);
+    return chosen.length ? chosen : [...this.products.values()].filter(withPhoto);
   }
 
   slotWorld(shelfCode: string, slotCode: string): Vec3 | null {
@@ -118,6 +136,7 @@ export class GameEngine {
     this.isDemo = s.is_demo;
     this.liveStatus = s.live_status;
     this.setLayout(s.layout);
+    if (s.scene) this.setScene(s.scene);
     const keep = new Set(s.avatars.map((a) => a.avatar_id));
     for (const id of [...this.avatars.keys()]) if (!keep.has(id)) this.avatars.delete(id);
     for (const a of s.avatars) this.addAvatar(a, true);
@@ -170,6 +189,9 @@ export class GameEngine {
       case "LAYOUT_UPDATED":
         this.setLayout(m.layout);
         break;
+      case "SCENE_UPDATED":
+        this.setScene(m.scene);
+        break;
       case "LIVE_STATUS":
         this.liveStatus = m.status;
         this.isDemo = m.is_demo;
@@ -216,6 +238,7 @@ export class GameEngine {
       isDemo: this.isDemo,
       liveStatus: this.liveStatus,
       layoutVersion: this.layoutVersion,
+      scene: { theme: this.scene.theme, banner: this.scene.banner_enabled, sceneVersion: this.sceneVersion },
       camera: { ...this.camera, phase: this.focused()?.phase ?? null },
       avatars: [...this.avatars.values()].map((a) => ({
         id: a.info.avatar_id,

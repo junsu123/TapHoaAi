@@ -77,7 +77,32 @@ export interface GameSnapshot {
   active_commands: CharacterAction[];
   camera: { mode: "overview" | "follow"; avatar_id?: string; command_id?: string | null };
   settings: { show_seconds: number };
+  scene?: SceneConfig;
 }
+
+export interface SceneConfig {
+  theme: "herbal" | "kawaii";
+  sign_text: string;
+  tagline: string;
+  banner_enabled: boolean;
+  banner_seconds: number;
+  banner_height: number; // fraction of the 9:16 frame
+  banner_show_price: boolean;
+  banner_product_ids: string[]; // empty = every product with a photo
+  wall_posters: boolean;
+}
+
+export const DEFAULT_SCENE: SceneConfig = {
+  theme: "herbal",
+  sign_text: "TIỆM TRÀ THẢO MỘC",
+  tagline: "Trà sạch · Thảo mộc Việt",
+  banner_enabled: true,
+  banner_seconds: 6,
+  banner_height: 0.24,
+  banner_show_price: true,
+  banner_product_ids: [],
+  wall_posters: true,
+};
 
 export interface SpeechClip {
   id: string;
@@ -100,6 +125,7 @@ export type ServerGameMessage =
   | { type: "CAMERA_FOCUS"; sequence: number; mode: "overview" | "follow"; avatar_id?: string; command_id?: string | null }
   | { type: "SOCIAL_EFFECT"; sequence: number; kind: string; avatar_id: string | null; count?: number }
   | { type: "LAYOUT_UPDATED"; sequence: number; layout: StoreLayout }
+  | { type: "SCENE_UPDATED"; sequence: number; scene: SceneConfig }
   | { type: "LIVE_STATUS"; sequence: number; status: string; is_demo: boolean }
   | { type: "SESSION"; sequence: number; session_id: string | null; is_demo: boolean }
   | { type: "SPEECH"; sequence: number; clip: SpeechClip }

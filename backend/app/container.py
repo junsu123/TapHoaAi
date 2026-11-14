@@ -31,6 +31,7 @@ from app.services.intent_router import CommentIntentRouter
 from app.services.live_session import LiveSessionService
 from app.services.orchestrator import Orchestrator
 from app.services.product_matcher import ProductMatcher
+from app.services.scene_config import load_scene
 from app.services.speech_queue import SpeechQueue
 from app.websocket.hub import Hub
 
@@ -78,6 +79,7 @@ class AppContainer:
         self.assistant = Assistant(self)
         self.speech.on_chars = self.assistant.budget.record_tts
         self.assistant.apply_voice()
+        self.scene = load_scene(self)
         self.assistant.memory.load(self.catalog)
         self.fps_reports: deque[dict[str, Any]] = deque(maxlen=120)
         self.started_at = time.time()
@@ -182,6 +184,7 @@ class AppContainer:
             "active_commands": [c.wire() for c in self.actions.active_commands()],
             "camera": self.camera.snapshot(),
             "settings": {"show_seconds": self.settings.show_seconds},
+            "scene": self.scene.model_dump(),
         }
 
     def dashboard_snapshot(self) -> dict[str, Any]:

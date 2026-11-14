@@ -299,3 +299,24 @@ describe("viewer leaves", () => {
     expect(e.avatars.has("a")).toBe(false);
   });
 });
+
+describe("scene / product banner", () => {
+  it("defaults to the herbal shop, picks chosen products in order, falls back to every photo", () => {
+    const e = new GameEngine(() => undefined);
+    const withPhotos: StoreLayout = {
+      ...LAYOUT,
+      products: [
+        { ...LAYOUT.products[0], id: "A", image_url: "/a.png" },
+        { ...LAYOUT.products[0], id: "B", image_url: null, card_image_url: "/b.png" },
+        { ...LAYOUT.products[0], id: "C", image_url: null, card_image_url: null },
+      ],
+    };
+    e.setLayout(withPhotos);
+    expect(e.scene.theme).toBe("herbal");
+    expect(e.bannerProducts().map((p) => p.id)).toEqual(["A", "B"]);
+    const v = e.sceneVersion;
+    e.handle({ type: "SCENE_UPDATED", sequence: 1, scene: { ...e.scene, banner_product_ids: ["B", "C", "A"] } });
+    expect(e.sceneVersion).toBe(v + 1);
+    expect(e.bannerProducts().map((p) => p.id)).toEqual(["B", "A"]);
+  });
+});

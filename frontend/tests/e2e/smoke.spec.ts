@@ -87,8 +87,12 @@ test("T03 + T14: comment → walk to KE_02 → pick TRA_CA_GAI_LEO → close-up 
   expect(s.camera.avatarId).toBe(showing.id);
   await page.waitForTimeout(1500); // let the camera settle
   expect(await cameraShot(page)).toBe("closeup");
-  await expect(page.getByTestId("product-card")).toHaveAttribute("data-product-id", "TRA_CA_GAI_LEO");
-  await expect(page.getByTestId("product-card")).toContainText("Trà cà gai leo");
+  // the banner at the top switches to the product the Chibi is holding
+  const banner = page.getByTestId("product-banner");
+  await expect(banner).toHaveAttribute("data-product-id", "TRA_CA_GAI_LEO");
+  await expect(banner).toHaveAttribute("data-showcase", "1");
+  await expect(banner).toContainText("Trà cà gai leo");
+  await expect(banner).toContainText(`${nick} đang xem`);
   await expect(page.getByTestId("demo-badge")).toBeVisible();
   await page.screenshot({ path: `${SHOTS}/T03-2-closeup-holding-box.png` });
 
@@ -100,7 +104,7 @@ test("T03 + T14: comment → walk to KE_02 → pick TRA_CA_GAI_LEO → close-up 
   expect(sent[0]).toBe("ACK");
   expect(sent).toContain("ACTION_STARTED");
   expect(sent[sent.length - 1]).toBe("ACTION_COMPLETED");
-  await expect(page.getByTestId("product-card")).toHaveCount(0);
+  await expect(page.getByTestId("product-banner")).toHaveAttribute("data-showcase", "0");
 
   // backend recorded COMPLETED only after the client confirmed
   const actions = await (await page.request.get("/api/v1/actions")).json();
@@ -633,5 +637,54 @@ test("Welcome: ten viewers join at once and every name is greeted; ordinary comm
   await page.screenshot({ path: `${SHOTS}/WELCOME-host.png`, fullPage: true });
 
   await page.request.put("/api/v1/settings/ai", { data: { config: { ...cfg, voice_enabled: false } }, headers: { "X-CSRF-Token": csrf } });
+  await game.close();
+});
+
+test("Herbal-tea shop look and product banner: rotates, follows the Chibi, settings switch it off/theme", async ({ page, context }) => {
+  test.setTimeout(180_000);
+  const csrf = await login(page.request);
+  const put = async (patch: object) => {
+    const cur = (await (await page.request.get("/api/v1/settings/scene")).json()).config;
+    const r = await page.request.put("/api/v1/settings/scene", { data: { ...cur, ...patch }, headers: { "X-CSRF-Token": csrf } });
+    expect(r.ok()).toBeTruthy();
+  };
+  await put({ theme: "herbal", banner_enabled: true, banner_seconds: 3, banner_product_ids: [], wall_posters: true });
+  const game = await context.newPage();
+  await game.setViewportSize({ width: 540, height: 960 });
+  await game.goto("/game/live?debug=1&quality=medium");
+  await game.waitForFunction(() => (window as any).__chibiDebug?.state().scene?.theme === "herbal");
+  const banner = game.getByTestId("product-banner");
+  await expect(banner).toBeVisible();
+  await expect(banner.locator("img")).toBeVisible();
+  const first = await banner.getAttribute("data-product-id");
+  await expect(banner).not.toHaveAttribute("data-product-id", first!, { timeout: 8_000 }); // rotates
+  await game.waitForTimeout(1200);
+  await game.screenshot({ path: `${SHOTS}/SCENE-herbal-banner.png` });
+
+  // banner off → the sign board and the wall posters are visible again
+  await put({ banner_enabled: false });
+  await expect(banner).toHaveCount(0);
+  await game.waitForFunction(() => (window as any).__chibiDebug.state().scene.banner === false);
+  await game.waitForTimeout(2500);
+  await game.screenshot({ path: `${SHOTS}/SCENE-herbal-no-banner.png` });
+
+  // the old pink theme is still there
+  await put({ theme: "kawaii", banner_enabled: true });
+  await game.waitForFunction(() => (window as any).__chibiDebug.state().scene.theme === "kawaii");
+  await game.waitForTimeout(1500);
+  await game.screenshot({ path: `${SHOTS}/SCENE-kawaii-banner.png` });
+  await put({ theme: "herbal", banner_enabled: true, banner_seconds: 6 });
+
+  // dashboard settings card
+  await page.setViewportSize({ width: 1360, height: 1100 });
+  await page.goto("/dashboard/game");
+  await expect(page.getByRole("heading", { name: /Không gian cửa hàng/ })).toBeVisible();
+  await page.getByLabel("Chữ trên biển hiệu").fill("TRÀ MỘC TÂM");
+  await page.locator(".banner-pick-item").first().click();
+  await page.getByRole("button", { name: "Lưu không gian & banner" }).click();
+  await expect(page.getByText("Đã lưu — màn hình LIVE đổi ngay.")).toBeVisible();
+  await expect(banner).toContainText("TRÀ MỘC TÂM", { timeout: 45_000 }); // after any showcase left over from earlier tests
+  await page.screenshot({ path: `${SHOTS}/SCENE-settings.png`, fullPage: true });
+  await put({ sign_text: "TIỆM TRÀ THẢO MỘC", banner_product_ids: [] });
   await game.close();
 });
