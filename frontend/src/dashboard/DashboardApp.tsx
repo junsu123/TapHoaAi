@@ -395,6 +395,17 @@ function HostPage({ comments, host, aiPaused, setAiPaused }: { comments: Comment
   );
 }
 
+type FaceName = "left" | "right" | "back" | "top";
+const FACE_LABEL: Record<FaceName, string> = { left: "Mặt bên trái", right: "Mặt bên phải", back: "Mặt sau", top: "Nắp trên" };
+const GAME_BOX_HEIGHT = 0.28; // m — boxes are shown a bit larger than life so viewers can read them
+
+async function uploadImage(file: File): Promise<number> {
+  const fd = new FormData();
+  fd.append("file", file);
+  fd.append("kind", "image");
+  return (await api.upload<{ id: number }>("/assets/upload", fd)).id;
+}
+
 interface Product {
   id: string;
   sku: string;
@@ -405,6 +416,10 @@ interface Product {
   disclaimer: string | null;
   image_url: string | null;
   model_url: string | null;
+  face_urls: Partial<Record<FaceName, string>>;
+  box_color: string | null;
+  card_image_url: string | null;
+  box_size: Record<string, number> | null;
   aliases: { id: number; alias: string; is_generic: boolean }[];
   location: { shelf_id: string; slot_id: string } | null;
 }
@@ -423,6 +438,15 @@ function ProductEditor({ p, onSaved }: { p: Product | null; onSaved: () => void 
   });
   const [file, setFile] = useState<File | null>(null);
   const [glb, setGlb] = useState<File | null>(null);
+  const [faces, setFaces] = useState<Partial<Record<FaceName, File>>>({});
+  const [dropFaces, setDropFaces] = useState<Partial<Record<FaceName, boolean>>>({});
+  const [card, setCard] = useState<File | null>(null);
+  const [color, setColor] = useState(p?.box_color ?? "#f6f1ea");
+  const [cm, setCm] = useState({
+    w: String(p?.box_size?.cm_w ?? ""),
+    h: String(p?.box_size?.cm_h ?? ""),
+    d: String(p?.box_size?.cm_d ?? ""),
+  });
   const [dropModel, setDropModel] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const save = async (e: FormEvent) => {
@@ -443,7 +467,22 @@ function ProductEditor({ p, onSaved }: { p: Product | null; onSaved: () => void 
         fd.append("kind", "model");
         model = { model_asset_id: (await api.upload<{ id: number }>("/assets/upload", fd)).id };
       }
+      const face_assets: Partial<Record<FaceName, number | null>> = {};
+      for (const k of Object.keys(FACE_LABEL) as FaceName[]) {
+        if (faces[k]) face_assets[k] = await uploadImage(faces[k]!);
+        else if (dropFaces[k]) face_assets[k] = null;
+      }
+      const extras: Record<string, unknown> = { box_color: color };
+      if (Object.keys(face_assets).length) extras.face_assets = face_assets;
+      if (card) extras.card_image_asset_id = await uploadImage(card);
+      const [cw, ch, cd] = [Number(cm.w), Number(cm.h), Number(cm.d)];
+      if (cw > 0 && ch > 0 && cd > 0) {
+        // real proportions, shown at a readable game height
+        const k = GAME_BOX_HEIGHT / ch;
+        extras.box_size = { w: +(cw * k).toFixed(4), h: GAME_BOX_HEIGHT, d: +(cd * k).toFixed(4), cm_w: cw, cm_h: ch, cm_d: cd };
+      }
       const body = {
+        ...extras,
         sku: f.sku,
         name: f.name,
         price: f.price === "" ? null : Number(f.price),
@@ -517,6 +556,48 @@ function ProductEditor({ p, onSaved }: { p: Product | null; onSaved: () => void 
         Mô hình 3D GLB (tùy chọn, ≤ 20 MB) — nếu lỗi, game tự dùng hộp ảnh
         <input type="file" accept=".glb,model/gltf-binary" onChange={(e) => setGlb(e.target.files?.[0] ?? null)} />
       </label>
+      <fieldset className="faces">
+        <legend>Hộp sản phẩm trông thật (tùy chọn)</legend>
+        <p className="muted small">
+          Dùng ảnh thẳng, đã duyệt của từng mặt hộp (xuất từ file thiết kế in là nét nhất, hoặc tách từ ảnh 3D bằng scripts/unwarp_box.py). Mặt nào không có ảnh sẽ là màu trơn — hệ thống không tự vẽ thêm chữ.
+        </p>
+        <div className="row wrap">
+          <label>
+            Kích thước thật (cm): rộng
+            <input type="number" min={1} step={0.1} value={cm.w} onChange={(e) => setCm({ ...cm, w: e.target.value })} style={{ width: 90 }} />
+          </label>
+          <label>
+            cao
+            <input type="number" min={1} step={0.1} value={cm.h} onChange={(e) => setCm({ ...cm, h: e.target.value })} style={{ width: 90 }} />
+          </label>
+          <label>
+            dày
+            <input type="number" min={0.5} step={0.1} value={cm.d} onChange={(e) => setCm({ ...cm, d: e.target.value })} style={{ width: 90 }} />
+          </label>
+          <label>
+            Màu các mặt chưa có ảnh
+            <input type="color" value={color} onChange={(e) => setColor(e.target.value)} style={{ width: 70, padding: 2 }} />
+          </label>
+        </div>
+        {(Object.keys(FACE_LABEL) as FaceName[]).map((k) => (
+          <div key={k} className="row wrap">
+            <label className="grow">
+              {FACE_LABEL[k]}
+              {p?.face_urls?.[k] ? " (đã có ảnh)" : ""}
+              <input type="file" accept="image/png,image/jpeg,image/webp" aria-label={FACE_LABEL[k]} onChange={(e) => setFaces({ ...faces, [k]: e.target.files?.[0] })} />
+            </label>
+            {p?.face_urls?.[k] && (
+              <label className="check">
+                <input type="checkbox" checked={!!dropFaces[k]} onChange={(e) => setDropFaces({ ...dropFaces, [k]: e.target.checked })} /> Gỡ
+              </label>
+            )}
+          </div>
+        ))}
+        <label>
+          Ảnh hiện trên thẻ sản phẩm khi LIVE (ví dụ ảnh 3D/ảnh chụp đẹp){p?.card_image_url ? " — đã có" : ""}
+          <input type="file" accept="image/png,image/jpeg,image/webp" aria-label="Ảnh thẻ sản phẩm" onChange={(e) => setCard(e.target.files?.[0] ?? null)} />
+        </label>
+      </fieldset>
       {p?.model_url && (
         <label className="check">
           <input type="checkbox" checked={dropModel} onChange={(e) => setDropModel(e.target.checked)} /> Gỡ mô hình GLB hiện tại

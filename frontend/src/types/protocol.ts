@@ -28,6 +28,9 @@ export interface ProductInfo {
   currency: string;
   image_url: string | null;
   model_url?: string | null; // approved GLB; the photo box is the fallback
+  face_urls?: Partial<Record<"left" | "right" | "back" | "top" | "bottom", string>>; // approved package faces
+  box_color?: string | null; // colour of faces without a photo
+  card_image_url?: string | null; // nicer image for the on-stream product card
   box_size: { w: number; h: number; d: number };
 }
 

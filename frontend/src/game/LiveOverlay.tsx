@@ -65,7 +65,13 @@ export function LiveOverlay({ engine, safe, socketUp }: { engine: GameEngine; sa
       </div>
       {st.product && (
         <div className="product-card" data-testid="product-card" data-product-id={st.product.id}>
-          {st.product.image_url && <img src={st.product.image_url} alt={st.product.name} />}
+          {(st.product.card_image_url || st.product.image_url) && (
+            <img
+              src={st.product.card_image_url || st.product.image_url!}
+              alt={st.product.name}
+              className={st.product.card_image_url ? "card-photo" : undefined}
+            />
+          )}
           <div className="product-card-body">
             {st.nickname && <div className="product-card-who">{st.nickname} đang xem</div>}
             <div className="product-card-name">{st.product.name}</div>

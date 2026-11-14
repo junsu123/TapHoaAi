@@ -84,6 +84,7 @@ th, td { text-align: left; border-bottom: 1px solid var(--line); padding: 8px 6p
 .badge-warn { background: #fff0c2; color: #6b4b00; border: 2px solid #e5c860; }
 .product-card { margin: 0 3%; display: flex; gap: 3%; align-items: center; background: rgba(255, 255, 255, .95); border: 3px solid var(--pink); border-radius: 22px; padding: 2.2%; box-shadow: 0 8px 24px rgba(160, 60, 100, .25); animation: pop .35s ease-out; max-width: 92%; }
 .product-card img { height: clamp(60px, 13vh, 260px); aspect-ratio: 5 / 7; object-fit: cover; border-radius: 12px; }
+.product-card img.card-photo { aspect-ratio: 1 / 1; object-fit: contain; background: #fff6ea; }
 .product-card-who { font-size: clamp(11px, 1.8vh, 22px); color: var(--muted); }
 .product-card-name { font-size: clamp(16px, 3.4vh, 44px); font-weight: 800; color: var(--ink); line-height: 1.1; }
 .product-card-sku { font-size: clamp(11px, 1.7vh, 20px); color: var(--muted); }
@@ -109,3 +110,5 @@ th, td { text-align: left; border-bottom: 1px solid var(--line); padding: 8px 6p
 .policy legend { font-weight: 600; padding: 0 6px; }
 .policy label.check { align-items: flex-start; font-size: 14px; }
 code { background: #f6eef2; padding: 1px 5px; border-radius: 6px; }
+.faces { border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; display: grid; gap: 8px; }
+.faces legend { font-weight: 600; padding: 0 6px; }

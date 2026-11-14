@@ -75,6 +75,23 @@ frontend/src/
   lib/         api · ws (SequencedSocket)
 ```
 
+## Hộp sản phẩm trông như thật
+
+Dashboard → Sản phẩm → chọn sản phẩm → mục **Hộp sản phẩm trông thật**:
+
+1. Nhập kích thước thật (cm), ví dụ 12 × 17 × 5,2.
+2. "Ảnh chính" là mặt trước hộp; tải thêm ảnh mặt trái/phải/sau/nắp nếu có.
+3. Chọn màu nền cho các mặt chưa có ảnh.
+4. "Ảnh thẻ sản phẩm" là ảnh hiện trên thẻ khi Chibi giới thiệu (ảnh 3D mockup rất hợp).
+
+Ảnh đẹp nhất là file thiết kế in của từng mặt. Nếu chỉ có ảnh mockup 3D, cắt ra ảnh phẳng:
+
+```
+python scripts/unwarp_box.py mockup.jpg --front x1 y1 x2 y2 x3 y3 x4 y4 --left ... --size 12x17x5.2 --out faces
+```
+
+Toạ độ là 4 góc của mặt đó trên ảnh (trên-trái, trên-phải, dưới-phải, dưới-trái), đọc bằng Paint hoặc bất kỳ trình xem ảnh nào.
+
 ## Kết nối TikTok LIVE
 
 Dashboard → **Kết nối TikTok** → dán link LIVE (hoặc link `vm.tiktok.com`) → đánh dấu danh sách chính sách → **Kết nối**. Trước khi dùng cho buổi bán hàng, làm bài thử 9 bước trong [`docs/provider-limitations.md`](docs/provider-limitations.md) — trong đó có tóm tắt giấy phép TikTokLive (dùng cho cửa hàng của bạn được; **không** đem làm dịch vụ SaaS cho người khác) và việc tên tài khoản LIVE được gửi tới máy chủ ký Euler Stream.

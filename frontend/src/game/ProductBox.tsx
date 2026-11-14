@@ -1,15 +1,15 @@
 // Product box (SPEC H2): the FRONT face shows exactly the approved photo; every other face
 // is a neutral colour — we never invent back-of-pack text, ingredients or logos.
 
-import { useContext, useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import * as THREE from "three";
+import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import type { ProductInfo } from "../types/protocol";
-import { BOX_EDGES, EDGE_MAT, GEO, RenderContext } from "./palette";
+import { RenderContext } from "./palette";
 
 const loader = new THREE.TextureLoader();
 const texCache = new Map<string, Promise<THREE.Texture>>();
-const NEUTRAL = new THREE.MeshToonMaterial({ color: "#f6f1ea" });
 
 export function loadTexture(url: string): Promise<THREE.Texture> {
   let p = texCache.get(url);
@@ -23,8 +23,6 @@ export function loadTexture(url: string): Promise<THREE.Texture> {
   }
   return p;
 }
-
-const frontCache = new Map<string, THREE.Material>();
 
 function placeholderTexture(name: string): THREE.Texture {
   const c = document.createElement("canvas");
@@ -44,34 +42,66 @@ function placeholderTexture(name: string): THREE.Texture {
   return t;
 }
 
-export function useFrontMaterial(product: ProductInfo | undefined): THREE.Material {
-  const key = product ? `${product.id}|${product.image_url}` : "none";
-  const [mat, setMat] = useState<THREE.Material>(() => frontCache.get(key) ?? NEUTRAL);
+// ---------------------------------------------------------------- realistic package box
+// BoxGeometry material order: +x (right), −x (left), +y (top), −y (bottom), +z (front), −z (back)
+const FACE_ORDER = ["right", "left", "top", "bottom", "front", "back"] as const;
+type Face = (typeof FACE_ORDER)[number];
+const DEFAULT_BOX_COLOR = "#f6f1ea";
+
+/** Lit, slightly satin card-board: reacts to the scene lights like a real printed box. */
+function cardboard(map: THREE.Texture | null, color: string): THREE.MeshStandardMaterial {
+  return new THREE.MeshStandardMaterial({ map, color: map ? "#ffffff" : color, roughness: 0.5, metalness: 0 });
+}
+
+const boxMatCache = new Map<string, THREE.Material[]>();
+
+function faceUrl(product: ProductInfo, face: Face): string | null {
+  if (face === "front") return product.image_url ?? null;
+  return product.face_urls?.[face] ?? null;
+}
+
+/** Six materials for the product box: approved photos where given, the box colour elsewhere.
+ *  Never invents package content: a face without an approved photo is plain colour. */
+export function useBoxMaterials(product: ProductInfo | undefined): THREE.Material[] {
+  const color = product?.box_color || DEFAULT_BOX_COLOR;
+  const key = product ? [product.id, color, ...FACE_ORDER.map((f) => faceUrl(product, f) ?? "-")].join("|") : "none";
+  const [mats, setMats] = useState<THREE.Material[]>(() => boxMatCache.get(key) ?? FACE_ORDER.map(() => cardboard(null, color)));
   useEffect(() => {
     if (!product) return;
-    const hit = frontCache.get(key);
+    const hit = boxMatCache.get(key);
     if (hit) {
-      setMat(hit);
+      setMats(hit);
       return;
     }
     let alive = true;
-    const done = (tex: THREE.Texture) => {
-      const m = new THREE.MeshBasicMaterial({ map: tex, toneMapped: false });
-      frontCache.set(key, m);
-      if (alive) setMat(m);
-    };
-    if (product.image_url) loadTexture(product.image_url).then(done, () => done(placeholderTexture(product.name)));
-    else done(placeholderTexture(product.name));
+    Promise.all(
+      FACE_ORDER.map((f) => {
+        const url = faceUrl(product, f);
+        if (!url) return Promise.resolve(f === "front" ? placeholderTexture(product.name) : null);
+        return loadTexture(url).catch(() => (f === "front" ? placeholderTexture(product.name) : null));
+      }),
+    ).then((textures) => {
+      const built = textures.map((t) => cardboard(t, color));
+      boxMatCache.set(key, built);
+      if (alive) setMats(built);
+    });
     return () => {
       alive = false;
     };
-  }, [key, product]);
-  return mat;
+  }, [key, product, color]);
+  return mats;
 }
 
-export function boxMaterials(front: THREE.Material): THREE.Material[] {
-  // BoxGeometry face order: +x, −x, +y, −y, +z (front), −z
-  return [NEUTRAL, NEUTRAL, NEUTRAL, NEUTRAL, front, NEUTRAL];
+const roundedCache = new Map<string, THREE.BufferGeometry>();
+/** Real boxes have softly folded edges; a 3–4 mm radius at real scale reads as cardboard. */
+function roundedBox(w: number, h: number, d: number): THREE.BufferGeometry {
+  const key = `${w}|${h}|${d}`;
+  let g = roundedCache.get(key);
+  if (!g) {
+    g = new RoundedBoxGeometry(w, h, d, 3, Math.min(w, h, d) * 0.07);
+    roundedCache.set(key, g);
+  }
+  return g;
 }
 
 // ---------------------------------------------------------------- GLB models (GAME-06)
@@ -121,10 +151,9 @@ function fittedClone(src: THREE.Object3D, size: { w: number; h: number; d: numbe
  * when there is one, otherwise (or while loading / if it fails) the photo box.
  */
 export function ProductVisual({ product }: { product: ProductInfo }) {
-  const { outlines, shadows } = useContext(RenderContext);
+  const { shadows } = useContext(RenderContext);
   const [model, setModel] = useState<THREE.Object3D | null>(null);
-  const front = useFrontMaterial(product);
-  const mats = useMemo(() => boxMaterials(front), [front]);
+  const mats = useBoxMaterials(product);
   const url = product.model_url ?? null;
   useEffect(() => {
     setModel(null);
@@ -140,12 +169,7 @@ export function ProductVisual({ product }: { product: ProductInfo }) {
   }, [url, product.box_size]);
   if (model) return <primitive object={model} />;
   const s = product.box_size;
-  return (
-    <group scale={[s.w, s.h, s.d]}>
-      <mesh geometry={GEO.box} material={mats} castShadow={shadows} />
-      {outlines && <lineSegments geometry={BOX_EDGES} material={EDGE_MAT} />}
-    </group>
-  );
+  return <mesh geometry={roundedBox(s.w, s.h, s.d)} material={mats} castShadow={shadows} receiveShadow={shadows} />;
 }
 
 export function ProductBoxMesh({ product, position }: { product: ProductInfo; position?: [number, number, number] }) {

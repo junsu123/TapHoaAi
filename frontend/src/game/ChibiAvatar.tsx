@@ -136,7 +136,9 @@ export function ChibiAvatar({ ctl, products, focusedId }: { ctl: AvatarControlle
       tmp.set(held.slot.x, held.slot.y + s.h / 2 + 0.025, held.slot.z);
       const k = ease(held.t);
       box.position.lerpVectors(tmp, tmpHand, k);
-      box.rotation.set(0, held.mode === "inHand" ? ctl.yaw : THREE.MathUtils.lerp(0, ctl.yaw, k), 0);
+      // while presenting, turn the box gently left and right so viewers see its sides too
+      const sway = st === "show" ? Math.sin(t * 0.9) * 0.45 : 0;
+      box.rotation.set(0, (held.mode === "inHand" ? ctl.yaw : THREE.MathUtils.lerp(0, ctl.yaw, k)) + sway, 0);
       box.visible = true;
     } else {
       box.visible = false;
