@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { api, ApiError, formatVnd, setCsrf } from "../lib/api";
+import { BOX_FACE_LABEL, PdfFacePicker, type RenderedFaces } from "./PdfFacePicker";
 import { ShelfEditor } from "./ShelfEditor";
 import { useDashboardFeed, type CommentRecord, type HostItem, type LiveStatus, type Metrics } from "./useDashboardFeed";
 
@@ -395,8 +396,8 @@ function HostPage({ comments, host, aiPaused, setAiPaused }: { comments: Comment
   );
 }
 
-type FaceName = "left" | "right" | "back" | "top";
-const FACE_LABEL: Record<FaceName, string> = { left: "Mặt bên trái", right: "Mặt bên phải", back: "Mặt sau", top: "Nắp trên" };
+type FaceName = "left" | "right" | "back" | "top" | "bottom";
+const FACE_LABEL: Record<FaceName, string> = { left: "Mặt bên trái", right: "Mặt bên phải", back: "Mặt sau", top: "Nắp trên", bottom: "Đáy" };
 const GAME_BOX_HEIGHT = 0.28; // m — boxes are shown a bit larger than life so viewers can read them
 
 async function uploadImage(file: File): Promise<number> {
@@ -448,12 +449,14 @@ function ProductEditor({ p, onSaved }: { p: Product | null; onSaved: () => void 
     d: String(p?.box_size?.cm_d ?? ""),
   });
   const [dropModel, setDropModel] = useState(false);
+  const [pdfFaces, setPdfFaces] = useState<RenderedFaces>({});
+  const [picker, setPicker] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const save = async (e: FormEvent) => {
     e.preventDefault();
     setErr(null);
     try {
-      let image_asset_id: number | undefined;
+      let image_asset_id: number | undefined = pdfFaces.front?.id;
       if (file) {
         const fd = new FormData();
         fd.append("file", file);
@@ -470,6 +473,7 @@ function ProductEditor({ p, onSaved }: { p: Product | null; onSaved: () => void 
       const face_assets: Partial<Record<FaceName, number | null>> = {};
       for (const k of Object.keys(FACE_LABEL) as FaceName[]) {
         if (faces[k]) face_assets[k] = await uploadImage(faces[k]!);
+        else if (pdfFaces[k]) face_assets[k] = pdfFaces[k]!.id;
         else if (dropFaces[k]) face_assets[k] = null;
       }
       const extras: Record<string, unknown> = { box_color: color };
@@ -561,6 +565,24 @@ function ProductEditor({ p, onSaved }: { p: Product | null; onSaved: () => void 
         <p className="muted small">
           Dùng ảnh thẳng, đã duyệt của từng mặt hộp (xuất từ file thiết kế in là nét nhất, hoặc tách từ ảnh 3D bằng scripts/unwarp_box.py). Mặt nào không có ảnh sẽ là màu trơn — hệ thống không tự vẽ thêm chữ.
         </p>
+        <div className="pdf-cta">
+          <button type="button" className="primary" onClick={() => setPicker(true)}>
+            📄 Lấy tất cả các mặt từ file in PDF…
+          </button>
+          <span className="muted small">File thiết kế gửi nhà in (bản trải phẳng của hộp) cho ảnh nét nhất.</span>
+        </div>
+        {Object.keys(pdfFaces).length > 0 && (
+          <div className="pdf-faces" data-testid="pdf-faces-ready">
+            {(Object.keys(pdfFaces) as (keyof RenderedFaces)[]).map((k) => (
+              <figure key={k}>
+                <img src={pdfFaces[k]!.url} alt={BOX_FACE_LABEL[k]} />
+                <figcaption>{BOX_FACE_LABEL[k]}</figcaption>
+              </figure>
+            ))}
+            <p className="small">Đã lấy {Object.keys(pdfFaces).length} mặt từ file PDF — bấm <b>Lưu</b> để áp dụng.</p>
+          </div>
+        )}
+        {picker && <PdfFacePicker cm={cm} setCm={setCm} boxColor={color} onApply={setPdfFaces} onClose={() => setPicker(false)} />}
         <div className="row wrap">
           <label>
             Kích thước thật (cm): rộng

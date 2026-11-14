@@ -343,3 +343,43 @@ test("M3 connect page: real TikTok attempt never shows a fake connection; failur
   await page.getByRole("button", { name: "Ngắt kết nối" }).click();
   await expect(pill).toContainText("Chưa kết nối");
 });
+
+test("Product faces from a print PDF: frames on the dieline, 3D preview, saved to the game", async ({ page, context }) => {
+  const csrf = await login(page.request);
+  await page.setViewportSize({ width: 1360, height: 950 });
+  await page.goto("/dashboard/products");
+  await page.locator("tr", { hasText: "Cà gai leo" }).first().getByRole("button", { name: "Sửa" }).click();
+  await page.getByRole("button", { name: /Lấy tất cả các mặt từ file in PDF/ }).click();
+  await page.getByLabel("Rộng (cm)").fill("12");
+  await page.getByLabel("Cao (cm)").fill("17");
+  await page.getByLabel("Dày (cm)").fill("5.2");
+  await page.getByLabel("File in PDF", { exact: true }).setInputFiles("tests/e2e/fixtures/dieline-sample.pdf");
+  for (const f of ["front", "back", "left", "right", "top", "bottom"]) await expect(page.getByTestId(`frame-${f}`)).toBeVisible();
+  // the first guess lands on the printed panels: the front frame covers the green panel
+  await expect
+    .poll(async () => {
+      const fb = (await page.getByTestId("frame-front").boundingBox())!;
+      const lb = (await page.getByTestId("frame-left").boundingBox())!;
+      return Math.abs(lb.x + lb.width - fb.x);
+    })
+    .toBeLessThan(1.5);
+  await page.screenshot({ path: `${SHOTS}/PDF-face-picker.png` });
+  await page.getByRole("button", { name: "Cắt ảnh các mặt đã chọn" }).click();
+  await expect(page.getByTestId("box-preview-3d")).toBeVisible({ timeout: 30_000 });
+  await page.waitForTimeout(1500);
+  await page.screenshot({ path: `${SHOTS}/PDF-face-preview-3d.png` });
+  await page.getByRole("button", { name: "Dùng các mặt này" }).click();
+  await expect(page.getByTestId("pdf-faces-ready")).toContainText("Đã lấy 6 mặt");
+  await page.getByRole("button", { name: "Lưu", exact: true }).click();
+  await expect(page.getByTestId("pdf-faces-ready")).toHaveCount(0);
+
+  const p = await (await page.request.get("/api/v1/products/TRA_CA_GAI_LEO", { headers: { "X-CSRF-Token": csrf } })).json();
+  expect(p.image_url).toMatch(/\.jpg$/);
+  expect(Object.keys(p.face_urls).sort()).toEqual(["back", "bottom", "left", "right", "top"]);
+  // the game really loads the new package faces for the shelf box
+  const game = await context.newPage();
+  const backFace = game.waitForResponse((r) => r.url().endsWith(p.face_urls.back) && r.ok());
+  await game.goto("/game/live?debug=1&quality=low&role=viewer");
+  await backFace;
+  await game.close();
+});

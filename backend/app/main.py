@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api.v1 import admin_ops, auth, catalog, live, system
+from app.api.v1 import admin_ops, auth, catalog, live, pdf_import, system
 from app.config import Settings, get_settings
 from app.container import AppContainer
 from app.security.ratelimit import LoginLockout, SlidingWindowLimiter
@@ -64,7 +64,7 @@ def create_app(settings: Settings | None = None, container: AppContainer | None 
                                        "field": ".".join(str(x) for x in first.get("loc", []))}},
                             status_code=422)
 
-    for r in (auth.router, live.router, catalog.router, system.router, admin_ops.router):
+    for r in (auth.router, live.router, catalog.router, pdf_import.router, system.router, admin_ops.router):
         app.include_router(r, prefix="/api/v1")
     app.include_router(ws_routes.router)
 

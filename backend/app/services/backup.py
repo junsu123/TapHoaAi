@@ -22,7 +22,7 @@ from pathlib import Path
 FORMAT = 1
 MANIFEST = "manifest.json"
 DB_NAME = "chibi.db"
-_MEDIA_NAME = re.compile(r"^media/[0-9a-f]{2}/[0-9a-f]{64}\.(png|glb)$")
+_MEDIA_NAME = re.compile(r"^media/[0-9a-f]{2}/[0-9a-f]{64}\.(png|jpg|glb)$")
 MAX_TOTAL_BYTES = 2 * 1024**3
 
 

@@ -84,7 +84,20 @@ Dashboard → Sản phẩm → chọn sản phẩm → mục **Hộp sản phẩ
 3. Chọn màu nền cho các mặt chưa có ảnh.
 4. "Ảnh thẻ sản phẩm" là ảnh hiện trên thẻ khi Chibi giới thiệu (ảnh 3D mockup rất hợp).
 
-Ảnh đẹp nhất là file thiết kế in của từng mặt. Nếu chỉ có ảnh mockup 3D, cắt ra ảnh phẳng:
+### Lấy tất cả các mặt từ file in PDF (khuyên dùng)
+
+Bấm **📄 Lấy tất cả các mặt từ file in PDF…**, nhập kích thước thật (cm) rồi chọn file PDF đã gửi nhà in (≤ 80 MB, ≤ 30 trang):
+
+- File trải phẳng (dieline) một trang: phần mềm đặt sẵn 6 khung màu đúng cỡ thật theo kiểu hộp phổ biến (trái–trước–phải–sau, nắp trên phía trên mặt trước, đáy phía dưới). Kéo khung vào đúng mặt nếu file của bạn xếp khác; khung tự hít vào mép khung bên cạnh, phím mũi tên để nhích từng chút.
+- File mỗi mặt một trang: phần mềm tự ghép trang với mặt theo kích thước.
+- Mặt in nằm ngang hoặc ngược: bấm ⟳ đến khi ảnh nhỏ bên phải đứng thẳng.
+- Bấm **Cắt ảnh các mặt đã chọn** → xem hộp 3D (kéo để xoay) → **Dùng các mặt này** → **Lưu**.
+
+File PDF chỉ lưu trong `data/pdf_imports` (không công khai qua `/media`) và tự xóa sau 7 ngày. Màu của file in hệ CMYK được đổi sang màn hình nên có thể lệch nhẹ so với hộp in.
+
+### Chỉ có ảnh mockup 3D
+
+Cắt ra ảnh phẳng:
 
 ```
 python scripts/unwarp_box.py mockup.jpg --front x1 y1 x2 y2 x3 y3 x4 y4 --left ... --size 12x17x5.2 --out faces

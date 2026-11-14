@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.0 — 2026-11-14 — Lấy mặt hộp từ file in PDF
+
+- Mục Sản phẩm: tải file in PDF (bản trải phẳng hoặc mỗi mặt một trang), phần mềm đặt sẵn khung 6 mặt đúng kích thước thật; kéo, nhích, xoay khung, khung tự hít mép nhau.
+- Máy chủ cắt từng mặt ở độ nét cao (tới 1536 px, ≤ 600 dpi) bằng PDFium (`pypdfium2`, BSD-3/Apache-2.0).
+- Xem trước hộp 3D xoay được trước khi lưu; thêm ảnh mặt đáy.
+- File PDF không công khai, tự xóa sau 7 ngày; ảnh mặt hộp (.jpg) có trong bản sao lưu.
+
 ## 0.5.0 — 2026-11-14 — Hộp sản phẩm trông như thật
 
 - Mỗi sản phẩm có ảnh riêng cho từng mặt hộp (trước, sau, trái, phải, nắp); mặt chưa có ảnh dùng màu nền chọn trên dashboard, không tự vẽ thêm nội dung bao bì.

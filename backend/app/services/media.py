@@ -67,6 +67,11 @@ def store_image(media_dir: Path, data: bytes) -> StoredMedia:
     return _store(media_dir, out.getvalue(), "png", "image", "image/png")
 
 
+def store_generated_jpeg(media_dir: Path, data: bytes) -> StoredMedia:
+    """A JPEG the server rendered itself (e.g. a box face from a print PDF)."""
+    return _store(media_dir, data, "jpg", "image", "image/jpeg")
+
+
 def store_glb(media_dir: Path, data: bytes) -> StoredMedia:
     if len(data) > MAX_GLB_BYTES:
         raise MediaError("too_large", "File GLB vượt quá 20 MB.")
