@@ -193,3 +193,11 @@ button.link { background: none; border: none; padding: 0 4px; cursor: pointer; c
 .conv-table th, .conv-table td { border-bottom: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top; }
 .conv-table th { font-size: 13px; color: #7a6470; font-weight: 600; }
 a.button { display: inline-block; padding: 6px 12px; border: 1px solid var(--line); border-radius: 10px; text-decoration: none; color: inherit; background: #fff; }
+
+/* autopilot switch */
+.autopilot-toggle { display: flex; align-items: center; gap: 12px; text-align: left; padding: 10px 14px; border-radius: 14px; border: 2px solid var(--line); background: #fff; cursor: pointer; width: 100%; }
+.autopilot-toggle b { display: block; font-size: 16px; }
+.autopilot-toggle .small { color: #7a6470; }
+.autopilot-toggle .ap-icon { font-size: 28px; filter: grayscale(1); opacity: .6; }
+.autopilot-toggle.on { border-color: #2f9e62; background: #eafaf0; }
+.autopilot-toggle.on .ap-icon { filter: none; opacity: 1; }

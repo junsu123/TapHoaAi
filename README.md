@@ -123,6 +123,20 @@ Khi LIVE, trang **Người trực & Demo**:
 
 An toàn: bình luận là dữ liệu, không phải lệnh cho AI; tên khách không gửi lên Claude; AI chỉ chọn mã sản phẩm trong danh mục; câu nói về bệnh/chữa trị, giá không có trong danh mục, hoặc AI không chắc chắn **không bao giờ tự đọc**. Hết hạn mức: game vẫn chạy, câu hỏi giá dùng câu mẫu lấy từ danh mục. Chi phí ước tính với Haiku 5.5: khoảng 0,02 cent mỗi câu hỏi.
 
+### 🤖 Tự động hoàn toàn
+
+Nút lớn ở đầu trang **Người trực & Demo** (cần đã đánh dấu danh sách chính sách và nhập Vbee). Khi BẬT, phần mềm tự đọc bình luận và trả lời, không chờ người trực:
+
+| Bình luận | Phần mềm làm gì | Gọi Claude? |
+|---|---|---|
+| Câu hỏi (“giá bao nhiêu?”, “ship không?”) | Đọc câu hỏi → đọc câu trả lời (câu đã học / giá trong danh mục / Claude) | Chỉ khi chưa có sẵn câu trả lời |
+| Gọi tên sản phẩm (“trà cà gai leo”) | “Bạn … đang xem …, giá …” (chỉ đọc giá đã xác nhận; cùng sản phẩm không nhắc lại trong 45 giây) | Không |
+| Chào (“chào shop”, “hello”) | Chào lại bằng câu mẫu, lần lượt từng câu | Không |
+| Bình luận thường (“live vui quá”) | Claude trả lời; chỉ khi câu trả lời an toàn mới đọc cả bình luận lẫn câu trả lời | Có |
+| Spam, từ cấm | Không đọc | Không |
+
+Vẫn giữ nguyên an toàn: câu nói về bệnh/chữa trị, giá lạ, câu Claude không chắc chắn → chờ người trực. LIVE đông: câu hỏi luôn được ưu tiên; khi đã có 3 câu chờ đọc (chỉnh được) thì bỏ qua lời chào và bình luận thường; mỗi khách được chào/trả lời trò chuyện tối đa 1 lần mỗi phút. **F9** vẫn tắt giọng ngay; **Space** để nói chen.
+
 ### Hội thoại & câu đã học
 
 - Mọi câu hỏi trong LIVE được lưu: lúc nào, khách nào, câu hỏi (đã bỏ số điện thoại/liên kết), gợi ý, câu trả lời cuối, ai trả lời (Claude / người trực / câu đã học / câu mẫu), đã đọc chưa, chi phí. Xem và tải CSV (mở bằng Excel) ở **Hội thoại & câu đã học → Lịch sử hội thoại LIVE**. Tên khách tự xóa sau `CHIBI_EVENT_RETENTION_DAYS` ngày (mặc định 7), câu hỏi/câu trả lời giữ lại để học.

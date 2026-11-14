@@ -30,8 +30,11 @@ log = logging.getLogger("chibi.voice")
 STALE_SECONDS = 90.0
 CHARS_PER_SECOND = 12.0  # Vietnamese TTS at speed 1.0, a little slow on purpose (timeout only)
 CACHE_KEEP_DAYS = 3
-Kind = Literal["question", "answer", "test"]
-LABELS = {"question": "Câu hỏi của khách", "answer": "Trợ lý AI", "test": "Thử giọng"}
+Kind = Literal["question", "answer", "test", "comment", "greeting", "product"]
+LABELS = {"question": "Câu hỏi của khách", "answer": "Trợ lý AI", "test": "Thử giọng", "comment": "Bình luận của khách",
+          "greeting": "Trợ lý AI", "product": "Trợ lý AI"}
+# lower plays first; an answer still waits for the reading of its own question (same ref)
+PRIORITY = {"answer": 0, "test": 0, "question": 1, "comment": 1, "product": 2, "greeting": 3}
 
 
 @dataclass
@@ -123,13 +126,30 @@ class SpeechQueue:
         tmp.replace(p)
         return f"/tts/{p.name}"
 
-    def enqueue(self, kind: Kind, text: str, ref: str | None = None) -> Clip | None:
-        """Queue a clip now (keeps the order of calls) and make its audio in the background.
-        None when the voice is muted. `clip.task` finishes when the audio is ready or failed."""
-        if self.muted:
+    def pending(self) -> int:
+        return len(self.queue) + (1 if self.current else 0)
+
+    def enqueue(self, kind: Kind, text: str, ref: str | None = None, *, droppable: bool = False,
+                busy_limit: int = 3) -> Clip | None:
+        """Queue a clip now and make its audio in the background. Higher-priority kinds go first,
+        but a clip never jumps ahead of an earlier clip with the same ref (question → its answer).
+        None when muted, or when `droppable` and `busy_limit` clips are already waiting (a busy
+        LIVE drops greetings/chat rather than falling behind). `clip.task` finishes when the
+        audio is ready or failed."""
+        if self.muted or (droppable and self.pending() >= busy_limit):
             return None
         clip = Clip(id=f"s{next(self._ids)}", kind=kind, text=text, ref=ref)
-        self.queue.append(clip)
+        prio = PRIORITY[kind]
+        idx = len(self.queue)
+        for i, other in enumerate(self.queue):
+            if PRIORITY[other.kind] > prio:
+                idx = i
+                break
+        if ref is not None:
+            for i, other in enumerate(self.queue):
+                if other.ref == ref and i >= idx:
+                    idx = i + 1
+        self.queue.insert(idx, clip)
         self._publish()
         clip.task = asyncio.create_task(self._render_clip(clip))
         return clip

@@ -25,6 +25,14 @@ export interface AiConfig {
   simple_auto_speak: boolean;
   learn_enabled: boolean;
   memory_threshold: number;
+  autopilot: boolean;
+  auto_greet: boolean;
+  auto_product: boolean;
+  auto_chat: boolean;
+  busy_limit: number;
+  greet_templates: string[];
+  product_template: string;
+  chat_template: string;
 }
 
 export interface AiStatus {
@@ -35,6 +43,7 @@ export interface AiStatus {
   voice_ready: boolean;
   voice_reason: string;
   answer_mode: "approve" | "auto";
+  autopilot: boolean;
   last_error: string | null;
   fake: boolean;
 }
@@ -61,6 +70,27 @@ function Field({ label, children, hint }: { label: string; children: ReactNode; 
       {children}
       {hint && <span className="muted small">{hint}</span>}
     </label>
+  );
+}
+
+/** A list edited as lines; empty lines are dropped only when the field loses focus. */
+function LinesInput({ value, onChange, label, rows, placeholder, commas = false }: { value: string[]; onChange: (v: string[]) => void; label: string; rows: number; placeholder?: string; commas?: boolean }) {
+  const [text, setText] = useState(value.join("\n"));
+  useEffect(() => {
+    setText((t) => (t.split("\n").map((x) => x.trim()).filter(Boolean).join("\n") === value.join("\n") ? t : value.join("\n")));
+  }, [value]);
+  return (
+    <textarea
+      rows={rows}
+      value={text}
+      placeholder={placeholder}
+      aria-label={label}
+      onChange={(e) => {
+        setText(e.target.value);
+        onChange(e.target.value.split(commas ? /\n|,/ : "\n").map((x) => x.trim()).filter(Boolean));
+      }}
+      onBlur={() => setText(value.join("\n"))}
+    />
   );
 }
 
@@ -206,7 +236,7 @@ export function AiSettingsPage() {
               <textarea rows={5} value={cfg.shop_facts} onChange={(e) => set("shop_facts", e.target.value)} aria-label="Thông tin chung của shop" placeholder={"Ship toàn quốc 2–4 ngày, phí ship 30.000 đồng, miễn phí từ 2 hộp.\nNhận hàng rồi thanh toán (COD) hoặc chuyển khoản.\nĐổi trả trong 7 ngày nếu hàng lỗi."} />
             </Field>
             <Field label="Từ cấm (mỗi dòng một từ)" hint="Bình luận có từ cấm không bao giờ được đọc to.">
-              <textarea rows={3} value={cfg.banned_words.join("\n")} onChange={(e) => set("banned_words", e.target.value.split(/\n|,/).map((w) => w.trim()).filter(Boolean))} aria-label="Từ cấm" />
+              <LinesInput rows={3} commas value={cfg.banned_words} onChange={(v) => set("banned_words", v)} label="Từ cấm" />
             </Field>
             <div className="row wrap">
               <button onClick={testClaude} disabled={!!busy}>
@@ -262,6 +292,42 @@ export function AiSettingsPage() {
                 </button>
               </div>
               {audioUrl && <audio src={audioUrl} controls autoPlay data-testid="voice-test-audio" />}
+            </div>
+          </div>
+
+          <div className="card">
+            <h2>🤖 Tự động hoàn toàn</h2>
+            <div className="stack">
+              <label className="check big">
+                <input type="checkbox" checked={cfg.autopilot} disabled={!allPolicy} onChange={(e) => set("autopilot", e.target.checked)} aria-label="Tự động hoàn toàn" />
+                <span>
+                  <b>Tự đọc bình luận và trả lời, không chờ người trực</b> — bật/tắt nhanh ở trang Người trực. Câu nói về bệnh/chữa trị, giá lạ, câu AI không chắc chắn vẫn chờ người trực.
+                </span>
+              </label>
+              <label className="check">
+                <input type="checkbox" checked={cfg.auto_greet} onChange={(e) => set("auto_greet", e.target.checked)} aria-label="Chào lại khách" />
+                Chào lại khách chào shop (câu mẫu, không gọi Claude)
+              </label>
+              <label className="check">
+                <input type="checkbox" checked={cfg.auto_product} onChange={(e) => set("auto_product", e.target.checked)} aria-label="Đọc sản phẩm khách gọi" />
+                Khách gọi tên sản phẩm → “Bạn … đang xem …, giá …” (giá đã xác nhận, không gọi Claude)
+              </label>
+              <label className="check">
+                <input type="checkbox" checked={cfg.auto_chat} onChange={(e) => set("auto_chat", e.target.checked)} aria-label="Trả lời bình luận thường" />
+                Bình luận thường (khen, trò chuyện) → Claude trả lời; chỉ đọc khi có câu trả lời an toàn
+              </label>
+              <Field label="Câu chào (mỗi dòng một câu, đọc lần lượt)" hint="{ten} = tên khách, {shop} = tên shop.">
+                <LinesInput rows={3} value={cfg.greet_templates} onChange={(v) => set("greet_templates", v)} label="Câu chào" />
+              </Field>
+              <Field label="Câu đọc khi khách gọi sản phẩm" hint="{ten}, {san_pham}, {gia}. Sản phẩm chưa xác nhận giá thì không đọc giá.">
+                <input value={cfg.product_template} onChange={(e) => set("product_template", e.target.value)} aria-label="Câu sản phẩm" />
+              </Field>
+              <Field label="Câu đọc bình luận thường" hint="{ten}, {binh_luan}.">
+                <input value={cfg.chat_template} onChange={(e) => set("chat_template", e.target.value)} aria-label="Câu bình luận" />
+              </Field>
+              <Field label={`LIVE đông: bỏ qua lời chào/bình luận thường khi đã có ${cfg.busy_limit} câu chờ đọc`} hint="Câu hỏi của khách không bao giờ bị bỏ vì lý do này. Mỗi khách được chào/trả lời trò chuyện tối đa 1 lần mỗi phút.">
+                <input type="range" min={1} max={8} step={1} value={cfg.busy_limit} onChange={(e) => set("busy_limit", Number(e.target.value))} aria-label="Giới hạn hàng chờ" />
+              </Field>
             </div>
           </div>
 

@@ -108,7 +108,7 @@ export function LiveOverlay({
             data-kind={speech.clip.kind}
           >
             <span className="speech-label">
-              {speech.clip.kind === "answer" ? "🤖" : "🔊"} {speech.clip.label}
+              {speech.clip.label === "Trợ lý AI" ? "🤖" : "🔊"} {speech.clip.label}
             </span>
             <span className="speech-text">{speech.clip.text}</span>
           </div>

@@ -81,7 +81,7 @@ export interface GameSnapshot {
 
 export interface SpeechClip {
   id: string;
-  kind: "question" | "answer" | "test";
+  kind: "question" | "answer" | "test" | "comment" | "greeting" | "product";
   label: string;
   text: string;
   url: string | null;

@@ -57,6 +57,19 @@ class AiConfig(BaseModel):
     simple_auto_speak: bool = True  # …and is read at once (it was confirmed by a person before)
     learn_enabled: bool = True  # remember answers a person confirmed (and auto answers, as "chờ duyệt")
     memory_threshold: float = Field(0.75, ge=0.5, le=1.0)
+    # --- "Tự động hoàn toàn": read comments and answer without the host --------------------------
+    autopilot: bool = False
+    auto_greet: bool = True  # greetings → a short greeting template (no Claude)
+    auto_product: bool = True  # product-name comments → "Bạn … đang xem …, giá …" (no Claude)
+    auto_chat: bool = True  # other comments → Claude; read only together with a safe reply
+    busy_limit: int = Field(3, ge=1, le=10)  # clips waiting before greetings/chat are skipped
+    greet_templates: list[str] = Field(default_factory=lambda: [
+        "Chào bạn {ten}, cảm ơn bạn đã ghé LIVE của {shop} ạ!",
+        "{ten} ơi, shop chào bạn nha, cần gì cứ hỏi shop ạ!",
+        "Chào {ten}, chúc bạn xem LIVE vui vẻ ạ!",
+    ], max_length=10)
+    product_template: str = Field("Bạn {ten} đang xem {san_pham}, giá {gia} ạ.", max_length=160)
+    chat_template: str = Field("Bạn {ten} nói: {binh_luan}", max_length=120)
 
 
 def load_config(c: AppContainer) -> AiConfig:

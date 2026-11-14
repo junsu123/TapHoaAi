@@ -491,3 +491,46 @@ test("Learning: an answer the host confirmed is reused for a similar question wi
   await page.request.put("/api/v1/settings/ai", { data: { config: { ...cfg, voice_enabled: false } }, headers: { "X-CSRF-Token": csrf } });
   await game.close();
 });
+
+test("Autopilot: one switch reads comments and answers them without the host", async ({ page, context }) => {
+  const csrf = await login(page.request);
+  const s = await (await page.request.get("/api/v1/settings/ai")).json();
+  const cfg = { ...s.config, voice_policy_confirmed: true, voice_enabled: true, autopilot: false, simple_auto: true };
+  await page.request.put("/api/v1/settings/ai", { data: { config: cfg }, headers: { "X-CSRF-Token": csrf } });
+  await page.request.post("/api/v1/voice/unmute", { headers: { "X-CSRF-Token": csrf } });
+  const game = await context.newPage();
+  await game.setViewportSize({ width: 540, height: 960 });
+  await game.goto("/game/live?debug=1&quality=low");
+  await game.waitForFunction(() => (window as any).__chibiDebug?.state().layoutVersion > 0);
+  const caption = game.getByTestId("speech-caption");
+
+  await page.setViewportSize({ width: 1360, height: 1000 });
+  await page.goto("/dashboard/host");
+  const toggle = page.getByTestId("autopilot-toggle");
+  await expect(toggle).toContainText("TẮT");
+  await toggle.click();
+  await expect(toggle).toContainText("BẬT");
+
+  await inject(page, csrf, `@chao${RUN}: chào shop nha`);
+  await expect(caption).toContainText(`chao${RUN}`, { timeout: 20_000 });
+  await expect(caption).toContainText("Trợ lý AI");
+  await game.screenshot({ path: `${SHOTS}/AUTO-greeting.png` });
+
+  await inject(page, csrf, `@xem${RUN}: trà ba kích`);
+  await expect(caption).toContainText("đang xem", { timeout: 20_000 });
+
+  await inject(page, csrf, `@hoi${RUN}: trà ba kích giá bao nhiêu vậy`);
+  const item = page.getByTestId("host-item").filter({ hasText: `hoi${RUN}` }).first();
+  await expect(item).toHaveAttribute("data-status", "Đã trả lời tự động", { timeout: 20_000 });
+  await expect(caption).toHaveAttribute("data-kind", "answer", { timeout: 25_000 });
+  await page.screenshot({ path: `${SHOTS}/AUTO-host.png`, fullPage: true });
+  // every comment once (regression: demo event ids repeated across sessions)
+  const rows = (await page.getByTestId("comment-row").allInnerTexts()).filter((t) => t.includes(RUN));
+  expect(rows.length).toBeGreaterThan(0);
+  expect(new Set(rows).size).toBe(rows.length);
+
+  await toggle.click();
+  await expect(toggle).toContainText("TẮT");
+  await page.request.put("/api/v1/settings/ai", { data: { config: { ...cfg, voice_enabled: false } }, headers: { "X-CSRF-Token": csrf } });
+  await game.close();
+});

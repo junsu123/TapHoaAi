@@ -131,8 +131,16 @@ export function VoiceBar({ speech, ai }: { speech: SpeechState | null; ai: AiSta
   }, [call, setHold]);
 
   const playing = speech?.current;
+  const auto = !!ai?.autopilot;
   return (
     <div className="voice-bar" data-testid="voice-bar">
+      <button className={`autopilot-toggle${auto ? " on" : ""}`} onClick={() => call("/ai/autopilot", { on: !auto })} data-testid="autopilot-toggle" aria-pressed={auto}>
+        <span className="ap-icon">🤖</span>
+        <span>
+          <b>Tự động hoàn toàn: {auto ? "BẬT" : "TẮT"}</b>
+          <span className="small">{auto ? "Đang tự đọc bình luận và trả lời — bấm để tắt" : "Bấm để tự đọc bình luận và trả lời, không chờ người trực"}</span>
+        </span>
+      </button>
       <div className="row wrap">
         {speech?.muted ? (
           <button className="primary" onClick={() => call("/voice/unmute")} data-testid="voice-unmute">
@@ -166,7 +174,7 @@ export function VoiceBar({ speech, ai }: { speech: SpeechState | null; ai: AiSta
       <div className="row wrap small">
         {ai && (
           <>
-            <span className={`chip ${ai.voice_ready ? "chip-ok" : "chip-warn"}`}>{ai.voice_ready ? `Giọng đọc bật · ${ai.answer_mode === "auto" ? "tự động đọc câu an toàn" : "người trực duyệt"}` : ai.voice_reason}</span>
+            <span className={`chip ${ai.voice_ready ? "chip-ok" : "chip-warn"}`}>{ai.voice_ready ? `Giọng đọc bật · ${ai.autopilot ? "tự động hoàn toàn" : ai.answer_mode === "auto" ? "tự động đọc câu an toàn" : "người trực duyệt"}` : ai.voice_reason}</span>
             <span className="chip">
               AI hôm nay {usd(ai.budget.day_usd)} / {ai.budget.day_cap} USD
             </span>
