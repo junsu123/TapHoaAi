@@ -75,7 +75,7 @@ def shop(request: Request, admin: CurrentAdmin = AdminDep) -> dict:
 @router.get("/ai/suggestions")
 def suggestions(request: Request, admin: CurrentAdmin = AdminDep) -> dict:
     c = request.app.state.container
-    return {"paused": c.ai_paused, "ai_configured": False,
+    return {"paused": c.ai_paused, "ai": c.assistant.status(), "speech": c.speech.state(),
             "items": list(c.orchestrator.host_attention)[-50:][::-1]}
 
 
@@ -84,5 +84,7 @@ def pause(body: AiPauseIn, request: Request, admin: CurrentAdmin = AdminDep) -> 
     """HOST-02: pausing AI never stops comment processing or the game."""
     c = request.app.state.container
     c.ai_paused = body.paused
+    if body.paused:
+        c.speech.kill(mute=False)  # T16: nothing proactive while paused
     c.hub.send_dashboard({"type": "AI_PAUSED", "paused": c.ai_paused})
     return {"paused": c.ai_paused}

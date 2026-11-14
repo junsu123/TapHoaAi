@@ -50,10 +50,12 @@ Theo SPEC mục N. `[x]` = có code + test trong repo; `[ ]` = chưa làm.
 - [ ] **Thử với buổi LIVE thật** và ghi kết quả từng loại sự kiện (`docs/provider-limitations.md`)
 
 ## M4 — Claude AI & người trực
-- [ ] Nhập API key (mã hóa, trả về dạng che), test connection, chọn model (mặc định `claude-haiku-5-5` — kiểm tra lại giá trước khi bật)
-- [ ] Claude chỉ cho QUESTION/AMBIGUOUS, JSON schema + allowlist product_id, lọc từ cấm
-- [ ] BudgetGuard: USD/ngày, USD/tháng, cảnh báo 70/90/100 %, cache, gộp trùng
-- [ ] Trạng thái gợi ý `AI đề xuất / Người trực đã xác nhận / Chưa được trả lời` (khung đã có trên dashboard)
+- [x] Nhập API key (mã hóa, trả về dạng che), test connection, chọn model (mặc định `claude-haiku-5-5`, 0,10/0,50 USD mỗi triệu token — giá tra lại 2026-11)
+- [x] Claude chỉ cho QUESTION/AMBIGUOUS, JSON schema (structured outputs) + allowlist product_id, lọc từ cấm, chặn lời hứa sức khỏe và giá ngoài danh mục
+- [x] BudgetGuard: USD/ngày, USD/tháng, cảnh báo 70/90/100 %, cache, gộp trùng; hết hạn mức → câu mẫu từ danh mục
+- [x] Trạng thái gợi ý `AI đề xuất / Cần người trực xem / Người trực đã xác nhận / Đã đọc tự động / Chưa được trả lời`
+- [x] AI-06 giọng đọc Vbee (sync API): đọc câu hỏi + câu trả lời, tắt mặc định, checklist chính sách, kill switch F9, giữ để nói / tự im theo micro, phụ đề “Trợ lý AI”, hạn mức ký tự
+- [ ] **Thử với Claude API key và tài khoản Vbee thật** (sandbox không gọi được api.anthropic.com/api.vbee.vn)
 
 ## M5 — OBS & vận hành
 - [ ] Cảnh mẫu `Shop LIVE`, `Game Demo`, `Break`, `Emergency`; obs-websocket tùy chọn (localhost)

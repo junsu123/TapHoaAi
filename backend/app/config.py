@@ -36,7 +36,11 @@ class Settings(BaseSettings):
 
     # --- feature flags -----------------------------------------------------
     demo_enabled: bool = True
-    tts_enabled: bool = False  # AI-06: off by default, never auto-enabled
+    # AI-06: the voice is off until the owner turns it on in the dashboard (after the policy
+    # checklist); CHIBI_TTS_LOCKED=1 keeps it off whatever the dashboard says.
+    tts_locked: bool = False
+    # offline stand-ins for Claude and the voice (demos, automated tests) — never for a real LIVE
+    fake_ai: bool = False
 
     # --- game / queue tuning (PRD C3, C4, GAME-11) --------------------------
     max_visible_avatars: int = 60

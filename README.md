@@ -14,7 +14,7 @@ Phần mềm cho cửa hàng bán hàng qua TikTok LIVE: khán giả bình luậ
 | M1 | Vertical slice: bình luận → Chibi đi → cầm hộp → camera cận cảnh → trả hộp | **Xong** (6 kệ, 2 sản phẩm mẫu) |
 | M2 | Editor kéo-thả kệ, GLB sản phẩm, sao lưu/khôi phục, bộ dữ liệu bình luận tiếng Việt, nhãn tên không đè nhau | **Phần lớn xong** — còn Chibi GLB có xương và benchmark trên PC thật |
 | M3 | Kết nối TikTok LIVE thật (TikTokLive, link rút gọn, kết nối lại, khóa Euler tùy chọn) | **Code xong, chưa thử LIVE thật** — làm theo `docs/provider-limitations.md` |
-| M4 | Claude AI + ngân sách | Chưa làm — mọi bình luận sản phẩm chạy bằng bộ luật, 0 USD |
+| M4 | Claude AI + ngân sách + giọng đọc Vbee | **Code xong, chưa thử với key thật** — bình luận tên sản phẩm vẫn chạy bằng bộ luật (0 USD); chỉ câu hỏi mới gọi Claude |
 | M5 | OBS & vận hành | Một phần (Browser Source dùng được, hướng dẫn trong `docs/obs-setup.md`) |
 | M6 | Đơn hàng TikTok Shop | Chưa làm — trạng thái `Not configured` |
 
@@ -104,6 +104,26 @@ python scripts/unwarp_box.py mockup.jpg --front x1 y1 x2 y2 x3 y3 x4 y4 --left .
 ```
 
 Toạ độ là 4 góc của mặt đó trên ảnh (trên-trái, trên-phải, dưới-phải, dưới-trái), đọc bằng Paint hoặc bất kỳ trình xem ảnh nào.
+
+## Trợ lý AI & giọng đọc (Claude + Vbee)
+
+Dashboard → **Trợ lý AI & giọng đọc**:
+
+1. **Claude API key** (console.anthropic.com → API Keys), model `claude-haiku-5-5` (rẻ nhất, đủ cho câu trả lời ngắn), hạn mức USD/ngày và /tháng. Bấm **Thử kết nối Claude** để xem một câu trả lời mẫu và chi phí.
+2. **Thông tin chung của shop**: ship, thanh toán, đổi trả… AI chỉ được dùng thông tin ở đây và trong danh mục sản phẩm (giá đã xác nhận, công bố, lưu ý) — không bịa.
+3. **Vbee**: App ID, Token (tạo ứng dụng trong trang API của vbee.vn), mã giọng (mặc định `hn_female_ngochuyen_full_48k-fhg` – HN Ngọc Huyền), tốc độ, hạn mức ký tự/tháng. Bấm **Nghe thử trên máy này**.
+4. **Phát giọng trên LIVE**: đánh dấu 4 mục chính sách → **Bật giọng đọc trên LIVE**. Chọn câu trả lời được đọc khi **người trực bấm “Đọc”** (mặc định) hoặc **tự động** (chỉ câu an toàn).
+5. OBS: Browser Source đánh dấu **Control audio via OBS** (xem `docs/obs-setup.md`).
+
+Khi LIVE, trang **Người trực & Demo**:
+
+- Khách hỏi (có dấu “?”, “giá bao nhiêu”, “ship không”…) → phần mềm đọc “Bạn {tên} hỏi: …” (bỏ số điện thoại, liên kết, từ cấm) → Claude soạn câu trả lời → bấm **🔊 Đọc**, **✏️ Sửa rồi đọc** hoặc **Bỏ qua**. Màn hình LIVE hiện phụ đề “Câu hỏi của khách” / “🤖 Trợ lý AI”.
+- **⏹ Tắt giọng ngay (F9)**: dừng tức thì, không đọc gì nữa đến khi bấm “Bật lại giọng”. **Giữ để nói (Space)** hoặc **Tự im khi micro có tiếng**: AI không nói đè người dẫn.
+- **⏸ Tạm dừng AI (Ctrl+Shift+P)**: không gọi Claude, không phát giọng; game vẫn chạy.
+
+An toàn: bình luận là dữ liệu, không phải lệnh cho AI; tên khách không gửi lên Claude; AI chỉ chọn mã sản phẩm trong danh mục; câu nói về bệnh/chữa trị, giá không có trong danh mục, hoặc AI không chắc chắn **không bao giờ tự đọc**. Hết hạn mức: game vẫn chạy, câu hỏi giá dùng câu mẫu lấy từ danh mục. Chi phí ước tính với Haiku 5.5: khoảng 0,02 cent mỗi câu hỏi.
+
+`CHIBI_TTS_LOCKED=1` khóa giọng đọc bất kể dashboard. `CHIBI_FAKE_AI=1` dùng Claude/giọng giả (tiếng bíp) để demo và kiểm thử không tốn tiền.
 
 ## Kết nối TikTok LIVE
 

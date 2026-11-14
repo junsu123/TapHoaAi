@@ -20,6 +20,7 @@ from app.events.bus import EventBus
 from app.events.deduper import Deduper, GiftStreakTracker
 from app.models import ActionJob, LiveEventRow, Setting
 from app.security.crypto import SecretBox, load_or_create_key
+from app.services.assistant import Assistant
 from app.services.action_queue import CmdStatus, Command, GameActionQueue, TERMINAL
 from app.services.avatar_manager import AvatarManager
 from app.services.camera_director import CameraDirector
@@ -28,6 +29,7 @@ from app.services.intent_router import CommentIntentRouter
 from app.services.live_session import LiveSessionService
 from app.services.orchestrator import Orchestrator
 from app.services.product_matcher import ProductMatcher
+from app.services.speech_queue import SpeechQueue
 from app.websocket.hub import Hub
 
 log = logging.getLogger("chibi")
@@ -68,6 +70,10 @@ class AppContainer:
         self.live = LiveSessionService(self.db, self.bus, self.deduper, self._on_session_change, self._on_live_status)
         self.orchestrator = Orchestrator(self)
         self.ai_paused = False
+        self.speech = SpeechQueue(self.hub, settings.data_dir / "tts_cache")
+        self.assistant = Assistant(self)
+        self.speech.on_chars = self.assistant.budget.record_tts
+        self.assistant.apply_voice()
         self.fps_reports: deque[dict[str, Any]] = deque(maxlen=120)
         self.started_at = time.time()
         self.game_token = self._load_or_create_game_token()
@@ -177,6 +183,7 @@ class AppContainer:
             "type": "SNAPSHOT", "schema_version": 1, "sequence": self.hub.dashboard.sequence,
             "live": self.live.status_dict(), "comments": list(self.orchestrator.recent_comments)[-50:],
             "host_attention": list(self.orchestrator.host_attention)[-30:], "ai_paused": self.ai_paused,
+            "speech": self.speech.state(), "ai": self.assistant.status(),
         }
 
     # ------------------------------------------------------------------ metrics
@@ -200,7 +207,8 @@ class AppContainer:
             "game_clients": {"connected": len(self.hub.game.clients), "primary": self.hub.has_primary()},
             "game_fps": {"last": fps[-1] if fps else None, "min_last_2min": min(fps) if fps else None},
             "gifts_total": self.gifts.total_gifts,
-            "ai": {"paused": self.ai_paused, "configured": False, "note": "Claude AI: mốc M4"},
+            "ai": self.assistant.status(),
+            "speech": {"muted": self.speech.muted, "hold": self.speech.hold, "queue": len(self.speech.queue)},
             "errors": self.orchestrator.errors,
         }
 
@@ -208,6 +216,7 @@ class AppContainer:
     async def start(self) -> None:
         self._cancel_stale_commands()
         self.hub.start()
+        self.speech.start()
         self._tasks = [
             asyncio.create_task(self.orchestrator.run(), name="orchestrator"),
             asyncio.create_task(self._ticker(), name="ticker"),
@@ -217,6 +226,7 @@ class AppContainer:
 
     async def stop(self) -> None:
         await self.live.stop()
+        await self.speech.stop()
         for t in self._tasks:
             t.cancel()
         for t in self._tasks:

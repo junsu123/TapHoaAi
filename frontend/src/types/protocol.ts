@@ -79,6 +79,14 @@ export interface GameSnapshot {
   settings: { show_seconds: number };
 }
 
+export interface SpeechClip {
+  id: string;
+  kind: "question" | "answer" | "test";
+  label: string;
+  text: string;
+  url: string | null;
+}
+
 export type ServerGameMessage =
   | GameSnapshot
   | (CharacterAction & { sequence: number })
@@ -93,6 +101,9 @@ export type ServerGameMessage =
   | { type: "LAYOUT_UPDATED"; sequence: number; layout: StoreLayout }
   | { type: "LIVE_STATUS"; sequence: number; status: string; is_demo: boolean }
   | { type: "SESSION"; sequence: number; session_id: string | null; is_demo: boolean }
+  | { type: "SPEECH"; sequence: number; clip: SpeechClip }
+  | { type: "SPEECH_STOP"; sequence: number }
+  | { type: "SPEECH_HOLD"; sequence: number; hold: boolean }
   | { type: "PONG"; sequence?: number };
 
 export type ClientGameMessage =
@@ -101,5 +112,7 @@ export type ClientGameMessage =
   | { type: "ACTION_COMPLETED"; command_id: string; reason?: string }
   | { type: "ACTION_FAILED"; command_id: string; reason: string }
   | { type: "FPS_REPORT"; fps: number; quality: string; avatars: number }
+  | { type: "SPEECH_STARTED" | "SPEECH_ENDED"; id: string }
+  | { type: "SPEECH_FAILED"; id: string; reason: string }
   | { type: "PING" }
   | { type: "RESYNC" };

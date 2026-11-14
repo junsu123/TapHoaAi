@@ -4,9 +4,11 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { api, ApiError, formatVnd, setCsrf } from "../lib/api";
+import { AiSettingsPage, type AiStatus } from "./AiSettingsPage";
+import { QuestionCard, VoiceBar } from "./HostDesk";
 import { BOX_FACE_LABEL, PdfFacePicker, type RenderedFaces } from "./PdfFacePicker";
 import { ShelfEditor } from "./ShelfEditor";
-import { useDashboardFeed, type CommentRecord, type HostItem, type LiveStatus, type Metrics } from "./useDashboardFeed";
+import { useDashboardFeed, type CommentRecord, type HostItem, type LiveStatus, type Metrics, type SpeechState } from "./useDashboardFeed";
 
 interface Me {
   username: string;
@@ -314,7 +316,21 @@ function CommentRow({ c }: { c: CommentRecord }) {
   );
 }
 
-function HostPage({ comments, host, aiPaused, setAiPaused }: { comments: CommentRecord[]; host: HostItem[]; aiPaused: boolean; setAiPaused: (b: boolean) => void }) {
+function HostPage({
+  comments,
+  host,
+  aiPaused,
+  setAiPaused,
+  speech,
+  ai,
+}: {
+  comments: CommentRecord[];
+  host: HostItem[];
+  aiPaused: boolean;
+  setAiPaused: (b: boolean) => void;
+  speech: SpeechState | null;
+  ai: AiStatus | null;
+}) {
   const [raw, setRaw] = useState("@lananh88: trà cà gai leo");
   const [err, setErr] = useState<string | null>(null);
   const send = async (body: object) => {
@@ -342,7 +358,10 @@ function HostPage({ comments, host, aiPaused, setAiPaused }: { comments: Comment
   return (
     <div className="two-col">
       <div className="stack">
-        <Card title="Cần người trực xử lý">
+        <Card title="Giọng đọc trên LIVE">
+          <VoiceBar speech={speech} ai={ai} />
+        </Card>
+        <Card title="Câu hỏi cần trả lời">
           <div className="row">
             <button onClick={togglePause} aria-pressed={aiPaused}>
               {aiPaused ? "▶ Tiếp tục AI" : "⏸ Tạm dừng AI"}
@@ -352,13 +371,7 @@ function HostPage({ comments, host, aiPaused, setAiPaused }: { comments: Comment
           {host.length === 0 && <p className="muted">Chưa có câu hỏi hoặc bình luận mơ hồ.</p>}
           <ul className="host-list">
             {host.map((h) => (
-              <li key={h.event_id} data-testid="host-item">
-                <div>
-                  <span className="chip chip-warn">{h.status}</span> <b>{h.nickname}</b>: {h.text}
-                </div>
-                <div className="muted">{h.hint}</div>
-                {h.candidates.length > 0 && <div className="muted">Có thể là: {h.candidates.map((c) => c.name).join(", ")}</div>}
-              </li>
+              <QuestionCard key={h.event_id} h={h} />
             ))}
           </ul>
         </Card>
@@ -377,6 +390,8 @@ function HostPage({ comments, host, aiPaused, setAiPaused }: { comments: Comment
             <button onClick={() => send({ raw: "@lananh88: trà cà gai leo" })}>@lananh88: trà cà gai leo</button>
             <button onClick={() => send({ raw: "@minhtu: trà ba kích" })}>@minhtu: trà ba kích</button>
             <button onClick={() => send({ raw: "@khachle: trà" })}>@khachle: trà (mơ hồ)</button>
+            <button onClick={() => send({ raw: "@thuha: trà cà gai leo giá bao nhiêu vậy shop?" })}>@thuha: hỏi giá</button>
+            <button onClick={() => send({ raw: "@namvo: shop có ship COD không" })}>@namvo: hỏi ship</button>
             <button onClick={() => send({ type: "SPAWN_RANDOM", count: 10 })}>+10 người xem giả</button>
             <button onClick={() => send({ type: "GIFT", unique_id: "lananh88", gift_name: "Hoa hồng", repeat_count: 5, repeat_end: true, streakable: true })}>
               Quà (kết thúc chuỗi ×5)
@@ -964,6 +979,7 @@ export function DashboardApp() {
     ["", "Tổng quan"],
     ["connect", "Kết nối TikTok"],
     ["host", "Người trực & Demo"],
+    ["ai", "Trợ lý AI & giọng đọc"],
     ["products", "Sản phẩm"],
     ["shelves", "Bản đồ kệ"],
     ["game", "Game 3D & OBS"],
@@ -994,10 +1010,16 @@ export function DashboardApp() {
       </aside>
       <main>
         {feed.live && feed.live.status === "Mất kết nối" && <div className="banner">⚠ Mất kết nối TikTok — đang thử lại. Không có sự kiện giả nào được tạo.</div>}
+        {feed.alerts.slice(0, 1).map((a) => (
+          <div className="banner" key={a.at} data-testid="ai-alert">
+            ⚠ {a.message}
+          </div>
+        ))}
         <Routes>
           <Route index element={<Overview live={feed.live} metrics={feed.metrics} />} />
           <Route path="connect" element={<ConnectPage live={feed.live} />} />
-          <Route path="host" element={<HostPage comments={feed.comments} host={feed.host} aiPaused={feed.aiPaused} setAiPaused={feed.setAiPaused} />} />
+          <Route path="host" element={<HostPage comments={feed.comments} host={feed.host} aiPaused={feed.aiPaused} setAiPaused={feed.setAiPaused} speech={feed.speech} ai={feed.ai} />} />
+          <Route path="ai" element={<AiSettingsPage />} />
           <Route path="products" element={<ProductsPage />} />
           <Route path="shelves" element={<ShelvesPage />} />
           <Route path="game" element={<GameSetupPage />} />

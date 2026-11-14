@@ -7,6 +7,7 @@ import { SequencedSocket, wsUrl } from "../lib/ws";
 import type { ClientGameMessage, GameSnapshot, ServerGameMessage } from "../types/protocol";
 import { GameEngine } from "./GameEngine";
 import { LiveOverlay, type SafeArea } from "./LiveOverlay";
+import { SpeechPlayer, type SpeechView } from "./SpeechPlayer";
 import { World, type Quality } from "./World";
 
 const ORDER: Quality[] = ["low", "medium", "high"];
@@ -29,6 +30,16 @@ export function GamePage() {
     () => new GameEngine((m: ClientGameMessage) => (role === "primary" ? socketRef.current?.send(m) : undefined)),
     [role],
   );
+  const [speech, setSpeech] = useState<SpeechView>({ clip: null, held: false, blocked: false });
+  const player = useMemo(
+    () =>
+      new SpeechPlayer({
+        audible: role === "primary" && params.get("mute") !== "1",
+        emit: (m) => socketRef.current?.send(m),
+        onChange: setSpeech,
+      }),
+    [role, params],
+  );
   const fpsLog = useRef<number[]>([]);
   const lowSince = useRef<number | null>(null);
 
@@ -37,7 +48,10 @@ export function GamePage() {
     const url = wsUrl(`/ws/game?role=${role}${token ? `&token=${encodeURIComponent(token)}` : ""}`);
     const sock = new SequencedSocket<GameSnapshot, ServerGameMessage>(url, {
       onSnapshot: (s) => engine.applySnapshot(s),
-      onMessage: (m) => engine.handle(m),
+      onMessage: (m) => {
+        if (m.type === "SPEECH" || m.type === "SPEECH_STOP" || m.type === "SPEECH_HOLD") player.handle(m);
+        else engine.handle(m);
+      },
       onStatus: setSocketUp,
     });
     socketRef.current = sock;
@@ -47,10 +61,14 @@ export function GamePage() {
         state: () => engine.debugState(),
         fps: () => [...fpsLog.current],
         camera: () => (window as unknown as { __chibiCamera?: object }).__chibiCamera,
+        speech: () => player.view(),
       };
     }
-    return () => sock.stop();
-  }, [engine, role, debug, params]);
+    return () => {
+      sock.stop();
+      player.stop();
+    };
+  }, [engine, player, role, debug, params]);
 
   // FPS telemetry + automatic quality step-down (NFR-02)
   const onFps = (fps: number) => {
@@ -73,7 +91,7 @@ export function GamePage() {
     <div className="game-root">
       <div className="game-stage" data-testid="game-stage">
         <World engine={engine} quality={quality} onFps={onFps} />
-        <LiveOverlay engine={engine} safe={safe} socketUp={socketUp} />
+        <LiveOverlay engine={engine} safe={safe} socketUp={socketUp} speech={speech} onUnlockAudio={() => player.unlock()} />
       </div>
     </div>
   );

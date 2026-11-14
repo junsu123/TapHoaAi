@@ -122,7 +122,8 @@ test("T05: ambiguous 'trà' moves nobody and asks the host", async ({ page }) =>
   const sug = await (await page.request.get("/api/v1/ai/suggestions")).json();
   const item = sug.items.find((i: { unique_id: string }) => i.unique_id === nick);
   expect(item.intent).toBe("AMBIGUOUS");
-  expect(item.status).toBe("Chưa được trả lời");
+  // with Claude configured the host also gets a draft to review; never read out on its own
+  expect(["Chưa được trả lời", "AI đang soạn…", "Cần người trực xem"]).toContain(item.status);
 });
 
 test("T06 + T07: same user twice and four users on one product", async ({ page }) => {
@@ -177,7 +178,7 @@ test("Dashboard: login, overview, host page shows comments (Vietnamese UI)", asy
   await page.setViewportSize({ width: 1280, height: 860 });
   await page.getByRole("link", { name: "Người trực & Demo" }).click();
   await page.getByRole("button", { name: "@khachle: trà (mơ hồ)" }).click();
-  await expect(page.getByTestId("host-item").first()).toContainText("Chưa được trả lời");
+  await expect(page.getByTestId("host-item").first()).toContainText(/Chưa được trả lời|Cần người trực xem/);
   await expect(page.getByTestId("comment-row").first()).toBeVisible();
   await page.screenshot({ path: `${SHOTS}/dashboard-host.png`, fullPage: true });
   await page.getByRole("link", { name: "Tổng quan" }).click();
@@ -381,5 +382,63 @@ test("Product faces from a print PDF: frames on the dieline, 3D preview, saved t
   const backFace = game.waitForResponse((r) => r.url().endsWith(p.face_urls.back) && r.ok());
   await game.goto("/game/live?debug=1&quality=low&role=viewer");
   await backFace;
+  await game.close();
+});
+
+test("M4 voice: question read aloud on the OBS page, Claude draft approved by the host, kill switch", async ({ page, context }) => {
+  const csrf = await login(page.request);
+  const game = await context.newPage();
+  await game.setViewportSize({ width: 540, height: 960 });
+  await game.goto("/game/live?debug=1&quality=low");
+  await game.waitForFunction(() => (window as any).__chibiDebug?.state().layoutVersion > 0);
+
+  // settings: the voice is off until the policy checklist is ticked
+  await page.setViewportSize({ width: 1360, height: 1000 });
+  await page.goto("/dashboard/ai");
+  await expect(page.getByTestId("ai-status")).toContainText("Chế độ thử");
+  await expect(page.getByLabel("Bật giọng đọc trên LIVE")).toBeDisabled();
+  for (let i = 1; i <= 4; i++) await page.getByLabel(`Chính sách ${i}`).check();
+  await page.getByLabel("Bật giọng đọc trên LIVE").check();
+  await page.getByLabel("Tên shop").fill("Mộc Tâm");
+  await page.getByRole("button", { name: "Lưu cài đặt" }).click();
+  await expect(page.getByText("Đã lưu.")).toBeVisible();
+  await expect(page.getByTestId("ai-status")).toContainText("Giọng đọc: sẵn sàng");
+  await page.getByRole("button", { name: /Nghe thử trên máy này/ }).click();
+  await expect(page.getByTestId("voice-test-audio")).toBeVisible();
+  await page.screenshot({ path: `${SHOTS}/M4-ai-settings.png`, fullPage: true });
+
+  // a viewer asks: the question is read on the OBS page with a caption
+  await page.goto("/dashboard/host");
+  await page.getByRole("button", { name: "@thuha: hỏi giá" }).click();
+  const caption = game.getByTestId("speech-caption");
+  await expect(caption).toHaveAttribute("data-kind", "question", { timeout: 15_000 });
+  await expect(caption).toContainText("Bạn thuha hỏi: trà cà gai leo giá bao nhiêu vậy shop?");
+  const unlock = game.getByTestId("audio-unlock");
+  if (await unlock.isVisible()) await unlock.click(); // plain Chrome blocks autoplay; OBS does not
+  await game.screenshot({ path: `${SHOTS}/M4-game-question-caption.png` });
+
+  // Claude's draft waits for the host, then is read as "Trợ lý AI"
+  const item = page.getByTestId("host-item").filter({ hasText: "thuha" }).first();
+  await expect(item).toHaveAttribute("data-status", "AI đề xuất", { timeout: 15_000 });
+  await expect(item.getByTestId("suggestion")).toContainText("giá");
+  await page.screenshot({ path: `${SHOTS}/M4-host-desk.png`, fullPage: true });
+  await item.getByTestId("speak").click();
+  await expect(caption).toHaveAttribute("data-kind", "answer", { timeout: 15_000 });
+  await expect(caption).toContainText("Trợ lý AI");
+  await expect(item).toHaveAttribute("data-status", "Người trực đã xác nhận");
+  await game.screenshot({ path: `${SHOTS}/M4-game-answer-caption.png` });
+
+  // kill switch: silence at once, nothing new until turned back on
+  await page.getByTestId("voice-kill").click();
+  await expect(caption).toHaveCount(0);
+  await expect(page.getByTestId("voice-unmute")).toBeVisible();
+  await page.getByRole("button", { name: "@namvo: hỏi ship" }).click();
+  await page.waitForTimeout(1500);
+  await expect(caption).toHaveCount(0);
+  await page.getByTestId("voice-unmute").click();
+
+  // leave the voice off for the other tests
+  const s = await (await page.request.get("/api/v1/settings/ai")).json();
+  await page.request.put("/api/v1/settings/ai", { data: { config: { ...s.config, voice_enabled: false } }, headers: { "X-CSRF-Token": csrf } });
   await game.close();
 });
