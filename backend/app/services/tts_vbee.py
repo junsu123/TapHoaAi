@@ -25,10 +25,12 @@ TIMEOUT_S = 15.0
 
 
 class TtsError(Exception):
-    def __init__(self, code: str, message: str):
+    def __init__(self, code: str, message: str, status: int | None = None, raw: str | None = None):
         super().__init__(message)
         self.code = code
         self.message = message
+        self.status = status  # HTTP status from Vbee, if any
+        self.raw = raw  # Vbee's own words, for the diagnosis panel
 
 
 @dataclass
@@ -64,6 +66,20 @@ def split_text(text: str, limit: int = MAX_CHARS) -> list[str]:
     return out
 
 
+def _vbee_message(r: httpx.Response) -> str:
+    try:
+        body = r.json()
+    except ValueError:
+        return r.text[:160].strip()
+    if isinstance(body, dict):
+        err = body.get("error")
+        for v in (body.get("error_message"), body.get("message"), err.get("message") if isinstance(err, dict) else err,
+                  body.get("errors")):
+            if v:
+                return str(v)[:160]
+    return ""
+
+
 class VbeeTts:
     name = "vbee"
 
@@ -86,22 +102,20 @@ class VbeeTts:
         ctype = r.headers.get("content-type", "")
         if r.status_code == 200 and "json" not in ctype and r.content:
             return r.content
-        message = ""
-        try:
-            message = str(r.json().get("error", {}).get("message", ""))
-        except ValueError:
-            pass
-        if r.status_code == 401:
-            raise TtsError("auth", "Sai App ID hoặc Token Vbee (hoặc token đã hết hạn).")
-        if r.status_code == 429:
-            raise TtsError("busy", "Vbee đang quá nhiều yêu cầu cùng lúc — thử lại sau.")
-        if r.status_code == 400:
-            if "credit" in message.lower():
-                raise TtsError("credit", "Tài khoản Vbee đã hết ký tự/credit.")
-            if "voice" in message.lower():
-                raise TtsError("voice", "Mã giọng đọc không tồn tại trên Vbee.")
-            raise TtsError("bad_request", f"Vbee từ chối yêu cầu: {message or 'dữ liệu không hợp lệ'}.")
-        raise TtsError("api", f"Vbee lỗi {r.status_code}{': ' + message if message else ''}.")
+        message = _vbee_message(r)
+        said = f" — Vbee báo: “{message}”" if message else ""
+        st = r.status_code
+        if st == 401:
+            raise TtsError("auth", f"Sai App ID hoặc Token Vbee (hoặc token đã hết hạn){said}.", st, message)
+        if st == 429:
+            raise TtsError("busy", f"Vbee đang quá nhiều yêu cầu cùng lúc — thử lại sau{said}.", st, message)
+        low = message.lower()
+        if "credit" in low or "balance" in low or "ký tự" in low:
+            raise TtsError("credit", f"Tài khoản Vbee hết ký tự/credit{said}.", st, message)
+        if "voice" in low or "giọng" in low:
+            raise TtsError("voice", f"Vbee không nhận giọng “{voice}”{said}. Bấm “Kiểm tra Vbee” để tìm giọng dùng được.",
+                           st, message)
+        raise TtsError("api", f"Vbee từ chối yêu cầu (lỗi {st}){said or ' — không có lời nhắn'}.", st, message)
 
     async def synth(self, text: str, voice: str, speed: float) -> Audio:
         if not self.app_id or not self.token:
@@ -136,20 +150,6 @@ _PARAM_STYLES: tuple[tuple[str, str | None, str | None, str | None], ...] = (
     ("snake", "language_code", "voice_ownership", None),
     ("bare", None, None, None),
 )
-
-
-def _vbee_message(r: httpx.Response) -> str:
-    try:
-        body = r.json()
-    except ValueError:
-        return r.text[:160].strip()
-    if isinstance(body, dict):
-        err = body.get("error")
-        for v in (body.get("error_message"), body.get("message"), err.get("message") if isinstance(err, dict) else err,
-                  body.get("errors")):
-            if v:
-                return str(v)[:160]
-    return ""
 
 
 async def list_voices(app_id: str, token: str, language_code: str | None = "vi-VN",

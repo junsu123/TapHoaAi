@@ -162,6 +162,66 @@ async def voice_list(body: VoiceListIn, request: Request, admin: CurrentAdmin = 
             "message": f"Tìm thấy {len(voices)} giọng." if voices else "Vbee không trả về giọng nào cho ngôn ngữ này."}
 
 
+class VoiceDiagnoseIn(BaseModel):
+    app_id: str | None = Field(None, max_length=200)
+    token: str | None = Field(None, max_length=4000)
+    voice_code: str | None = Field(None, max_length=120)
+
+    _voice = field_validator("voice_code")(classmethod(lambda cls, v: check_voice_code(v) if v else None))
+
+
+@router.post("/settings/voice/diagnose")
+async def voice_diagnose(body: VoiceDiagnoseIn, request: Request, admin: CurrentAdmin = AdminDep) -> dict:
+    """Step by step: list the voices, read a short text with the chosen voice, the default
+    voice and a few listed ones — report Vbee's own words for each, and the first voice that works."""
+    c = request.app.state.container
+    a = c.assistant
+    chosen = body.voice_code or a.config.voice_code
+    steps: list[dict] = []
+    working: str | None = None
+    if c.settings.fake_ai:
+        voices = [v["code"] for v in FAKE_VOICES]
+        return {"steps": [{"name": "Chế độ thử (CHIBI_FAKE_AI)", "ok": True, "detail": "Không gọi Vbee thật."}],
+                "working_voice": chosen if chosen in voices else voices[0], "voices": len(voices)}
+    app_id = (body.app_id or "").strip() or c.get_setting(SECRET_VBEE_APP_ID)
+    token = (body.token or "").strip() or c.get_setting(SECRET_VBEE_TOKEN)
+    if not app_id or not token:
+        return {"steps": [{"name": "App ID / Token", "ok": False, "detail": "Chưa nhập App ID và Token Vbee."}],
+                "working_voice": None, "voices": 0}
+    steps.append({"name": "App ID / Token", "ok": True, "detail": f"App ID {mask(app_id)}, token {len(token)} ký tự."})
+
+    listed: list[str] = []
+    try:
+        vs = await list_voices(app_id, token, "vi-VN")
+        listed = [v.code for v in vs]
+        steps.append({"name": "Lấy danh sách giọng", "ok": True,
+                      "detail": f"{len(listed)} giọng tiếng Việt. Giọng đang chọn "
+                                + ("CÓ" if chosen in listed else "KHÔNG có") + " trong danh sách."})
+    except TtsError as exc:
+        steps.append({"name": "Lấy danh sách giọng", "ok": False, "detail": exc.message, "status": exc.status})
+
+    tts = VbeeTts(app_id, token)
+    tried: list[str] = []
+    candidates = [chosen, "hn_female_ngochuyen_full_48k-fhg", *listed[:4]]
+    for code in candidates:
+        if code in tried or len(tried) >= 4:
+            continue
+        tried.append(code)
+        label = "giọng đang chọn" if code == chosen else ("giọng mặc định" if code.startswith("hn_female_ngochuyen") else "giọng trong danh sách")
+        try:
+            audio = await tts.synth("Xin chào.", code, 1.0)
+            c.assistant.budget.record_tts(len("Xin chào."))
+            steps.append({"name": f"Đọc thử bằng {label}", "ok": True, "voice": code,
+                          "detail": f"Vbee trả về {len(audio.data):,} byte âm thanh.".replace(",", ".")})
+            working = working or code
+            if code == chosen:
+                break
+        except TtsError as exc:
+            steps.append({"name": f"Đọc thử bằng {label}", "ok": False, "voice": code, "detail": exc.message,
+                          "status": exc.status, "raw": exc.raw})
+    return {"steps": steps, "working_voice": working, "voices": len(listed)}
+
+
 @router.post("/ai/suggestions/{event_id}/speak")
 async def speak(event_id: str, body: SpeakIn, request: Request, admin: CurrentAdmin = AdminDep) -> dict:
     c = request.app.state.container

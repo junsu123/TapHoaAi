@@ -554,9 +554,12 @@ test("Vbee voice: pick a voice from the account's list (any code shape) and save
   await page.getByRole("button", { name: /Nghe thử trên máy này/ }).click();
   await expect(page.getByTestId("voice-test-audio")).toBeVisible();
 
+  await page.getByTestId("voice-diagnose").click();
+  await expect(page.getByTestId("voice-diag")).toContainText("Chế độ thử");
+
   // a code with a space gets a clear Vietnamese message instead of a regex
   await page.getByLabel("Mã giọng", { exact: true }).fill("giong co khoang trang");
-  await page.getByRole("button", { name: "Lưu cài đặt" }).click();
+  await page.getByRole("button", { name: "Lưu cài đặt", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("khoảng trắng");
   await page.request.put("/api/v1/settings/ai", { data: { config: { ...s.config, voice_code: "hn_female_ngochuyen_full_48k-fhg" } }, headers: { "X-CSRF-Token": csrf } });
 });
