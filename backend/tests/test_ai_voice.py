@@ -358,3 +358,45 @@ def test_voice_list_endpoint_in_fake_mode(admin_client):
     c.app.state.container.settings.fake_ai = False
     r = c.post("/api/v1/settings/voice/list", json={}).json()
     assert not r["ok"] and "App ID" in r["message"]
+
+
+@pytest.mark.anyio
+async def test_vbee_errors_carry_vbee_own_words():
+    def voice_rejected(req: httpx.Request) -> httpx.Response:
+        return httpx.Response(400, json={"status": 0, "error": {"code": "VALIDATION", "message": "Voice not supported in sync mode"}})
+
+    with pytest.raises(TtsError) as e:
+        await VbeeTts("a", "t", transport=httpx.MockTransport(voice_rejected)).synth("x", "sg_x", 1.0)
+    assert e.value.code == "voice" and "Voice not supported in sync mode" in e.value.message and "sg_x" in e.value.message
+
+    def other(req: httpx.Request) -> httpx.Response:
+        return httpx.Response(400, json={"message": "bitrate must be one of 64, 128"})
+
+    with pytest.raises(TtsError) as e:
+        await VbeeTts("a", "t", transport=httpx.MockTransport(other)).synth("x", "v", 1.0)
+    assert e.value.code == "api" and "bitrate must be one of" in e.value.message and e.value.status == 400
+
+
+def test_voice_diagnosis_finds_a_working_voice(admin_client, monkeypatch):
+    import app.api.v1.ai as ai_api
+    from app.services.tts_vbee import Audio, Voice
+
+    async def fake_list(app_id, token, lang="vi-VN", transport=None):
+        return [Voice("ok_voice", "Giọng OK", "female", "vi-VN", None, 1, "VBEE")]
+
+    async def fake_synth(self, text, voice, speed):
+        if voice != "ok_voice":
+            raise TtsError("voice", f"Vbee không nhận giọng “{voice}”", 400, "voice not found")
+        return Audio(b"ID3....", "mp3", "audio/mpeg")
+
+    monkeypatch.setattr(ai_api, "list_voices", fake_list)
+    monkeypatch.setattr(ai_api.VbeeTts, "synth", fake_synth)
+    c = admin_client
+    c.put("/api/v1/settings/ai", json={"config": {**CFG, "voice_code": "my_bad_voice"}, "vbee_app_id": "app", "vbee_token": "tok"})
+    r = c.post("/api/v1/settings/voice/diagnose", json={}).json()
+    assert r["working_voice"] == "ok_voice" and r["voices"] == 1
+    names = [(s["name"], s["ok"]) for s in r["steps"]]
+    assert ("Lấy danh sách giọng", True) in names and ("Đọc thử bằng giọng đang chọn", False) in names
+    bad = next(s for s in r["steps"] if s["name"] == "Đọc thử bằng giọng đang chọn")
+    assert bad["raw"] == "voice not found" and bad["status"] == 400
+    assert "KHÔNG có" in next(s["detail"] for s in r["steps"] if s["name"] == "Lấy danh sách giọng")

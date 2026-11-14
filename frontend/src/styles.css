@@ -201,3 +201,8 @@ a.button { display: inline-block; padding: 6px 12px; border: 1px solid var(--lin
 .autopilot-toggle .ap-icon { font-size: 28px; filter: grayscale(1); opacity: .6; }
 .autopilot-toggle.on { border-color: #2f9e62; background: #eafaf0; }
 .autopilot-toggle.on .ap-icon { filter: none; opacity: 1; }
+.diag { display: grid; gap: 6px; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; background: #fff; }
+.diag .ok { color: #1d7a45; }
+.diag .bad { color: #b3261e; }
+.diag .small { color: #5b4a52; }
+.diag code { font-size: 12px; background: #f3eee9; padding: 1px 5px; border-radius: 4px; }

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.3 — 2026-11-14
+
+- Lỗi Vbee giờ hiện **nguyên văn lời nhắn của Vbee** và mã giọng đã gửi (trước đây mọi lời nhắn có chữ “voice” đều bị đổi thành “Mã giọng đọc không tồn tại trên Vbee”).
+- Nút **🩺 Kiểm tra Vbee**: thử lấy danh sách giọng, đọc thử bằng giọng đang chọn, giọng mặc định và vài giọng trong danh sách; hiện kết quả từng bước và cho chọn ngay giọng đọc được.
+
 ## 0.9.2 — 2026-11-14
 
 - Sửa lỗi “Vbee lỗi 400 khi lấy danh sách giọng”: tài liệu Vbee ghi tham số kiểu `language_code` nhưng ví dụ chính thức dùng `languageCode`/`voiceOwnership`. Phần mềm thử dạng của ví dụ trước, rồi các dạng khác, giữ dạng Vbee chấp nhận; không gửi `limit` nữa. Lỗi hiện kèm lời nhắn gốc của Vbee.

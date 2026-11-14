@@ -124,6 +124,7 @@ export function AiSettingsPage() {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [voices, setVoices] = useState<VoiceOption[] | null>(null);
   const [demoUrl, setDemoUrl] = useState<string | null>(null);
+  const [diag, setDiag] = useState<{ steps: { name: string; ok: boolean; detail: string; voice?: string; status?: number }[]; working_voice: string | null } | null>(null);
 
   const load = () =>
     api.get<SettingsOut>("/settings/ai").then((d) => {
@@ -202,6 +203,10 @@ export function AiSettingsPage() {
         setVoices(r.voices);
         setMsg(r.message);
       }
+    });
+  const diagnose = () =>
+    run("diag", async () => {
+      setDiag(await api.post("/settings/voice/diagnose", { app_id: appId.trim() || null, token: token.trim() || null, voice_code: cfg.voice_code || null }));
     });
   const chosen = voices?.find((v) => v.code === cfg.voice_code);
   const voiceGroups: [string, VoiceOption[]][] = voices
@@ -355,6 +360,30 @@ export function AiSettingsPage() {
                 </button>
               </div>
               {audioUrl && <audio src={audioUrl} controls autoPlay data-testid="voice-test-audio" />}
+              <div className="row wrap">
+                <button type="button" onClick={diagnose} disabled={!!busy} data-testid="voice-diagnose">
+                  {busy === "diag" ? "Đang kiểm tra…" : "🩺 Kiểm tra Vbee"}
+                </button>
+                <span className="muted small">Thử từng bước và hiện nguyên văn Vbee trả lời — chụp lại gửi người hỗ trợ nếu cần.</span>
+              </div>
+              {diag && (
+                <div className="diag" data-testid="voice-diag">
+                  {diag.steps.map((s, i) => (
+                    <div key={i} className={s.ok ? "ok" : "bad"}>
+                      {s.ok ? "✓" : "✗"} <b>{s.name}</b>
+                      {s.voice ? <code> {s.voice}</code> : null}
+                      {s.status ? <span className="muted"> (HTTP {s.status})</span> : null}
+                      <div className="small">{s.detail}</div>
+                    </div>
+                  ))}
+                  {diag.working_voice && diag.working_voice !== cfg.voice_code && (
+                    <button type="button" className="primary small" onClick={() => set("voice_code", diag.working_voice!)} data-testid="use-working-voice">
+                      Dùng giọng {diag.working_voice} (đọc được) — rồi bấm Lưu cài đặt
+                    </button>
+                  )}
+                  {!diag.working_voice && <p className="error small">Không giọng nào đọc được — xem lời nhắn của Vbee ở trên (thường là App ID/Token, gói tài khoản hoặc credit).</p>}
+                </div>
+              )}
             </div>
           </div>
 
