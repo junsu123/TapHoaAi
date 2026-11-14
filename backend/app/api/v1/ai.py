@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field, field_validator
 
@@ -19,6 +21,7 @@ from app.services.ai_config import (
 from app.services.tts_vbee import FakeTts, TtsError, VbeeTts, list_voices
 
 router = APIRouter(tags=["ai"])
+log = logging.getLogger("chibi.voice")
 
 
 class AiSettingsIn(BaseModel):
@@ -137,6 +140,7 @@ async def test_voice(body: VoiceTestIn, request: Request, admin: CurrentAdmin = 
     try:
         url = await c.speech.render(body.text, provider, voice, speed)
     except TtsError as exc:
+        log.warning("Nghe thử giọng thất bại: %s", exc.message, extra={"ctx": {"giọng": voice, "HTTP": exc.status}})
         return {"ok": False, "message": exc.message}
     if body.on_live:
         ok, why = a.voice_ready()
@@ -157,6 +161,7 @@ async def voice_list(body: VoiceListIn, request: Request, admin: CurrentAdmin = 
     try:
         voices = await list_voices(app_id or "", token or "", body.language_code or None)
     except TtsError as exc:
+        log.warning("Lấy danh sách giọng Vbee thất bại: %s", exc.message, extra={"ctx": {"HTTP": exc.status}})
         return {"ok": False, "voices": [], "message": exc.message}
     return {"ok": True, "voices": [v.as_dict() for v in voices],
             "message": f"Tìm thấy {len(voices)} giọng." if voices else "Vbee không trả về giọng nào cho ngôn ngữ này."}

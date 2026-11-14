@@ -1,4 +1,5 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { reportError } from "../lib/errorReporter";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { ChibiAvatar } from "./ChibiAvatar";
@@ -162,6 +163,11 @@ export function World({ engine, quality, onFps }: { engine: GameEngine; quality:
       camera={{ fov: 50, near: 0.1, far: 80, position: OVERVIEW_POS.toArray() }}
       gl={{ antialias: true, preserveDrawingBuffer: true, powerPreference: "high-performance" }}
       style={{ background: "linear-gradient(#ffd9e6, #fff1e0)" }}
+      onCreated={({ gl }) => {
+        const el = gl.domElement;
+        el.addEventListener("webglcontextlost", () => reportError("webgl", "Mất ngữ cảnh WebGL (card đồ họa/trình duyệt bị quá tải hoặc reset)"));
+        el.addEventListener("webglcontextrestored", () => reportError("warning", "Ngữ cảnh WebGL đã khôi phục"));
+      }}
     >
       <RenderContext.Provider value={opts}>
         <ambientLight intensity={0.45} color="#fff4f8" />

@@ -11,7 +11,8 @@ from app.db import Base
 
 config = context.config
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # keep the app's loggers alive (the error log listens to them) when migrations run in-process
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 url = config.get_main_option("sqlalchemy.url") or get_settings().resolved_database_url
 config.set_main_option("sqlalchemy.url", url)

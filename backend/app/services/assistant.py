@@ -207,7 +207,7 @@ class Assistant:
                 row.knowledge_id = item.get("knowledge_id") or row.knowledge_id
                 row.cost_usd = float(item.get("cost_usd") or row.cost_usd or 0.0)
         except Exception:
-            log.exception("conversation log failed")
+            log.exception("Không ghi được lịch sử hội thoại")
 
     def _learn(self, item: dict[str, Any], answer: str, *, trusted: bool, source: str) -> None:
         cfg = self.config
@@ -343,12 +343,14 @@ class Assistant:
             draft = await self._call_claude(item, intent, cfg, key)
         except ClaudeError as exc:
             self.last_error = exc.message
+            log.warning("Claude: %s", exc.message, extra={"ctx": {"mã": exc.code, "model": cfg.model}})
             return template, exc.message
         except TimeoutError:
             self.last_error = "Claude trả lời quá lâu."
+            log.warning("Claude trả lời quá lâu (quá 20 giây)", extra={"ctx": {"model": cfg.model}})
             return template, self.last_error
         except Exception as exc:
-            log.exception("claude call failed")
+            log.exception("Lỗi gọi Claude")
             self.last_error = f"Lỗi gọi Claude: {type(exc).__name__}"
             return template, self.last_error
         self.last_error = None
@@ -560,8 +562,10 @@ class Assistant:
                 max_tokens=cfg.max_output_tokens), timeout=25.0)
             draft = check_draft(json.loads(comp.text), self.c.catalog)
         except ClaudeError as exc:
+            log.warning("Thử kết nối Claude thất bại: %s", exc.message, extra={"ctx": {"mã": exc.code, "model": model}})
             return {"ok": False, "message": exc.message}
         except (TimeoutError, ValueError):
+            log.warning("Thử kết nối Claude: không trả lời đúng hạn hoặc sai định dạng", extra={"ctx": {"model": model}})
             return {"ok": False, "message": "Claude không trả lời đúng hạn hoặc sai định dạng."}
         cost = self.budget.record(model, comp.tokens_in, comp.tokens_out, cfg.budget_day_usd, cfg.budget_month_usd)
         return {"ok": True, "question": sample, "reply": draft.reply, "needs_review": draft.needs_review,

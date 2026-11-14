@@ -153,7 +153,11 @@ class LiveSessionService:
                 entry = {"at": datetime.now(UTC).isoformat(), "error": redact(str(exc))[:200],
                          "attempt": backoff.attempt, "retry_in_s": round(delay, 1) if delay else None}
                 self.reconnect_log.append(entry)
-                log.warning("provider failure: %s", entry)
+                # one stable message per cause, so a long outage is one line "×N" in the error log
+                log.warning("Mất kết nối TikTok LIVE: %s", entry["error"],
+                            extra={"ctx": {"nguồn": provider.name, "lần thử gần nhất": backoff.attempt,
+                                           "tiếp theo": f"thử lại sau {entry['retry_in_s']} giây" if delay
+                                           else "đã dừng thử lại"}})
                 await self._on_provider_status(ProviderStatus.LOST, "Đang thử kết nối lại…" if delay else "Đã dừng thử lại.")
                 if delay is None:
                     return

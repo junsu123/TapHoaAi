@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.10.0 — 2026-11-14 — Nhật ký lỗi
+
+- Trang **Nhật ký lỗi** trên dashboard: mọi lỗi/cảnh báo của máy chủ (Claude, Vbee, TikTok, cơ sở dữ liệu, API, tác vụ nền) và của trang game/dashboard (lỗi JavaScript, lỗi hiển thị, mất WebGL), cập nhật trực tiếp, số lỗi mới trên menu, lọc theo mức độ/khu vực/nội dung, chi tiết kỹ thuật, chép và tải về.
+- Lưu vào `data/logs/errors.jsonl` (xoay vòng), giữ qua khởi động lại; che API key/token/mật khẩu; gộp lỗi lặp lại “×N”.
+- Lỗi bất ngờ trong API trả về thông báo tiếng Việt kèm mã lỗi để tra trong nhật ký; trang lỗi hiển thị có nút tải lại thay vì trang trắng (trang OBS thì để trống).
+- Các lỗi trước đây chỉ hiện cho người dùng (Claude, Vbee, mất kết nối TikTok) nay cũng được ghi.
+- Sửa: chạy migration trong cùng tiến trình làm tắt mọi logger của phần mềm (`disable_existing_loggers`).
+
 ## 0.9.3 — 2026-11-14
 
 - Lỗi Vbee giờ hiện **nguyên văn lời nhắn của Vbee** và mã giọng đã gửi (trước đây mọi lời nhắn có chữ “voice” đều bị đổi thành “Mã giọng đọc không tồn tại trên Vbee”).

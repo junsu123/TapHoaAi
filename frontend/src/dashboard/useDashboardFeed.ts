@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { SequencedSocket, wsUrl } from "../lib/ws";
 import type { AiStatus } from "./AiSettingsPage";
+import type { LogRecord, LogStats } from "./LogsPage";
 
 export interface CommentRecord {
   event_id: string;
@@ -78,6 +79,7 @@ interface Snap {
   ai_paused: boolean;
   speech?: SpeechState;
   ai?: AiStatus;
+  logs?: LogStats;
 }
 
 type Msg =
@@ -87,6 +89,8 @@ type Msg =
   | { type: "SPEECH_STATE"; sequence: number; speech: SpeechState }
   | { type: "AI_STATUS"; sequence: number; ai: AiStatus }
   | { type: "ALERT"; sequence: number; code: string; message: string }
+  | { type: "LOG"; sequence: number; record: LogRecord; new: boolean }
+  | { type: "LOG_STATS"; sequence: number; stats: LogStats }
   | { type: "LIVE_STATUS"; sequence: number; status: LiveStatus }
   | { type: "METRICS"; sequence: number; metrics: Metrics }
   | { type: "AI_PAUSED"; sequence: number; paused: boolean }
@@ -102,6 +106,8 @@ export function useDashboardFeed(enabled: boolean) {
   const [speech, setSpeech] = useState<SpeechState | null>(null);
   const [ai, setAi] = useState<AiStatus | null>(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [logStats, setLogStats] = useState<LogStats | null>(null);
+  const [liveLogs, setLiveLogs] = useState<LogRecord[]>([]);
   const [connected, setConnected] = useState(false);
   const sockRef = useRef<SequencedSocket<Snap, Msg> | null>(null);
 
@@ -115,6 +121,7 @@ export function useDashboardFeed(enabled: boolean) {
         setAiPaused(s.ai_paused);
         if (s.speech) setSpeech(s.speech);
         if (s.ai) setAi(s.ai);
+        if (s.logs) setLogStats(s.logs);
       },
       onMessage: (m) => {
         if (m.type === "COMMENT") setComments((c) => [m.comment, ...c].slice(0, 200));
@@ -122,6 +129,11 @@ export function useDashboardFeed(enabled: boolean) {
         else if (m.type === "HOST_ATTENTION_UPDATE") setHost((h) => (h.some((x) => x.event_id === m.item.event_id) ? h.map((x) => (x.event_id === m.item.event_id ? m.item : x)) : [m.item, ...h]));
         else if (m.type === "SPEECH_STATE") setSpeech(m.speech);
         else if (m.type === "AI_STATUS") setAi(m.ai);
+        else if (m.type === "LOG") {
+          setLiveLogs((l) => [m.record, ...l.filter((x) => x.id !== m.record.id)].slice(0, 200));
+          if (m.new && m.record.level !== "INFO")
+            setLogStats((st) => (st ? { ...st, unseen: st.unseen + 1, last_id: Math.max(st.last_id, m.record.id) } : st));
+        } else if (m.type === "LOG_STATS") setLogStats(m.stats);
         else if (m.type === "ALERT") setAlerts((a) => [{ code: m.code, message: m.message, at: Date.now() }, ...a].slice(0, 5));
         else if (m.type === "LIVE_STATUS") setLive(m.status);
         else if (m.type === "METRICS") {
@@ -137,5 +149,5 @@ export function useDashboardFeed(enabled: boolean) {
     return () => sock.stop();
   }, [enabled]);
 
-  return { comments, host, live, metrics, aiPaused, setAiPaused, connected, speech, ai, alerts };
+  return { comments, host, live, metrics, aiPaused, setAiPaused, connected, speech, ai, alerts, logStats, setLogStats, liveLogs };
 }

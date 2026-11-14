@@ -169,11 +169,12 @@ class SpeechQueue:
             if clip in self.queue:
                 clip.status, clip.error = "bỏ (lỗi giọng đọc)", exc.message
                 self._drop(clip)
-            log.warning("tts failed: %s", exc.code)
+            log.warning("Giọng đọc: %s", exc.message, extra={"ctx": {"mã": exc.code, "giọng": self.voice,
+                                                                     "HTTP": exc.status}})
         except Exception as exc:
             clip.status, clip.error = "bỏ (lỗi giọng đọc)", str(exc)[:120]
             self._drop(clip)
-            log.exception("tts failed")
+            log.exception("Lỗi tạo giọng đọc")
         self._publish()
         self._wake.set()
 
@@ -253,7 +254,7 @@ class SpeechQueue:
             try:
                 self._step()
             except Exception:
-                log.exception("speech pump failed")
+                log.exception("Lỗi hàng đợi giọng đọc")
 
     def _step(self) -> None:
         now = time.monotonic()
