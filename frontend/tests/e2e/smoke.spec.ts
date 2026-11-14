@@ -534,3 +534,29 @@ test("Autopilot: one switch reads comments and answers them without the host", a
   await page.request.put("/api/v1/settings/ai", { data: { config: { ...cfg, voice_enabled: false } }, headers: { "X-CSRF-Token": csrf } });
   await game.close();
 });
+
+test("Vbee voice: pick a voice from the account's list (any code shape) and save it", async ({ page }) => {
+  const csrf = await login(page.request);
+  await page.setViewportSize({ width: 1360, height: 1000 });
+  await page.goto("/dashboard/ai");
+  await page.getByTestId("load-voices").click();
+  const select = page.getByTestId("voice-select");
+  await expect(select).toBeVisible();
+  await expect(select.locator("optgroup")).toHaveCount(2);
+  await select.selectOption("personal:shop-moctam/giong-chu-shop");
+  await expect(page.getByLabel("Mã giọng", { exact: true })).toHaveValue("personal:shop-moctam/giong-chu-shop");
+  await page.getByRole("button", { name: "Lưu cài đặt" }).click();
+  await expect(page.getByText("Đã lưu.")).toBeVisible();
+  await page.getByTestId("voice-select").scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${SHOTS}/VOICE-picker.png`, fullPage: true });
+  const s = await (await page.request.get("/api/v1/settings/ai")).json();
+  expect(s.config.voice_code).toBe("personal:shop-moctam/giong-chu-shop");
+  await page.getByRole("button", { name: /Nghe thử trên máy này/ }).click();
+  await expect(page.getByTestId("voice-test-audio")).toBeVisible();
+
+  // a code with a space gets a clear Vietnamese message instead of a regex
+  await page.getByLabel("Mã giọng", { exact: true }).fill("giong co khoang trang");
+  await page.getByRole("button", { name: "Lưu cài đặt" }).click();
+  await expect(page.getByRole("alert")).toContainText("khoảng trắng");
+  await page.request.put("/api/v1/settings/ai", { data: { config: { ...s.config, voice_code: "hn_female_ngochuyen_full_48k-fhg" } }, headers: { "X-CSRF-Token": csrf } });
+});

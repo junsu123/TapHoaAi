@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.1 — 2026-11-14 — Chọn giọng Vbee
+
+- Sửa lỗi không đổi được mã giọng Vbee: mã giọng trước đây bị giới hạn ở chữ không dấu, số, `_ - .` nên mã giọng tự tạo/cộng đồng bị từ chối với thông báo tiếng Anh khó hiểu. Giờ nhận mọi mã không có khoảng trắng/dấu nháy, báo lỗi bằng tiếng Việt.
+- Nút **📋 Chọn giọng từ Vbee**: lấy danh sách giọng qua API “Get list voices” của Vbee (`GET https://vbee.vn/api/public/v1/voices`, phân trang), nhóm “Giọng của tôi” / “Giọng Vbee & cộng đồng”, nghe mẫu, hiện hệ số ký tự.
+
 ## 0.9.0 — 2026-11-14 — Tự động hoàn toàn
 
 - Nút **🤖 Tự động hoàn toàn** trên trang Người trực: tự đọc bình luận và trả lời không chờ người trực — câu hỏi (câu trả lời an toàn đọc ngay), gọi tên sản phẩm (“Bạn … đang xem …, giá …”), lời chào (câu mẫu), bình luận thường (Claude, chỉ đọc khi có câu trả lời an toàn).

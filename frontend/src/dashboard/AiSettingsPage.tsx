@@ -56,6 +56,16 @@ interface SettingsOut {
   tts_locked: boolean;
 }
 
+interface VoiceOption {
+  code: string;
+  name: string;
+  gender: string | null;
+  language_code: string | null;
+  demo: string | null;
+  credit_factor: number | null;
+  ownership: string | null;
+}
+
 const POLICY = [
   "Người thật vẫn dẫn LIVE; giọng AI chỉ đọc câu hỏi của khách và câu trả lời ngắn, không thay người dẫn.",
   "Khi giọng AI nói, màn hình LIVE ghi rõ “Trợ lý AI” (phần mềm tự hiện) — không giả làm người thật.",
@@ -112,6 +122,8 @@ export function AiSettingsPage() {
   const [claudeTest, setClaudeTest] = useState<Record<string, unknown> | null>(null);
   const [voiceText, setVoiceText] = useState("Bạn Lan Anh hỏi: trà cà gai leo giá bao nhiêu vậy shop?");
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [voices, setVoices] = useState<VoiceOption[] | null>(null);
+  const [demoUrl, setDemoUrl] = useState<string | null>(null);
 
   const load = () =>
     api.get<SettingsOut>("/settings/ai").then((d) => {
@@ -178,6 +190,26 @@ export function AiSettingsPage() {
         if (r.url && !onLive) setAudioUrl(`${r.url}?t=${Date.now()}`);
       }
     });
+
+  const loadVoices = () =>
+    run("voices", async () => {
+      const r = await api.post<{ ok: boolean; voices: VoiceOption[]; message: string }>("/settings/voice/list", {
+        app_id: appId.trim() || null,
+        token: token.trim() || null,
+      });
+      if (!r.ok) setErr(r.message);
+      else {
+        setVoices(r.voices);
+        setMsg(r.message);
+      }
+    });
+  const chosen = voices?.find((v) => v.code === cfg.voice_code);
+  const voiceGroups: [string, VoiceOption[]][] = voices
+    ? [
+        ["Giọng của tôi", voices.filter((v) => v.ownership === "PERSONAL")],
+        ["Giọng Vbee & cộng đồng", voices.filter((v) => v.ownership !== "PERSONAL")],
+      ].filter(([, list]) => (list as VoiceOption[]).length > 0) as [string, VoiceOption[]][]
+    : [];
 
   const st = data.status;
   const model = data.models.find((m) => m.id === cfg.model);
@@ -271,9 +303,40 @@ export function AiSettingsPage() {
               <Field label="Token" hint={data.secrets.vbee_token ? `Đang dùng ${data.secrets.vbee_token} — để trống nếu không đổi.` : undefined}>
                 <input type="password" autoComplete="off" value={token} onChange={(e) => setToken(e.target.value)} placeholder={data.secrets.vbee_token ?? "Token"} aria-label="Vbee Token" />
               </Field>
-              <Field label="Mã giọng (voiceCode)" hint="Mặc định là “HN - Ngọc Huyền”. Giọng khác (SG - Tường Vy, HN - Mai Phương, SG - Lan Trinh, SG - Thảo Trinh…): chép mã giọng trong trang Vbee.">
+              <div className="field">
+                <span>Giọng đọc</span>
+                <div className="row wrap">
+                  <button type="button" onClick={loadVoices} disabled={!!busy} data-testid="load-voices">
+                    {busy === "voices" ? "Đang tải…" : voices ? "↻ Tải lại danh sách giọng" : "📋 Chọn giọng từ Vbee"}
+                  </button>
+                  {chosen?.demo && (
+                    <button type="button" onClick={() => setDemoUrl(`${chosen.demo}`)}>
+                      ▶ Nghe mẫu của Vbee
+                    </button>
+                  )}
+                </div>
+                {voices && (
+                  <select value={chosen ? cfg.voice_code : ""} onChange={(e) => e.target.value && set("voice_code", e.target.value)} aria-label="Chọn giọng" data-testid="voice-select">
+                    {!chosen && <option value="">— chọn một giọng ({voices.length} giọng) —</option>}
+                    {voiceGroups.map(([label, list]) => (
+                      <optgroup key={label} label={label}>
+                        {list.map((v) => (
+                          <option key={v.code} value={v.code}>
+                            {v.name}
+                            {v.gender ? ` · ${v.gender === "female" ? "nữ" : v.gender === "male" ? "nam" : v.gender}` : ""}
+                            {v.credit_factor && v.credit_factor > 1 ? ` · ×${v.credit_factor} ký tự` : ""}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                )}
+                {demoUrl && <audio src={demoUrl} controls autoPlay />}
                 <input value={cfg.voice_code} onChange={(e) => set("voice_code", e.target.value.trim())} aria-label="Mã giọng" />
-              </Field>
+                <span className="muted small">
+                  Mã giọng (voiceCode) đang dùng. Bấm “Chọn giọng từ Vbee” để chọn trong danh sách giọng tài khoản của bạn được dùng — kể cả giọng bạn tự tạo — hoặc dán mã giọng vào ô này. Nhớ bấm <b>Lưu cài đặt</b>.
+                </span>
+              </div>
               <Field label={`Tốc độ đọc: ${cfg.voice_speed.toFixed(2)}×`}>
                 <input type="range" min={0.7} max={1.4} step={0.05} value={cfg.voice_speed} onChange={(e) => set("voice_speed", Number(e.target.value))} aria-label="Tốc độ đọc" />
               </Field>
