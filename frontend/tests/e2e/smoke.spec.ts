@@ -563,3 +563,29 @@ test("Vbee voice: pick a voice from the account's list (any code shape) and save
   await expect(page.getByRole("alert")).toContainText("khoảng trắng");
   await page.request.put("/api/v1/settings/ai", { data: { config: { ...s.config, voice_code: "hn_female_ngochuyen_full_48k-fhg" } }, headers: { "X-CSRF-Token": csrf } });
 });
+
+test("Error log: a JavaScript error on the OBS page shows up live in Nhật ký lỗi", async ({ page, context }) => {
+  await login(page.request);
+  await page.setViewportSize({ width: 1360, height: 900 });
+  await page.goto("/dashboard/logs");
+  await page.waitForTimeout(500);
+  await page.goto("/dashboard");
+  await expect(page.getByTestId("log-badge")).toHaveCount(0);
+
+  const game = await context.newPage();
+  await game.goto("/game/live?debug=1&quality=low&role=viewer");
+  await game.waitForFunction(() => (window as any).__chibiDebug?.state().layoutVersion > 0);
+  await game.evaluate((run) => setTimeout(() => { throw new Error(`lỗi thử từ trang game ${run}`); }), RUN);
+  await expect(page.getByTestId("log-badge")).toBeVisible({ timeout: 10_000 });
+
+  await page.getByRole("link", { name: /Nhật ký lỗi/ }).click();
+  const row = page.getByTestId("log-row").filter({ hasText: `lỗi thử từ trang game ${RUN}` });
+  await expect(row).toContainText("Trang game (OBS)");
+  await row.locator(".log-head").click();
+  await expect(row.locator(".log-trace")).toBeVisible();
+  await expect(page.getByTestId("log-badge")).toHaveCount(0);
+  await page.screenshot({ path: `${SHOTS}/LOG-page.png`, fullPage: true });
+  const txt = await (await page.request.get("/api/v1/logs/export.txt")).text();
+  expect(txt).toContain(`lỗi thử từ trang game ${RUN}`);
+  await game.close();
+});

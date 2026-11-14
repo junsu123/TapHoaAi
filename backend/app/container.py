@@ -8,6 +8,7 @@ import logging
 import secrets
 import time
 from collections import deque
+from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -25,6 +26,7 @@ from app.services.assistant import Assistant
 from app.services.avatar_manager import AvatarManager
 from app.services.camera_director import CameraDirector
 from app.services.catalog import build_catalog
+from app.services.error_log import ErrorLog, ErrorRecord
 from app.services.intent_router import CommentIntentRouter
 from app.services.live_session import LiveSessionService
 from app.services.orchestrator import Orchestrator
@@ -44,6 +46,8 @@ class AppContainer:
         self.db = db or Database(settings.resolved_database_url)
         self.box = SecretBox(load_or_create_key(settings.data_dir))
         self.hub = hub or Hub()
+        self.errors = ErrorLog(settings.data_dir / "logs")
+        self.errors.publish = self._publish_error
         self.bus = EventBus(settings.bus_max_size)
         self.deduper = Deduper()
         self.gifts = GiftStreakTracker()
@@ -186,6 +190,7 @@ class AppContainer:
             "live": self.live.status_dict(), "comments": list(self.orchestrator.recent_comments)[-50:],
             "host_attention": list(self.orchestrator.host_attention)[-30:], "ai_paused": self.ai_paused,
             "speech": self.speech.state(), "ai": self.assistant.status(),
+            "logs": self.errors.stats(self.error_seen_id()),
         }
 
     # ------------------------------------------------------------------ metrics
@@ -215,7 +220,28 @@ class AppContainer:
         }
 
     # ------------------------------------------------------------------ lifecycle
+    def _publish_error(self, record: ErrorRecord, is_new: bool) -> None:
+        self.hub.send_dashboard({"type": "LOG", "record": asdict(record), "new": is_new})
+
+    def error_seen_id(self) -> int:
+        try:
+            return int(self.get_setting("error_log_seen_id") or 0)
+        except ValueError:
+            return 0
+
+    @staticmethod
+    def _loop_exception(loop: asyncio.AbstractEventLoop, ctx: dict[str, Any]) -> None:
+        exc = ctx.get("exception")
+        logging.getLogger("chibi.asyncio").error(
+            ctx.get("message") or "Lỗi trong tác vụ nền",
+            exc_info=(type(exc), exc, exc.__traceback__) if isinstance(exc, BaseException) else None,
+            extra={"ctx": {"task": str(ctx.get("task") or ctx.get("future") or "")[:200]}})
+
     async def start(self) -> None:
+        loop = asyncio.get_running_loop()
+        self.errors.loop = loop
+        self.errors.install()
+        loop.set_exception_handler(self._loop_exception)
         self._cancel_stale_commands()
         self.hub.start()
         self.speech.start()
@@ -227,6 +253,7 @@ class AppContainer:
         ]
 
     async def stop(self) -> None:
+        self.errors.uninstall()
         await self.live.stop()
         await self.speech.stop()
         for t in self._tasks:

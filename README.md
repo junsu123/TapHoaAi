@@ -146,6 +146,15 @@ Vẫn giữ nguyên an toàn: câu nói về bệnh/chữa trị, giá lạ, câ
 
 `CHIBI_TTS_LOCKED=1` khóa giọng đọc bất kể dashboard. `CHIBI_FAKE_AI=1` dùng Claude/giọng giả (tiếng bíp) để demo và kiểm thử không tốn tiền.
 
+## Nhật ký lỗi
+
+Dashboard → **Nhật ký lỗi** (có số đỏ trên menu khi có lỗi mới) hiện mọi lỗi và cảnh báo khi phần mềm chạy, ngay lúc xảy ra:
+
+- Máy chủ: Claude, giọng đọc Vbee, mất kết nối TikTok, cơ sở dữ liệu, lỗi bất ngờ trong API (trả về “xem Nhật ký lỗi (mã #…)”), lỗi tác vụ nền.
+- Trang game (OBS) và dashboard: lỗi JavaScript, lỗi hiển thị, mất WebGL.
+
+Lỗi giống nhau lặp lại trong 2 phút gộp thành một dòng “×N”. Bấm một dòng để xem chi tiết (khu vực, trang, chi tiết kỹ thuật) và **Chép để gửi hỗ trợ**; **Tải toàn bộ nhật ký (.txt)** để gửi cả file. API key, token, mật khẩu được che trước khi ghi. Nhật ký lưu ở `data/logs/errors.jsonl` (xoay vòng, tối đa khoảng 12 MB), còn nguyên sau khi khởi động lại.
+
 ## Kết nối TikTok LIVE
 
 Dashboard → **Kết nối TikTok** → dán link LIVE (hoặc link `vm.tiktok.com`) → đánh dấu danh sách chính sách → **Kết nối**. Trước khi dùng cho buổi bán hàng, làm bài thử 9 bước trong [`docs/provider-limitations.md`](docs/provider-limitations.md) — trong đó có tóm tắt giấy phép TikTokLive (dùng cho cửa hàng của bạn được; **không** đem làm dịch vụ SaaS cho người khác) và việc tên tài khoản LIVE được gửi tới máy chủ ký Euler Stream.

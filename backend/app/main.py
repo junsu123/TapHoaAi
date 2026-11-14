@@ -11,7 +11,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api.v1 import admin_ops, ai, auth, catalog, conversations, live, pdf_import, system
+from app.api.v1 import (
+    admin_ops,
+    ai,
+    auth,
+    catalog,
+    conversations,
+    live,
+    logs,
+    pdf_import,
+    system,
+)
 from app.config import Settings, get_settings
 from app.container import AppContainer
 from app.security.ratelimit import LoginLockout, SlidingWindowLimiter
@@ -51,6 +61,26 @@ def create_app(settings: Settings | None = None, container: AppContainer | None 
             response.headers.setdefault("X-Frame-Options", "DENY")
         return response
 
+    @app.middleware("http")
+    async def unexpected_errors(request: Request, call_next):
+        """A bug in an endpoint becomes a logged error with its request, and a Vietnamese 500."""
+        try:
+            return await call_next(request)
+        except Exception as exc:  # noqa: BLE001
+            store = getattr(getattr(request.app.state, "container", None), "errors", None)
+            rid = None
+            if store is not None:
+                import traceback
+
+                r = store.add("ERROR", "chibi.http", f"Lỗi bất ngờ khi xử lý {request.method} {request.url.path}: "
+                              f"{type(exc).__name__}: {exc}",
+                              "".join(traceback.format_exception(exc)),
+                              {"method": request.method, "path": request.url.path})
+                rid = r.id
+            return JSONResponse({"error": {"code": "internal", "message": "Lỗi bất ngờ trong phần mềm — xem "
+                                           f"Dashboard → Nhật ký lỗi{f' (mã #{rid})' if rid else ''}."}},
+                                status_code=500)
+
     @app.exception_handler(HTTPException)
     async def http_error(_req: Request, exc: HTTPException):
         detail = exc.detail if isinstance(exc.detail, dict) else {"code": "error", "message": str(exc.detail)}
@@ -64,7 +94,7 @@ def create_app(settings: Settings | None = None, container: AppContainer | None 
                                        "field": ".".join(str(x) for x in first.get("loc", []))}},
                             status_code=422)
 
-    for r in (auth.router, live.router, catalog.router, pdf_import.router, ai.router, conversations.router, system.router, admin_ops.router):
+    for r in (auth.router, live.router, catalog.router, pdf_import.router, ai.router, conversations.router, logs.router, system.router, admin_ops.router):
         app.include_router(r, prefix="/api/v1")
     app.include_router(ws_routes.router)
 

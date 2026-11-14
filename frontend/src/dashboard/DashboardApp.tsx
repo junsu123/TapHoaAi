@@ -7,6 +7,7 @@ import { api, ApiError, formatVnd, setCsrf } from "../lib/api";
 import { AiSettingsPage, type AiStatus } from "./AiSettingsPage";
 import { QuestionCard, VoiceBar } from "./HostDesk";
 import { KnowledgePage } from "./KnowledgePage";
+import { LogsPage } from "./LogsPage";
 import { BOX_FACE_LABEL, PdfFacePicker, type RenderedFaces } from "./PdfFacePicker";
 import { ShelfEditor } from "./ShelfEditor";
 import { useDashboardFeed, type CommentRecord, type HostItem, type LiveStatus, type Metrics, type SpeechState } from "./useDashboardFeed";
@@ -986,6 +987,7 @@ export function DashboardApp() {
     ["shelves", "Bản đồ kệ"],
     ["game", "Game 3D & OBS"],
     ["settings", "Cài đặt & sao lưu"],
+    ["logs", "Nhật ký lỗi"],
   ];
   return (
     <div className="dash">
@@ -995,6 +997,11 @@ export function DashboardApp() {
           {nav.map(([to, label]) => (
             <NavLink key={to} to={`/dashboard/${to}`} end={to === ""}>
               {label}
+              {to === "logs" && feed.logStats && feed.logStats.unseen > 0 && (
+                <span className="nav-badge" data-testid="log-badge">
+                  {feed.logStats.unseen > 99 ? "99+" : feed.logStats.unseen}
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>
@@ -1023,6 +1030,7 @@ export function DashboardApp() {
           <Route path="host" element={<HostPage comments={feed.comments} host={feed.host} aiPaused={feed.aiPaused} setAiPaused={feed.setAiPaused} speech={feed.speech} ai={feed.ai} />} />
           <Route path="ai" element={<AiSettingsPage />} />
           <Route path="knowledge" element={<KnowledgePage />} />
+          <Route path="logs" element={<LogsPage live={feed.liveLogs} stats={feed.logStats} onSeen={feed.setLogStats} />} />
           <Route path="products" element={<ProductsPage />} />
           <Route path="shelves" element={<ShelvesPage />} />
           <Route path="game" element={<GameSetupPage />} />
