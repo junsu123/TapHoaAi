@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.0 — 2026-11-14 — Trợ lý AI Claude và giọng đọc Vbee (M4)
+
+- Câu hỏi của khách được đọc to trên LIVE (“Bạn {tên} hỏi: …”, đã bỏ số điện thoại/liên kết/từ cấm), Claude soạn câu trả lời 1–2 câu chỉ từ danh mục và thông tin shop, người trực bấm **Đọc** (hoặc chế độ tự động cho câu an toàn).
+- Giọng đọc Vbee qua Realtime API (`mode: sync`, ≤ 300 ký tự/lần, tự chia câu), lưu đệm âm thanh 3 ngày; trang game (OBS) phát lần lượt, báo bắt đầu/kết thúc, hiện phụ đề “Câu hỏi của khách” / “🤖 Trợ lý AI”.
+- Tắt giọng ngay (F9), giữ để nói (Space), tự im khi micro có tiếng; tạm dừng AI dừng cả giọng.
+- An toàn: bình luận là dữ liệu, tên khách không gửi lên Claude, product_id chỉ trong danh mục, câu nói về bệnh/chữa trị, giá lạ hoặc AI không chắc chắn luôn chờ người trực.
+- Ngân sách: USD/ngày, USD/tháng, cảnh báo 70/90/100 %, cache 30 phút, gộp câu hỏi trùng trong 2 phút; ký tự giọng đọc/tháng. Hết hạn mức: câu mẫu lấy từ danh mục.
+- Trang **Trợ lý AI & giọng đọc**: key Claude/Vbee (mã hóa, chỉ hiện dạng che), thử kết nối, nghe thử, checklist chính sách.
+- `anthropic` (MIT) thành phụ thuộc chính; `CHIBI_FAKE_AI=1` cho demo/kiểm thử; `CHIBI_TTS_LOCKED=1` khóa giọng.
+
 ## 0.6.0 — 2026-11-14 — Lấy mặt hộp từ file in PDF
 
 - Mục Sản phẩm: tải file in PDF (bản trải phẳng hoặc mỗi mặt một trang), phần mềm đặt sẵn khung 6 mặt đúng kích thước thật; kéo, nhích, xoay khung, khung tự hít mép nhau.

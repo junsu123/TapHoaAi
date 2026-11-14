@@ -158,6 +158,8 @@ class Orchestrator:
                     "suggestion": None, "suggestion_label": None,
                     "hint": self._host_hint(intent.kind, outcome, record)}
             self.host_attention.append(item)
+            viewer_key = av.viewer_key if av else (ev.user.identity_key if ev.user else None)
+            self.c.assistant.on_comment(item, intent, viewer_key)
             self.c.hub.send_dashboard({"type": "HOST_ATTENTION", "item": item})
 
     @staticmethod

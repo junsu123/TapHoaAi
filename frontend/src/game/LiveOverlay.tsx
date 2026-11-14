@@ -2,6 +2,7 @@
 // Everything sits inside configurable safe areas so TikTok's own UI never covers it (H4).
 
 import { useEffect, useState } from "react";
+import type { SpeechView } from "./SpeechPlayer";
 import { formatVnd } from "../lib/api";
 import type { ProductInfo } from "../types/protocol";
 import type { GameEngine } from "./GameEngine";
@@ -20,10 +21,32 @@ interface OverlayState {
   liveStatus: string;
 }
 
-const BAD_STATUSES = new Set(["Mất kết nối", "Đã kết thúc", "Không hỗ trợ", "Không phát LIVE"]);
+const BAD_STATUSES = new Set([
+  "Mất kết nối",
+  "Đã kết thúc",
+  "Không hỗ trợ",
+  "Không phát LIVE",
+]);
 
-export function LiveOverlay({ engine, safe, socketUp }: { engine: GameEngine; safe: SafeArea; socketUp: boolean }) {
-  const [st, setSt] = useState<OverlayState>({ product: null, nickname: null, isDemo: false, liveStatus: "" });
+export function LiveOverlay({
+  engine,
+  safe,
+  socketUp,
+  speech,
+  onUnlockAudio,
+}: {
+  engine: GameEngine;
+  safe: SafeArea;
+  socketUp: boolean;
+  speech?: SpeechView;
+  onUnlockAudio?: () => void;
+}) {
+  const [st, setSt] = useState<OverlayState>({
+    product: null,
+    nickname: null,
+    isDemo: false,
+    liveStatus: "",
+  });
   useEffect(() => {
     const id = setInterval(() => {
       const sc = engine.showcase();
@@ -49,7 +72,12 @@ export function LiveOverlay({ engine, safe, socketUp }: { engine: GameEngine; sa
   return (
     <div
       className="overlay"
-      style={{ paddingTop: `${safe.top * 100}%`, paddingBottom: `${safe.bottom * 100}%`, paddingRight: `${safe.right * 100}%`, paddingLeft: `${safe.left * 100}%` }}
+      style={{
+        paddingTop: `${safe.top * 100}%`,
+        paddingBottom: `${safe.bottom * 100}%`,
+        paddingRight: `${safe.right * 100}%`,
+        paddingLeft: `${safe.left * 100}%`,
+      }}
     >
       <div className="overlay-top">
         {st.isDemo && (
@@ -63,23 +91,52 @@ export function LiveOverlay({ engine, safe, socketUp }: { engine: GameEngine; sa
           </span>
         )}
       </div>
-      {st.product && (
-        <div className="product-card" data-testid="product-card" data-product-id={st.product.id}>
-          {(st.product.card_image_url || st.product.image_url) && (
-            <img
-              src={st.product.card_image_url || st.product.image_url!}
-              alt={st.product.name}
-              className={st.product.card_image_url ? "card-photo" : undefined}
-            />
-          )}
-          <div className="product-card-body">
-            {st.nickname && <div className="product-card-who">{st.nickname} đang xem</div>}
-            <div className="product-card-name">{st.product.name}</div>
-            <div className="product-card-sku">SKU: {st.product.sku}</div>
-            {price && <div className="product-card-price">{price}</div>}
+      <div className="overlay-bottom">
+        {speech?.blocked && (
+          <button
+            className="audio-unlock"
+            onClick={onUnlockAudio}
+            data-testid="audio-unlock"
+          >
+            🔈 Bấm để bật âm thanh
+          </button>
+        )}
+        {speech?.clip && (
+          <div
+            className={`speech-caption speech-${speech.clip.kind}${speech.held ? " held" : ""}`}
+            data-testid="speech-caption"
+            data-kind={speech.clip.kind}
+          >
+            <span className="speech-label">
+              {speech.clip.kind === "answer" ? "🤖" : "🔊"} {speech.clip.label}
+            </span>
+            <span className="speech-text">{speech.clip.text}</span>
           </div>
-        </div>
-      )}
+        )}
+        {st.product && (
+          <div
+            className="product-card"
+            data-testid="product-card"
+            data-product-id={st.product.id}
+          >
+            {(st.product.card_image_url || st.product.image_url) && (
+              <img
+                src={st.product.card_image_url || st.product.image_url!}
+                alt={st.product.name}
+                className={st.product.card_image_url ? "card-photo" : undefined}
+              />
+            )}
+            <div className="product-card-body">
+              {st.nickname && (
+                <div className="product-card-who">{st.nickname} đang xem</div>
+              )}
+              <div className="product-card-name">{st.product.name}</div>
+              <div className="product-card-sku">SKU: {st.product.sku}</div>
+              {price && <div className="product-card-price">{price}</div>}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

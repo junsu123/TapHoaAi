@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api.v1 import admin_ops, auth, catalog, live, pdf_import, system
+from app.api.v1 import admin_ops, ai, auth, catalog, live, pdf_import, system
 from app.config import Settings, get_settings
 from app.container import AppContainer
 from app.security.ratelimit import LoginLockout, SlidingWindowLimiter
@@ -64,12 +64,14 @@ def create_app(settings: Settings | None = None, container: AppContainer | None 
                                        "field": ".".join(str(x) for x in first.get("loc", []))}},
                             status_code=422)
 
-    for r in (auth.router, live.router, catalog.router, pdf_import.router, system.router, admin_ops.router):
+    for r in (auth.router, live.router, catalog.router, pdf_import.router, ai.router, system.router, admin_ops.router):
         app.include_router(r, prefix="/api/v1")
     app.include_router(ws_routes.router)
 
     settings.media_dir.mkdir(parents=True, exist_ok=True)
     app.mount("/media", StaticFiles(directory=settings.media_dir), name="media")
+    (settings.data_dir / "tts_cache").mkdir(parents=True, exist_ok=True)
+    app.mount("/tts", StaticFiles(directory=settings.data_dir / "tts_cache"), name="tts")
 
     dist = settings.frontend_dist
     if (dist / "index.html").exists():
@@ -77,7 +79,7 @@ def create_app(settings: Settings | None = None, container: AppContainer | None 
 
         @app.get("/{full_path:path}", include_in_schema=False)
         async def spa(full_path: str):
-            if full_path.startswith(("api/", "ws/", "media/")):
+            if full_path.startswith(("api/", "ws/", "media/", "tts/")):
                 return JSONResponse({"error": {"code": "not_found", "message": "Not found"}}, status_code=404)
             candidate = (dist / full_path).resolve()
             if full_path and candidate.is_file() and dist.resolve() in candidate.parents:

@@ -10,6 +10,10 @@
    - **Shop LIVE**: webcam + mic người thật là chính; game đặt góc/lớp phụ.
    - **Game Demo**: game toàn màn hình — chỉ để kiểm thử.
    - **Break**, **Emergency**: ảnh tĩnh/thông báo.
-6. Âm thanh: mic người thật vào OBS. Phần mềm hiện không phát âm thanh.
+6. Âm thanh:
+   - Mic người thật vào OBS như bình thường.
+   - Nếu bật **giọng đọc AI** (Dashboard → Trợ lý AI & giọng đọc): trong thuộc tính Browser Source, đánh dấu **Control audio via OBS** (“Điều khiển âm thanh qua OBS”). Tiếng đọc câu hỏi/câu trả lời sẽ thành một kênh riêng trong Audio Mixer — chỉnh to nhỏ, hoặc thêm bộ lọc **Compressor/Ducking** để tự nhỏ đi khi mic có tiếng.
+   - Chỉ nguồn game **chính** (không có `?role=viewer`) phát tiếng; bản xem trước trên dashboard chỉ hiện phụ đề.
+   - OBS tự cho phép phát tiếng. Nếu mở trang game bằng Chrome thường, bấm nút “🔈 Bấm để bật âm thanh” một lần.
 
 Không dùng điện thoại quay màn hình máy tính (gây sọc moiré). Điều khiển cảnh bằng obs-websocket là mốc M5.

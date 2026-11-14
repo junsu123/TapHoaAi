@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { SequencedSocket, wsUrl } from "../lib/ws";
+import type { AiStatus } from "./AiSettingsPage";
 
 export interface CommentRecord {
   event_id: string;
@@ -20,6 +21,36 @@ export interface HostItem extends CommentRecord {
   status: string;
   hint: string;
   suggestion: string | null;
+  suggestion_label?: string | null;
+  review_reasons?: string[];
+  question_read?: boolean;
+  spoken?: boolean;
+  duplicate_of?: string;
+}
+
+export interface SpeechClipSummary {
+  id: string;
+  kind: string;
+  label: string;
+  text: string;
+  status: string;
+  error: string | null;
+  ref: string | null;
+}
+
+export interface SpeechState {
+  muted: boolean;
+  hold: boolean;
+  player: boolean;
+  current: SpeechClipSummary | null;
+  queue: SpeechClipSummary[];
+  history: SpeechClipSummary[];
+}
+
+export interface Alert {
+  code: string;
+  message: string;
+  at: number;
 }
 
 export interface LiveStatus {
@@ -45,11 +76,17 @@ interface Snap {
   comments: CommentRecord[];
   host_attention: HostItem[];
   ai_paused: boolean;
+  speech?: SpeechState;
+  ai?: AiStatus;
 }
 
 type Msg =
   | { type: "COMMENT"; sequence: number; comment: CommentRecord }
   | { type: "HOST_ATTENTION"; sequence: number; item: HostItem }
+  | { type: "HOST_ATTENTION_UPDATE"; sequence: number; item: HostItem }
+  | { type: "SPEECH_STATE"; sequence: number; speech: SpeechState }
+  | { type: "AI_STATUS"; sequence: number; ai: AiStatus }
+  | { type: "ALERT"; sequence: number; code: string; message: string }
   | { type: "LIVE_STATUS"; sequence: number; status: LiveStatus }
   | { type: "METRICS"; sequence: number; metrics: Metrics }
   | { type: "AI_PAUSED"; sequence: number; paused: boolean }
@@ -62,6 +99,9 @@ export function useDashboardFeed(enabled: boolean) {
   const [live, setLive] = useState<LiveStatus | null>(null);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [aiPaused, setAiPaused] = useState(false);
+  const [speech, setSpeech] = useState<SpeechState | null>(null);
+  const [ai, setAi] = useState<AiStatus | null>(null);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
   const [connected, setConnected] = useState(false);
   const sockRef = useRef<SequencedSocket<Snap, Msg> | null>(null);
 
@@ -73,12 +113,21 @@ export function useDashboardFeed(enabled: boolean) {
         setHost(s.host_attention.slice().reverse());
         setLive(s.live);
         setAiPaused(s.ai_paused);
+        if (s.speech) setSpeech(s.speech);
+        if (s.ai) setAi(s.ai);
       },
       onMessage: (m) => {
         if (m.type === "COMMENT") setComments((c) => [m.comment, ...c].slice(0, 200));
-        else if (m.type === "HOST_ATTENTION") setHost((h) => [m.item, ...h].slice(0, 100));
+        else if (m.type === "HOST_ATTENTION") setHost((h) => [m.item, ...h.filter((x) => x.event_id !== m.item.event_id)].slice(0, 100));
+        else if (m.type === "HOST_ATTENTION_UPDATE") setHost((h) => (h.some((x) => x.event_id === m.item.event_id) ? h.map((x) => (x.event_id === m.item.event_id ? m.item : x)) : [m.item, ...h]));
+        else if (m.type === "SPEECH_STATE") setSpeech(m.speech);
+        else if (m.type === "AI_STATUS") setAi(m.ai);
+        else if (m.type === "ALERT") setAlerts((a) => [{ code: m.code, message: m.message, at: Date.now() }, ...a].slice(0, 5));
         else if (m.type === "LIVE_STATUS") setLive(m.status);
-        else if (m.type === "METRICS") setMetrics(m.metrics);
+        else if (m.type === "METRICS") {
+          setMetrics(m.metrics);
+          if (m.metrics.ai) setAi(m.metrics.ai as AiStatus);
+        }
         else if (m.type === "AI_PAUSED") setAiPaused(m.paused);
       },
       onStatus: setConnected,
@@ -88,5 +137,5 @@ export function useDashboardFeed(enabled: boolean) {
     return () => sock.stop();
   }, [enabled]);
 
-  return { comments, host, live, metrics, aiPaused, setAiPaused, connected };
+  return { comments, host, live, metrics, aiPaused, setAiPaused, connected, speech, ai, alerts };
 }

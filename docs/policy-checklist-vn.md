@@ -6,7 +6,8 @@
 
 - [ ] Có **người thật** trên webcam, nói chuyện và giới thiệu **sản phẩm thật** trong suốt buổi.
 - [ ] Cảnh mặc định là `Shop LIVE` (webcam là chính, game là lớp phụ) — không dùng `Game Demo` toàn màn hình làm nội dung bán hàng.
-- [ ] Không phát giọng AI (TTS đang tắt cứng trong phần mềm).
+- [ ] Giọng đọc AI: mặc định **tắt**. Nếu bật (Dashboard → Trợ lý AI & giọng đọc), chỉ để đọc câu hỏi của khách và câu trả lời ngắn — người thật vẫn dẫn chính; màn hình hiện nhãn “Trợ lý AI” khi giọng AI nói; người trực biết nút **Tắt giọng ngay (F9)** và **Giữ để nói (Space)**. Kiểm tra lại chính sách nội dung AI/AIGC của TikTok trước khi bật.
+- [ ] Nếu để chế độ **Tự động đọc**: phần mềm vẫn giữ lại cho người trực mọi câu có nói về bệnh/chữa trị, giá không có trong danh mục, hoặc AI không chắc chắn — nhưng người trực vẫn phải theo dõi câu được đọc.
 - [ ] Nếu nguồn sự kiện là Demo, nhãn `DEMO` đang hiển thị — không phát cảnh demo như tương tác thật.
 - [ ] Mọi sản phẩm hiển thị đều ở trạng thái **Đã duyệt**; giá trên thẻ đã được xác nhận.
 - [ ] Không tuyên bố chữa bệnh, điều trị, cam kết hiệu quả; sản phẩm sức khỏe có dòng “Thực phẩm này không phải là thuốc…”.
