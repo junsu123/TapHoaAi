@@ -215,7 +215,7 @@ test("T17 (load, CPU renderer): 60 avatars + 100 comments — no crash, bounded 
   expect(m.avatars.visible).toBeLessThanOrEqual(60);
   expect(m.actions.queue_depth).toBeLessThanOrEqual(60 * 3);
   // at most 60 on stage; evicted Chibis may still be walking to the door
-  expect(s.avatars.filter((a) => a.phase !== "exiting").length).toBeLessThanOrEqual(60);
+  expect(s.avatars.filter((a) => a.phase !== "exiting" && a.phase !== "goodbye").length).toBeLessThanOrEqual(60);
   await page.request.post("/api/v1/live/disconnect", { headers: { "X-CSRF-Token": csrf } }); // clean store for later tests
 });
 

@@ -295,3 +295,26 @@ def test_sign_key_is_stored_encrypted_and_masked(admin_client):
     c.post("/api/v1/live/connect", json={"url": "https://www.tiktok.com/@shoptra/live", "policy_ack": True})
     _wait(c, lambda s: s["status"] == "Không phát LIVE")
     assert holder["client"].sign_api_key == "euler_live_abcdef123456"
+
+
+def test_live_end_and_viewer_count_make_chibis_leave(admin_client):
+    c = admin_client
+    factory, holder = make()
+    c.app.state.container.tiktok_client_factory = factory
+    c.post("/api/v1/live/connect", json={"url": "https://www.tiktok.com/@shoptra/live", "policy_ack": True})
+    _wait(c, lambda s: s["status"] == "Đã kết nối")
+    container, client = c.app.state.container, holder["client"]
+    for i, name in enumerate(["an", "binh", "chi"]):
+        c.portal.call(client.emit, comment(100 + i, "chào shop", user=User(id=900 + i, nickname=name, display_id=name)))
+    end = time.time() + 2
+    while time.time() < end and len(container.avatars.visible()) < 3:
+        time.sleep(0.02)
+    assert len(container.avatars.visible()) == 3
+    c.portal.call(client.emit, RoomUserSeqEvent(total=1))  # TikTok: only 1 person watching now
+    end = time.time() + 2
+    while time.time() < end and len(container.avatars.visible()) > 1:
+        time.sleep(0.05)
+    assert len(container.avatars.visible()) == 1
+    c.portal.call(client.emit, LiveEndEvent())
+    st = _wait(c, lambda s: s["status"] == "Đã kết thúc")
+    assert st["status"] == "Đã kết thúc" and container.avatars.visible() == []

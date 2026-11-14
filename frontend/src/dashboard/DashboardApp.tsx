@@ -675,6 +675,42 @@ function ShelvesPage() {
   );
 }
 
+function LeaveSetting() {
+  const [minutes, setMinutes] = useState<string>("");
+  const [note, setNote] = useState("");
+  const [msg, setMsg] = useState<string | null>(null);
+  useEffect(() => {
+    api.get<{ idle_exit_minutes: number; note: string }>("/settings/game").then((r) => {
+      setMinutes(String(r.idle_exit_minutes));
+      setNote(r.note);
+    });
+  }, []);
+  return (
+    <form
+      className="row wrap"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        setMsg(null);
+        try {
+          const r = await api.patch<{ idle_exit_minutes: number }>("/settings/game", { idle_exit_minutes: Number(minutes) });
+          setMinutes(String(r.idle_exit_minutes));
+          setMsg("Đã lưu.");
+        } catch (x) {
+          setMsg(x instanceof ApiError ? x.message : String(x));
+        }
+      }}
+    >
+      <label>
+        Chibi rời cửa hàng sau (phút không tương tác)
+        <input type="number" min={1} max={60} step={0.5} value={minutes} onChange={(e) => setMinutes(e.target.value)} style={{ width: 120 }} />
+      </label>
+      <button className="primary">Lưu</button>
+      {msg && <span className="muted">{msg}</span>}
+      <p className="muted small">{note}</p>
+    </form>
+  );
+}
+
 function GameSetupPage() {
   const [info, setInfo] = useState<{ remote_token: string } | null>(null);
   useEffect(() => {
@@ -697,6 +733,9 @@ function GameSetupPage() {
           </p>
           <p className="muted">Mở đúng một cửa sổ này trên PC phát LIVE — nó là cửa sổ game chính, xác nhận mọi lệnh Chibi.</p>
           <p className="muted">Chất lượng: thêm ?quality=low|medium|high (mặc định tự giảm khi FPS &lt; 24).</p>
+        </Card>
+        <Card title="Khi người xem rời LIVE">
+          <LeaveSetting />
         </Card>
         <Card title="OBS Studio">
           <ol>

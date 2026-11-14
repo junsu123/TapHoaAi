@@ -31,6 +31,14 @@ Hệ thống **không** vượt CAPTCHA, không dùng cookie/session đăng nh�
 | Thả tim, theo dõi, chia sẻ | Hiệu ứng nhẹ | Không tạo Chibi |
 | Số người xem | Hiển thị trên dashboard | Lấy từ TikTok, không ước đoán |
 
+**Người xem rời LIVE:** TikTok **không gửi** sự kiện này (TikTokLive 7.0.1 chỉ có "vừa vào" và "vừa đăng ký"). Chibi rời cửa hàng — vẫy tay rồi đi ra cửa — khi:
+
+1. người xem không tương tác (bình luận, thả tim, quà, theo dõi, chia sẻ) trong số phút đặt ở Dashboard → Game 3D & OBS (mặc định 5 phút);
+2. số người xem TikTok báo về ít hơn số Chibi → những Chibi lâu không tương tác nhất rời đi;
+3. buổi LIVE kết thúc → tất cả rời đi.
+
+Chibi đang lấy hàng không bao giờ bị rút giữa chừng. Người xem tương tác lại thì Chibi của họ quay lại cửa hàng.
+
 Bảng "Thực tế trong phiên này" trên trang Kết nối ghi **Đã nhận được** khi loại sự kiện đó thật sự đến; **Chưa thấy sự kiện nào** không có nghĩa là TikTok không gửi — chỉ là chưa quan sát được.
 
 ## Giấy phép TikTokLive (tóm tắt, không phải tư vấn pháp lý)

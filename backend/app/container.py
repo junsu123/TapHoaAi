@@ -59,6 +59,9 @@ class AppContainer:
             action_timeout=settings.action_timeout_seconds, persist=self._persist_command,
         )
         self.avatars.is_busy = self.actions.is_busy
+        saved_idle = self.get_setting("avatar_idle_exit_seconds")
+        if saved_idle and saved_idle.isdigit():
+            self.avatars.idle_exit_seconds = int(saved_idle)
         self.actions.is_avatar_visible = self._avatar_visible
         self.actions.on_update = lambda c: self.hub.send_dashboard({"type": "ACTION_UPDATE", "action": c.summary()})
         self.hub.on_primary_changed = self.actions.on_primary_changed
@@ -97,6 +100,7 @@ class AppContainer:
                 cmd.reason = "session_ended"
                 self._persist_command(cmd)
         self.avatars.reset(session_id)
+        self.avatars.viewer_cap = None
         self.actions.reset(session_id)
         self.camera.current = None
         self.camera.queue.clear()

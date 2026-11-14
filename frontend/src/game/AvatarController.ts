@@ -44,6 +44,7 @@ export type Phase =
   | "leave"
   | "to_wait"
   | "waiting"
+  | "goodbye"
   | "exiting";
 
 export interface HeldItem {
@@ -150,15 +151,15 @@ export class AvatarController {
     this.targetYaw = 0; // face the camera
   }
 
+  /** Viewer left (idle, viewer count dropped, LIVE ended): wave goodbye, then walk out. */
   exit(): void {
+    if (this.phase === "goodbye" || this.phase === "exiting") return;
     if (this.cmd) this.abort("exit");
     this.held = null;
-    if (this.walkTo(this.world.door)) {
-      this.phase = "exiting";
-      this.fsm.force("walk");
-    } else {
-      this.removed = true;
-    }
+    this.path = [];
+    this.phase = "goodbye";
+    this.targetYaw = 0; // face the camera to wave
+    this.fsm.force("wave");
   }
 
   // ------------------------------------------------------------------ helpers
@@ -385,6 +386,12 @@ export class AvatarController {
         if (expired) {
           this.phase = "none";
           this.fsm.force("idle");
+        }
+        break;
+      case "goodbye":
+        if (this.fsm.elapsed >= 1.2) {
+          if (this.walkTo(this.world.door)) this.phase = "exiting";
+          else this.removed = true;
         }
         break;
       case "exiting":

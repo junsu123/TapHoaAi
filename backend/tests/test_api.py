@@ -144,3 +144,13 @@ def test_product_glb_model_reaches_game_layout(admin_client):
     assert c.get(p["model_url"]).content[:4] == b"glTF"
     r = c.patch("/api/v1/products/TRA_BA_KICH", json={"model_asset_id": None})
     assert r.json()["model_url"] is None
+
+
+def test_idle_exit_setting_persists(admin_client):
+    c = admin_client
+    assert c.get("/api/v1/settings/game").json()["idle_exit_minutes"] == 5.0
+    r = c.patch("/api/v1/settings/game", json={"idle_exit_minutes": 2})
+    assert r.status_code == 200 and r.json()["idle_exit_minutes"] == 2.0
+    assert c.app.state.container.avatars.idle_exit_seconds == 120
+    assert c.app.state.container.get_setting("avatar_idle_exit_seconds") == "120"
+    assert c.patch("/api/v1/settings/game", json={"idle_exit_minutes": 0}).status_code == 422

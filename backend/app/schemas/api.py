@@ -119,6 +119,10 @@ class SlotPatch(BaseModel):
     product_id: str | None
 
 
+class GameSettingsPatch(BaseModel):
+    idle_exit_minutes: float = Field(ge=1, le=60)
+
+
 class AiPauseIn(BaseModel):
     paused: bool
 
