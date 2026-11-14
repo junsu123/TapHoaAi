@@ -277,3 +277,60 @@ async def test_vbee_client_sends_documented_request_and_maps_errors():
     with pytest.raises(TtsError) as e:
         await VbeeTts("poor", "tok", transport=t).synth("x", "v", 1.0)
     assert e.value.code == "credit"
+
+
+def test_voice_codes_of_any_vbee_shape_are_accepted(admin_client):
+    c = admin_client
+    for code in ("sg_male_minhhoang_full_48k-fhg", "personal:6512ab/cd_xy", "  hn_female_thutrang_full_48k-fhg\n"):
+        r = c.put("/api/v1/settings/ai", json={"config": {**CFG, "voice_code": code}})
+        assert r.status_code == 200, r.text
+        assert r.json()["config"]["voice_code"] == code.strip()
+        assert c.app.state.container.speech.voice == code.strip()  # used for the next clip
+    r = c.put("/api/v1/settings/ai", json={"config": {**CFG, "voice_code": "giong co khoang trang"}})
+    assert r.status_code == 422 and "khoảng trắng" in r.json()["error"]["message"]
+    r = c.put("/api/v1/settings/ai", json={"config": {**CFG, "voice_code": ""}})
+    assert r.status_code == 422 and "Chưa nhập mã giọng" in r.json()["error"]["message"]
+
+
+@pytest.mark.anyio
+async def test_vbee_voice_list_follows_the_documented_api():
+    from app.services.tts_vbee import list_voices
+
+    calls = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        calls.append((req.url.path, dict(req.url.params), req.headers.get("app-id")))
+        p = dict(req.url.params)
+        if p.get("voice_ownership") == "PERSONAL":
+            return httpx.Response(200, json={"status": 1, "result": {"pagination": {"has_next_page": False}, "voices": [
+                {"code": "clone:me/1", "name": "Giọng tôi", "gender": "female", "language_code": "vi-VN"}]}})
+        if not p.get("cursor"):
+            return httpx.Response(200, json={"status": 1, "result": {
+                "pagination": {"has_next_page": True, "next_cursor": "c2"},
+                "voices": [{"code": "hn_female_ngochuyen_full_48k-fhg", "name": "HN - Ngọc Huyền", "gender": "female",
+                            "language_code": "vi-VN", "demo": "https://vbee.vn/demo.mp3", "credit_factor": 1}]}})
+        return httpx.Response(200, json={"status": 1, "result": {"pagination": {"has_next_page": False}, "voices": [
+            {"code": "sg_male_minhhoang_full_48k-fhg", "name": "SG - Minh Hoàng", "gender": "male", "language_code": "vi-VN"}]}})
+
+    voices = await list_voices("app-9", "tok", "vi-VN", transport=httpx.MockTransport(handler))
+    assert [v.code for v in voices] == ["clone:me/1", "hn_female_ngochuyen_full_48k-fhg", "sg_male_minhhoang_full_48k-fhg"]
+    assert voices[0].ownership == "PERSONAL" and voices[1].demo == "https://vbee.vn/demo.mp3"
+    assert calls[0][0] == "/api/public/v1/voices" and calls[0][1] == {"limit": "100", "language_code": "vi-VN"}
+    assert calls[1][1]["cursor"] == "c2" and all(a == "app-9" for *_, a in calls)
+
+    def unauthorized(req: httpx.Request) -> httpx.Response:
+        return httpx.Response(401, json={"status": 0})
+
+    with pytest.raises(TtsError) as e:
+        await list_voices("app-9", "bad", transport=httpx.MockTransport(unauthorized))
+    assert e.value.code == "auth"
+
+
+def test_voice_list_endpoint_in_fake_mode(admin_client):
+    c = admin_client
+    c.app.state.container.settings.fake_ai = True
+    r = c.post("/api/v1/settings/voice/list", json={}).json()
+    assert r["ok"] and any(v["ownership"] == "PERSONAL" for v in r["voices"])
+    c.app.state.container.settings.fake_ai = False
+    r = c.post("/api/v1/settings/voice/list", json={}).json()
+    assert not r["ok"] and "App ID" in r["message"]

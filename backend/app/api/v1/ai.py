@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.models import AuditLog
 from app.security.sessions import AdminDep, CurrentAdmin
@@ -13,9 +13,10 @@ from app.services.ai_config import (
     SECRET_VBEE_APP_ID,
     SECRET_VBEE_TOKEN,
     AiConfig,
+    check_voice_code,
     mask,
 )
-from app.services.tts_vbee import FakeTts, TtsError, VbeeTts
+from app.services.tts_vbee import FakeTts, TtsError, VbeeTts, list_voices
 
 router = APIRouter(tags=["ai"])
 
@@ -37,9 +38,27 @@ class VoiceTestIn(BaseModel):
     text: str = Field("Xin chào cả nhà, shop chào mừng các bạn đến với buổi LIVE hôm nay.", min_length=1, max_length=280)
     app_id: str | None = Field(None, max_length=200)
     token: str | None = Field(None, max_length=4000)
-    voice_code: str | None = Field(None, max_length=80, pattern=r"^[A-Za-z0-9_\-.]+$")
+    voice_code: str | None = Field(None, max_length=120)
     speed: float | None = Field(None, ge=0.5, le=1.6)
     on_live: bool = False
+
+    _voice = field_validator("voice_code")(classmethod(lambda cls, v: check_voice_code(v)))
+
+
+class VoiceListIn(BaseModel):
+    app_id: str | None = Field(None, max_length=200)
+    token: str | None = Field(None, max_length=4000)
+    language_code: str | None = Field("vi-VN", max_length=12)
+
+
+FAKE_VOICES = [
+    {"code": "hn_female_ngochuyen_full_48k-fhg", "name": "HN - Ngọc Huyền", "gender": "female", "language_code": "vi-VN",
+     "demo": None, "credit_factor": 1, "ownership": "VBEE"},
+    {"code": "sg_male_minhhoang_full_48k-fhg", "name": "SG - Minh Hoàng", "gender": "male", "language_code": "vi-VN",
+     "demo": None, "credit_factor": 1, "ownership": "VBEE"},
+    {"code": "personal:shop-moctam/giong-chu-shop", "name": "Giọng chủ shop (giọng của tôi)", "gender": "female",
+     "language_code": "vi-VN", "demo": None, "credit_factor": 1.5, "ownership": "PERSONAL"},
+]
 
 
 class SpeakIn(BaseModel):
@@ -125,6 +144,22 @@ async def test_voice(body: VoiceTestIn, request: Request, admin: CurrentAdmin = 
             return {"ok": True, "url": url, "message": f"Nghe thử được trên máy này, nhưng chưa phát lên LIVE: {why}"}
         c.speech.enqueue("test", body.text)
     return {"ok": True, "url": url, "message": "Tạo giọng thành công."}
+
+
+@router.post("/settings/voice/list")
+async def voice_list(body: VoiceListIn, request: Request, admin: CurrentAdmin = AdminDep) -> dict:
+    """The voices this Vbee app may use, to pick one instead of typing its code."""
+    c = request.app.state.container
+    if c.settings.fake_ai:
+        return {"ok": True, "voices": FAKE_VOICES, "message": "Danh sách giọng thử (CHIBI_FAKE_AI)."}
+    app_id = (body.app_id or "").strip() or c.get_setting(SECRET_VBEE_APP_ID)
+    token = (body.token or "").strip() or c.get_setting(SECRET_VBEE_TOKEN)
+    try:
+        voices = await list_voices(app_id or "", token or "", body.language_code or None)
+    except TtsError as exc:
+        return {"ok": False, "voices": [], "message": exc.message}
+    return {"ok": True, "voices": [v.as_dict() for v in voices],
+            "message": f"Tìm thấy {len(voices)} giọng." if voices else "Vbee không trả về giọng nào cho ngôn ngữ này."}
 
 
 @router.post("/ai/suggestions/{event_id}/speak")

@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 if TYPE_CHECKING:
     from app.container import AppContainer
@@ -47,11 +47,13 @@ class AiConfig(BaseModel):
     voice_policy_confirmed: bool = False
     read_questions: bool = True
     answer_mode: Literal["approve", "auto"] = "approve"
-    voice_code: str = Field(DEFAULT_VOICE, max_length=80, pattern=r"^[A-Za-z0-9_\-.]+$")
+    voice_code: str = Field(DEFAULT_VOICE, max_length=120)
     voice_speed: float = Field(1.0, ge=0.5, le=1.6)
     voice_month_chars: int = Field(200_000, ge=0, le=50_000_000)
     question_template: str = Field("Bạn {ten} hỏi: {cau_hoi}", max_length=120)
     answer_prefix: str = Field("", max_length=60)
+
+    _voice = field_validator("voice_code")(classmethod(lambda cls, v: check_voice_code(v)))
     # --- answer memory (learned answers, no Claude call) ----------------------------------------
     simple_auto: bool = True  # a learned answer or a catalog price answer replaces the Claude call
     simple_auto_speak: bool = True  # …and is read at once (it was confirmed by a person before)
@@ -70,6 +72,19 @@ class AiConfig(BaseModel):
     ], max_length=10)
     product_template: str = Field("Bạn {ten} đang xem {san_pham}, giá {gia} ạ.", max_length=160)
     chat_template: str = Field("Bạn {ten} nói: {binh_luan}", max_length=120)
+
+
+def check_voice_code(v: str | None) -> str | None:
+    """Vbee voice codes vary (stock, community and personal/cloned voices): accept any code
+    without spaces or quotes, and say clearly what is wrong otherwise."""
+    if v is None:
+        return None
+    v = v.strip()
+    if not v:
+        raise ValueError("Chưa nhập mã giọng đọc.")
+    if any(ch.isspace() for ch in v) or any(ch in v for ch in "\"'<>\\") or not v.isprintable():
+        raise ValueError("Mã giọng không được có khoảng trắng, dấu nháy hay ký tự lạ — hãy chọn giọng từ danh sách Vbee.")
+    return v
 
 
 def load_config(c: AppContainer) -> AiConfig:

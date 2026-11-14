@@ -18,6 +18,8 @@ from typing import Protocol
 import httpx
 
 VBEE_URL = "https://api.vbee.vn/v1/tts"
+VOICES_URL = "https://vbee.vn/api/public/v1/voices"  # "Get list voices" (api-docs.vbee.vn)
+MAX_VOICE_PAGES = 10
 MAX_CHARS = 300
 TIMEOUT_S = 15.0
 
@@ -108,6 +110,75 @@ class VbeeTts:
         async with httpx.AsyncClient(timeout=TIMEOUT_S, transport=self.transport) as client:
             chunks = [await self._one(client, p, voice, speed) for p in parts]
         return Audio(b"".join(chunks), "mp3", "audio/mpeg")
+
+
+@dataclass
+class Voice:
+    code: str
+    name: str
+    gender: str | None
+    language_code: str | None
+    demo: str | None
+    credit_factor: float | None
+    ownership: str | None
+
+    def as_dict(self) -> dict:
+        return self.__dict__.copy()
+
+
+async def list_voices(app_id: str, token: str, language_code: str | None = "vi-VN",
+                      transport: httpx.AsyncBaseTransport | None = None) -> list[Voice]:
+    """Every voice this app may use: Vbee's own, community and the account's personal voices.
+    GET https://vbee.vn/api/public/v1/voices, cursor pagination, ≤ 100 per page."""
+    if not app_id or not token:
+        raise TtsError("not_configured", "Chưa nhập App ID và Token Vbee.")
+    headers = {"Authorization": f"Bearer {token}", "App-Id": app_id}
+    found: dict[str, Voice] = {}
+    async with httpx.AsyncClient(timeout=TIMEOUT_S, transport=transport) as client:
+        # without a filter first; PERSONAL again in case the default leaves out cloned voices
+        for ownership in (None, "PERSONAL"):
+            cursor: str | None = None
+            for _ in range(MAX_VOICE_PAGES):
+                params: dict[str, str | int] = {"limit": 100}
+                if language_code:
+                    params["language_code"] = language_code
+                if ownership:
+                    params["voice_ownership"] = ownership
+                if cursor:
+                    params["cursor"] = cursor
+                try:
+                    r = await client.get(VOICES_URL, params=params, headers=headers)
+                except httpx.TimeoutException as exc:
+                    raise TtsError("timeout", "Vbee trả lời quá lâu.") from exc
+                except httpx.HTTPError as exc:
+                    raise TtsError("network", "Không kết nối được tới Vbee.") from exc
+                if r.status_code == 401:
+                    raise TtsError("auth", "Sai App ID hoặc Token Vbee (hoặc token đã hết hạn).")
+                if r.status_code >= 400:
+                    if ownership:  # the extra PERSONAL pass is best effort
+                        break
+                    raise TtsError("api", f"Vbee lỗi {r.status_code} khi lấy danh sách giọng.")
+                try:
+                    body = r.json()
+                    result = body.get("result") or {}
+                    voices = result.get("voices") or []
+                    page = result.get("pagination") or {}
+                except (ValueError, AttributeError) as exc:
+                    raise TtsError("api", "Vbee trả về danh sách giọng không đúng định dạng.") from exc
+                for v in voices:
+                    code = str(v.get("code") or "").strip()
+                    if not code:
+                        continue
+                    found.setdefault(code, Voice(
+                        code=code, name=str(v.get("name") or code), gender=v.get("gender"),
+                        language_code=v.get("language_code"), demo=v.get("demo") or None,
+                        credit_factor=v.get("credit_factor"), ownership=ownership or v.get("voice_ownership")))
+                    if ownership and found[code].ownership is None:
+                        found[code].ownership = ownership
+                cursor = page.get("next_cursor") if page.get("has_next_page") else None
+                if not cursor:
+                    break
+    return sorted(found.values(), key=lambda v: (v.ownership != "PERSONAL", v.gender or "", v.name.lower()))
 
 
 class FakeTts:

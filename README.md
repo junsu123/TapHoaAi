@@ -111,7 +111,7 @@ Dashboard → **Trợ lý AI & giọng đọc**:
 
 1. **Claude API key** (console.anthropic.com → API Keys), model `claude-haiku-5-5` (rẻ nhất, đủ cho câu trả lời ngắn), hạn mức USD/ngày và /tháng. Bấm **Thử kết nối Claude** để xem một câu trả lời mẫu và chi phí.
 2. **Thông tin chung của shop**: ship, thanh toán, đổi trả… AI chỉ được dùng thông tin ở đây và trong danh mục sản phẩm (giá đã xác nhận, công bố, lưu ý) — không bịa.
-3. **Vbee**: App ID, Token (tạo ứng dụng trong trang API của vbee.vn), mã giọng (mặc định `hn_female_ngochuyen_full_48k-fhg` – HN Ngọc Huyền), tốc độ, hạn mức ký tự/tháng. Bấm **Nghe thử trên máy này**.
+3. **Vbee**: App ID, Token (tạo ứng dụng trong trang API của vbee.vn). Bấm **📋 Chọn giọng từ Vbee** để tải danh sách giọng tài khoản được dùng (kể cả giọng bạn tự tạo, nghe mẫu được) và chọn một giọng — hoặc dán mã giọng (voiceCode) vào ô bên dưới. Mặc định `hn_female_ngochuyen_full_48k-fhg` (HN Ngọc Huyền). Chỉnh tốc độ, hạn mức ký tự/tháng, bấm **Nghe thử trên máy này**, rồi **Lưu cài đặt**.
 4. **Phát giọng trên LIVE**: đánh dấu 4 mục chính sách → **Bật giọng đọc trên LIVE**. Chọn câu trả lời được đọc khi **người trực bấm “Đọc”** (mặc định) hoặc **tự động** (chỉ câu an toàn).
 5. OBS: Browser Source đánh dấu **Control audio via OBS** (xem `docs/obs-setup.md`).
 
