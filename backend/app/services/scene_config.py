@@ -25,7 +25,10 @@ class SceneConfig(BaseModel):
     sign_text: str = Field("TIỆM TRÀ THẢO MỘC", max_length=32)
     tagline: str = Field("Trà sạch · Thảo mộc Việt", max_length=48)
     banner_enabled: bool = True
-    banner_seconds: int = Field(6, ge=3, le=30)
+    # scroll = products slide past continuously (conveyor); slide = one product at a time
+    banner_mode: Literal["scroll", "slide"] = "scroll"
+    banner_focus_on_show: bool = True  # show only the product a Chibi is holding while it is shown
+    banner_seconds: int = Field(6, ge=2, le=30)  # per product (slide) / time for one product to pass (scroll)
     banner_height: float = Field(0.24, ge=0.15, le=0.4)  # fraction of the 9:16 frame
     banner_show_price: bool = True
     banner_product_ids: list[str] = Field(default_factory=list, max_length=200)  # empty = every product with a photo

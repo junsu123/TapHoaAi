@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.12.1 — 2026-11-15 — Banner chạy liên tục
+
+- Banner sản phẩm mặc định **chạy liên tục**: ảnh sản phẩm trượt ngang không ngừng như băng chuyền (vòng lặp liền mạch, tự lặp lại khi ít sản phẩm), mỗi ảnh có tên và giá. Chỉnh tốc độ 2–30 giây cho mỗi sản phẩm.
+- Vẫn chọn được kiểu **lần lượt** (từng sản phẩm một).
+- Tùy chọn khi Chibi cầm sản phẩm: dừng banner và chỉ hiện sản phẩm đó (mặc định), hoặc để banner tiếp tục chạy và viền đỏ sản phẩm đó kèm tên khách.
+
 ## 0.12.0 — 2026-11-15 — Tiệm trà thảo mộc & banner sản phẩm
 
 - Không gian 3D mới **Tiệm trà thảo mộc** (mặc định): sàn gỗ trầm, vách tre, kệ gỗ với hũ thảo mộc/chum đất, đèn lồng, chậu tre, thúng thảo mộc, quầy trà có ấm chén, biển hiệu gỗ chữ vàng kèm dòng phụ. Kiểu hồng cũ vẫn chọn được.

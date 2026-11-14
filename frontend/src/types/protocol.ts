@@ -85,6 +85,8 @@ export interface SceneConfig {
   sign_text: string;
   tagline: string;
   banner_enabled: boolean;
+  banner_mode: "scroll" | "slide";
+  banner_focus_on_show: boolean;
   banner_seconds: number;
   banner_height: number; // fraction of the 9:16 frame
   banner_show_price: boolean;
@@ -97,6 +99,8 @@ export const DEFAULT_SCENE: SceneConfig = {
   sign_text: "TIỆM TRÀ THẢO MỘC",
   tagline: "Trà sạch · Thảo mộc Việt",
   banner_enabled: true,
+  banner_mode: "scroll",
+  banner_focus_on_show: true,
   banner_seconds: 6,
   banner_height: 0.24,
   banner_show_price: true,

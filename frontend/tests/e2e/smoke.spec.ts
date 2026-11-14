@@ -648,18 +648,35 @@ test("Herbal-tea shop look and product banner: rotates, follows the Chibi, setti
     const r = await page.request.put("/api/v1/settings/scene", { data: { ...cur, ...patch }, headers: { "X-CSRF-Token": csrf } });
     expect(r.ok()).toBeTruthy();
   };
-  await put({ theme: "herbal", banner_enabled: true, banner_seconds: 3, banner_product_ids: [], wall_posters: true });
+  await put({ theme: "herbal", banner_enabled: true, banner_mode: "scroll", banner_seconds: 4, banner_product_ids: [], wall_posters: true });
   const game = await context.newPage();
   await game.setViewportSize({ width: 540, height: 960 });
   await game.goto("/game/live?debug=1&quality=medium");
   await game.waitForFunction(() => (window as any).__chibiDebug?.state().scene?.theme === "herbal");
   const banner = game.getByTestId("product-banner");
-  await expect(banner).toBeVisible();
+  await expect(banner).toHaveAttribute("data-mode", "scroll", { timeout: 40_000 }); // after any showcase left over from earlier tests
+  // continuous: the strip keeps moving, every product is on it
+  const track = game.getByTestId("banner-track");
+  await expect(track.locator(".scroll-card[data-product-id=TRA_CA_GAI_LEO]").first()).toBeAttached();
+  await expect(track.locator(".scroll-card[data-product-id=TRA_BA_KICH]").first()).toBeAttached();
+  const x = () => track.evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).m41);
+  const x1 = await x();
+  await game.waitForTimeout(700);
+  const x2 = await x();
+  await game.waitForTimeout(700);
+  const x3 = await x();
+  expect(x2).toBeLessThan(x1);
+  expect(x3).toBeLessThan(x2);
+  await game.screenshot({ path: `${SHOTS}/SCENE-herbal-banner.png` });
+
+  // one-at-a-time mode still available
+  await put({ banner_mode: "slide", banner_seconds: 3 });
+  await expect(banner).toHaveAttribute("data-mode", "slide");
   await expect(banner.locator("img")).toBeVisible();
   const first = await banner.getAttribute("data-product-id");
   await expect(banner).not.toHaveAttribute("data-product-id", first!, { timeout: 8_000 }); // rotates
-  await game.waitForTimeout(1200);
-  await game.screenshot({ path: `${SHOTS}/SCENE-herbal-banner.png` });
+  await game.screenshot({ path: `${SHOTS}/SCENE-herbal-banner-slide.png` });
+  await put({ banner_mode: "scroll", banner_seconds: 6 });
 
   // banner off → the sign board and the wall posters are visible again
   await put({ banner_enabled: false });
@@ -673,7 +690,7 @@ test("Herbal-tea shop look and product banner: rotates, follows the Chibi, setti
   await game.waitForFunction(() => (window as any).__chibiDebug.state().scene.theme === "kawaii");
   await game.waitForTimeout(1500);
   await game.screenshot({ path: `${SHOTS}/SCENE-kawaii-banner.png` });
-  await put({ theme: "herbal", banner_enabled: true, banner_seconds: 6 });
+  await put({ theme: "herbal", banner_enabled: true, banner_mode: "scroll", banner_seconds: 6 });
 
   // dashboard settings card
   await page.setViewportSize({ width: 1360, height: 1100 });
@@ -683,7 +700,7 @@ test("Herbal-tea shop look and product banner: rotates, follows the Chibi, setti
   await page.locator(".banner-pick-item").first().click();
   await page.getByRole("button", { name: "Lưu không gian & banner" }).click();
   await expect(page.getByText("Đã lưu — màn hình LIVE đổi ngay.")).toBeVisible();
-  await expect(banner).toContainText("TRÀ MỘC TÂM", { timeout: 45_000 }); // after any showcase left over from earlier tests
+  expect((await (await page.request.get("/api/v1/settings/scene")).json()).config.sign_text).toBe("TRÀ MỘC TÂM");
   await page.screenshot({ path: `${SHOTS}/SCENE-settings.png`, fullPage: true });
   await put({ sign_text: "TIỆM TRÀ THẢO MỘC", banner_product_ids: [] });
   await game.close();

@@ -111,7 +111,7 @@ Trang **Game 3D & OBS** → thẻ **🍵 Không gian cửa hàng & banner sản 
 
 - **Kiểu cửa hàng:** *Tiệm trà thảo mộc* (mặc định: sàn gỗ, vách tre, kệ gỗ với hũ thảo mộc và chum đất, đèn lồng, chậu tre, thúng thảo mộc, quầy trà có ấm chén, biển hiệu gỗ chữ vàng) hoặc *Tạp hóa Chibi* (kiểu hồng cũ).
 - **Biển hiệu:** chữ chính và dòng phụ (VD “Trà sạch · Thảo mộc Việt”).
-- **Banner ảnh sản phẩm:** khung lớn ở đầu màn hình LIVE, ảnh sản phẩm hiện nguyên vẹn, nét theo đúng độ phân giải ảnh (không qua 3D), kèm tên và giá đã xác nhận. Banner lần lượt đổi sản phẩm (3–30 giây); khi Chibi cầm sản phẩm ra cho khách xem, banner chuyển ngay sang sản phẩm đó với dòng “👀 tên khách đang xem”. Chọn chiều cao (15–40% màn hình) và các sản phẩm được hiện (không chọn = mọi sản phẩm có ảnh). Ảnh dùng là *ảnh thẻ sản phẩm* nếu có, nếu không thì ảnh mặt trước.
+- **Banner ảnh sản phẩm:** khung lớn ở đầu màn hình LIVE, ảnh sản phẩm hiện nguyên vẹn, nét theo đúng độ phân giải ảnh (không qua 3D), kèm tên và giá đã xác nhận. Hai cách chạy: **chạy liên tục** (mặc định — ảnh trượt ngang không ngừng như băng chuyền, chỉnh tốc độ 2–30 giây cho mỗi sản phẩm) hoặc **lần lượt** (mỗi lần một sản phẩm thật to). Khi Chibi cầm sản phẩm ra cho khách xem, banner dừng lại và chỉ hiện sản phẩm đó với dòng “👀 tên khách đang xem” (tắt tùy chọn này thì banner vẫn chạy, sản phẩm đó được viền đỏ). Chọn chiều cao (15–40% màn hình) và các sản phẩm được hiện (không chọn = mọi sản phẩm có ảnh). Ảnh dùng là *ảnh thẻ sản phẩm* nếu có, nếu không thì ảnh mặt trước.
 - **Ảnh trên tường:** hai khung ảnh sản phẩm treo sau quầy trong cảnh 3D (thấy rõ khi tắt banner).
 
 Lưu là màn hình LIVE (và khung xem trước) đổi ngay, không cần tải lại OBS.
