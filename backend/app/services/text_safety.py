@@ -61,6 +61,14 @@ def sanitize_comment(text: str, banned: list[str], max_len: int = 160) -> str | 
     return t
 
 
+def scrub_pii(text: str, max_len: int = 300) -> str:
+    """Comment text for the conversation log: links, e-mails and phone numbers removed."""
+    t = clean_display_text(text)
+    for rx in (_URL, _EMAIL, _PHONE, _LONG_DIGITS):
+        t = rx.sub(" ", t)
+    return " ".join(t.split())[:max_len]
+
+
 def speakable_name(nickname: str | None, banned: list[str]) -> str:
     name = clean_display_text(nickname or "").strip()
     name = re.sub(r"[_\.]+", " ", name)

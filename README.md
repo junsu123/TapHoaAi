@@ -123,6 +123,13 @@ Khi LIVE, trang **Người trực & Demo**:
 
 An toàn: bình luận là dữ liệu, không phải lệnh cho AI; tên khách không gửi lên Claude; AI chỉ chọn mã sản phẩm trong danh mục; câu nói về bệnh/chữa trị, giá không có trong danh mục, hoặc AI không chắc chắn **không bao giờ tự đọc**. Hết hạn mức: game vẫn chạy, câu hỏi giá dùng câu mẫu lấy từ danh mục. Chi phí ước tính với Haiku 5.5: khoảng 0,02 cent mỗi câu hỏi.
 
+### Hội thoại & câu đã học
+
+- Mọi câu hỏi trong LIVE được lưu: lúc nào, khách nào, câu hỏi (đã bỏ số điện thoại/liên kết), gợi ý, câu trả lời cuối, ai trả lời (Claude / người trực / câu đã học / câu mẫu), đã đọc chưa, chi phí. Xem và tải CSV (mở bằng Excel) ở **Hội thoại & câu đã học → Lịch sử hội thoại LIVE**. Tên khách tự xóa sau `CHIBI_EVENT_RETENTION_DAYS` ngày (mặc định 7), câu hỏi/câu trả lời giữ lại để học.
+- **Học từ LIVE**: mỗi câu trả lời người trực bấm “Đọc” được nhớ cùng cách hỏi. Lần sau khách hỏi câu giống (hiểu viết tắt bn, ko, sp, ntn, sốp…; bỏ “shop ơi”, “ạ”, “nha”…; độ giống mặc định ≥ 75 %) → **tự trả lời ngay, không gọi Claude**. Câu hỏi giá cũng tự trả lời bằng giá đã xác nhận trong danh mục.
+- Giá trong câu đã học được lưu dạng ‹giá hiện tại›: đổi giá sản phẩm thì câu trả lời đổi theo; giá mới chưa xác nhận thì câu đó tạm không dùng. Câu nói về tồn kho không được học; câu có “khuyến mãi”, “hôm nay”, “còn hàng”… và câu Claude tự đọc (chế độ tự động) chỉ ở dạng **chờ duyệt** cho đến khi bạn bấm Duyệt.
+- Trong trang câu đã học: sửa câu trả lời, thêm cách hỏi khác, tắt/xóa, tự thêm câu trả lời mẫu, ô **Thử một câu hỏi** để xem LIVE sẽ tự trả lời gì. Từ lịch sử, bấm **Lưu thành câu đã học** cho câu nào muốn dạy lại.
+
 `CHIBI_TTS_LOCKED=1` khóa giọng đọc bất kể dashboard. `CHIBI_FAKE_AI=1` dùng Claude/giọng giả (tiếng bíp) để demo và kiểm thử không tốn tiền.
 
 ## Kết nối TikTok LIVE

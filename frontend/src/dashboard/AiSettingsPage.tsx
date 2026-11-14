@@ -1,6 +1,7 @@
 // Dashboard → "Trợ lý AI & giọng đọc": Claude key/model/budget, shop facts, Vbee voice, LIVE switches.
 
 import { useEffect, useState, type ReactNode } from "react";
+import { NavLink } from "react-router-dom";
 import { api, ApiError } from "../lib/api";
 
 export interface AiConfig {
@@ -20,6 +21,10 @@ export interface AiConfig {
   voice_month_chars: number;
   question_template: string;
   answer_prefix: string;
+  simple_auto: boolean;
+  simple_auto_speak: boolean;
+  learn_enabled: boolean;
+  memory_threshold: number;
 }
 
 export interface AiStatus {
@@ -257,6 +262,34 @@ export function AiSettingsPage() {
                 </button>
               </div>
               {audioUrl && <audio src={audioUrl} controls autoPlay data-testid="voice-test-audio" />}
+            </div>
+          </div>
+
+          <div className="card">
+            <h2>Câu đơn giản & học từ LIVE</h2>
+            <div className="stack">
+              <label className="check">
+                <input type="checkbox" checked={cfg.learn_enabled} onChange={(e) => set("learn_enabled", e.target.checked)} aria-label="Học từ câu trả lời đã xác nhận" />
+                <span>
+                  <b>Học từ LIVE</b> — mỗi câu trả lời người trực bấm “Đọc” được nhớ lại. Câu Claude tự đọc (chế độ tự động) được nhớ ở dạng “chờ duyệt”.
+                </span>
+              </label>
+              <label className="check">
+                <input type="checkbox" checked={cfg.simple_auto} onChange={(e) => set("simple_auto", e.target.checked)} aria-label="Câu đơn giản tự trả lời" />
+                <span>
+                  <b>Câu đơn giản tự trả lời, không gọi Claude</b> — câu hỏi giống câu đã học, hoặc hỏi giá sản phẩm (lấy giá đã xác nhận trong danh mục).
+                </span>
+              </label>
+              <label className="check">
+                <input type="checkbox" checked={cfg.simple_auto_speak} disabled={!cfg.simple_auto} onChange={(e) => set("simple_auto_speak", e.target.checked)} aria-label="Đọc ngay câu đơn giản" />
+                Đọc ngay lên LIVE, không chờ người trực bấm (các câu này đã được người trực duyệt trước đó)
+              </label>
+              <Field label={`Độ giống tối thiểu: ${Math.round(cfg.memory_threshold * 100)}%`} hint="Cao hơn = chỉ tự trả lời khi câu hỏi rất giống; thấp hơn = tự trả lời nhiều hơn nhưng dễ trả lời nhầm.">
+                <input type="range" min={0.6} max={0.95} step={0.05} value={cfg.memory_threshold} onChange={(e) => set("memory_threshold", Number(e.target.value))} aria-label="Độ giống tối thiểu" />
+              </Field>
+              <NavLink to="/dashboard/knowledge" className="small">
+                Xem lịch sử hội thoại và các câu đã học →
+              </NavLink>
             </div>
           </div>
 

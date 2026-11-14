@@ -55,6 +55,7 @@ Theo SPEC mục N. `[x]` = có code + test trong repo; `[ ]` = chưa làm.
 - [x] BudgetGuard: USD/ngày, USD/tháng, cảnh báo 70/90/100 %, cache, gộp trùng; hết hạn mức → câu mẫu từ danh mục
 - [x] Trạng thái gợi ý `AI đề xuất / Cần người trực xem / Người trực đã xác nhận / Đã đọc tự động / Chưa được trả lời`
 - [x] AI-06 giọng đọc Vbee (sync API): đọc câu hỏi + câu trả lời, tắt mặc định, checklist chính sách, kill switch F9, giữ để nói / tự im theo micro, phụ đề “Trợ lý AI”, hạn mức ký tự
+- [x] Lưu hội thoại từng phiên LIVE (xem, tìm, CSV); bộ nhớ câu đã học — câu giống câu người trực đã xác nhận và câu hỏi giá tự trả lời, không gọi Claude
 - [ ] **Thử với Claude API key và tài khoản Vbee thật** (sandbox không gọi được api.anthropic.com/api.vbee.vn)
 
 ## M5 — OBS & vận hành

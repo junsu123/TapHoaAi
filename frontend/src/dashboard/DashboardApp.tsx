@@ -6,6 +6,7 @@ import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { api, ApiError, formatVnd, setCsrf } from "../lib/api";
 import { AiSettingsPage, type AiStatus } from "./AiSettingsPage";
 import { QuestionCard, VoiceBar } from "./HostDesk";
+import { KnowledgePage } from "./KnowledgePage";
 import { BOX_FACE_LABEL, PdfFacePicker, type RenderedFaces } from "./PdfFacePicker";
 import { ShelfEditor } from "./ShelfEditor";
 import { useDashboardFeed, type CommentRecord, type HostItem, type LiveStatus, type Metrics, type SpeechState } from "./useDashboardFeed";
@@ -980,6 +981,7 @@ export function DashboardApp() {
     ["connect", "Kết nối TikTok"],
     ["host", "Người trực & Demo"],
     ["ai", "Trợ lý AI & giọng đọc"],
+    ["knowledge", "Hội thoại & câu đã học"],
     ["products", "Sản phẩm"],
     ["shelves", "Bản đồ kệ"],
     ["game", "Game 3D & OBS"],
@@ -1020,6 +1022,7 @@ export function DashboardApp() {
           <Route path="connect" element={<ConnectPage live={feed.live} />} />
           <Route path="host" element={<HostPage comments={feed.comments} host={feed.host} aiPaused={feed.aiPaused} setAiPaused={feed.setAiPaused} speech={feed.speech} ai={feed.ai} />} />
           <Route path="ai" element={<AiSettingsPage />} />
+          <Route path="knowledge" element={<KnowledgePage />} />
           <Route path="products" element={<ProductsPage />} />
           <Route path="shelves" element={<ShelvesPage />} />
           <Route path="game" element={<GameSetupPage />} />

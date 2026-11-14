@@ -251,3 +251,60 @@ class AuditLog(Base):
     resource: Mapped[str] = mapped_column(String(200), nullable=False)
     detail: Mapped[dict | None] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class ConversationTurn(Base):
+    """One viewer question and what the LIVE answered (kept for review and learning).
+    The nickname is blanked after `event_retention_days`; question/answer stay."""
+
+    __tablename__ = "conversation_turns"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    event_id: Mapped[str] = mapped_column(String(128), unique=True, nullable=False)
+    session_id: Mapped[str | None] = mapped_column(String(64), index=True)
+    is_demo: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    asked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    nickname: Mapped[str | None] = mapped_column(String(128))
+    question: Mapped[str] = mapped_column(Text, nullable=False)  # links/phone numbers removed
+    intent: Mapped[str | None] = mapped_column(String(32))
+    product_id: Mapped[str | None] = mapped_column(String(64))
+    draft: Mapped[str | None] = mapped_column(Text)  # first answer proposed (Claude, memory or template)
+    draft_source: Mapped[str | None] = mapped_column(String(16))  # claude | cache | memory | template
+    answer: Mapped[str | None] = mapped_column(Text)  # what was finally said/confirmed
+    answered_by: Mapped[str | None] = mapped_column(String(16))  # host | auto | memory | template
+    status: Mapped[str] = mapped_column(String(48), nullable=False)
+    spoken: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    knowledge_id: Mapped[int | None] = mapped_column(ForeignKey("knowledge_entries.id", ondelete="SET NULL"))
+    cost_usd: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class KnowledgeEntry(Base):
+    """An answer the shop has confirmed, reused for similar questions without calling Claude.
+    `answer` may contain {gia}: the product's current verified price, filled in when used."""
+
+    __tablename__ = "knowledge_entries"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    product_id: Mapped[str | None] = mapped_column(String(64), index=True)
+    intent: Mapped[str | None] = mapped_column(String(32))
+    answer: Mapped[str] = mapped_column(Text, nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    trusted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)  # confirmed by a person
+    source: Mapped[str] = mapped_column(String(16), nullable=False)  # host | auto | manual
+    uses: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    variants: Mapped[list[KnowledgeVariant]] = relationship(back_populates="entry", cascade="all, delete-orphan",
+                                                            order_by="KnowledgeVariant.id")
+
+
+class KnowledgeVariant(Base):
+    """A question worded this way got that answer."""
+
+    __tablename__ = "knowledge_variants"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    entry_id: Mapped[int] = mapped_column(ForeignKey("knowledge_entries.id", ondelete="CASCADE"), index=True)
+    question: Mapped[str] = mapped_column(Text, nullable=False)
+    normalized: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    entry: Mapped[KnowledgeEntry] = relationship(back_populates="variants")

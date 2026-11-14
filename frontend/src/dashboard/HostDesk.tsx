@@ -12,6 +12,7 @@ const STATUS_CLASS: Record<string, string> = {
   "Cần người trực xem": "chip-warn",
   "Người trực đã xác nhận": "chip-ok",
   "Đã đọc tự động": "chip-ok",
+  "Đã trả lời tự động": "chip-ok",
   "AI đang soạn…": "chip-ai",
   "Đã bỏ qua": "chip-muted",
   "Trùng câu hỏi": "chip-muted",
@@ -196,7 +197,7 @@ export function QuestionCard({ h }: { h: HostItem }) {
   useEffect(() => {
     if (!editing) setText(h.suggestion ?? "");
   }, [h.suggestion, editing]);
-  const done = ["Người trực đã xác nhận", "Đã đọc tự động", "Đã bỏ qua"].includes(h.status);
+  const done = ["Người trực đã xác nhận", "Đã đọc tự động", "Đã trả lời tự động", "Đã bỏ qua"].includes(h.status);
   const speak = async (body: { text?: string }) => {
     setErr(null);
     try {
