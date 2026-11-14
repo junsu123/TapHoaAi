@@ -10,6 +10,7 @@ answer when one applies."""
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import time
@@ -63,6 +64,11 @@ PRODUCT_GAP_S = 8.0
 SAME_PRODUCT_GAP_S = 45.0
 CHAT_GAP_S = 15.0
 VIEWER_SOCIAL_GAP_S = 60.0  # one viewer is greeted/answered for small talk at most once a minute
+WELCOME_AGAIN_S = 600.0  # someone who leaves and comes back within 10 minutes is not greeted twice
+WELCOME_GATHER_S = 2.0  # wait this long for others joining at the same moment, to greet them together
+WELCOME_FOLD_S = 60.0  # names waiting longer than this (huge crowd) are greeted as "và N bạn khác"
+COMMENT_TTL_S = 30.0  # a comment not read within 30 s is dropped: reading old chat is noise
+COMMENT_VIEWER_GAP_S = 8.0  # one viewer's comments are read at most this often (spam)
 MAX_ITEMS = 200
 
 ST_NEW = "Chưa được trả lời"
@@ -119,6 +125,11 @@ class Assistant:
         self._product_last: dict[str, float] = {}
         self._viewer_social: dict[str, float] = {}
         self._greet_i = 0
+        self._welcome_pending: list[tuple[str, str | None, float]] = []  # (name, viewer_key, joined_at)
+        self._welcomed: dict[str, float] = {}
+        self._welcome_clip = None
+        self._welcome_task: asyncio.Task | None = None
+        self._comment_last: dict[str, tuple[float, str]] = {}
         self._sem = asyncio.Semaphore(2)
         self._tasks: set[asyncio.Task] = set()
         self.last_error: str | None = None
@@ -142,6 +153,7 @@ class Assistant:
         sq = self.c.speech
         cfg = self.config
         sq.voice, sq.speed = cfg.voice_code, cfg.voice_speed
+        sq.tts_ok = self.tts_ok
         if self.fake:
             sq.provider = FakeTts()
         else:
@@ -149,20 +161,31 @@ class Assistant:
             sq.provider = VbeeTts(app_id, token) if app_id and token else None
 
     def voice_ready(self) -> tuple[bool, str]:
+        """May the assistant put something on the LIVE (voice, or a caption when there is no voice)?"""
         cfg = self.config
-        if self.c.settings.tts_locked:
-            return False, "Giọng đọc bị khóa bằng CHIBI_TTS_LOCKED."
         if not cfg.voice_enabled or not cfg.voice_policy_confirmed:
-            return False, "Giọng đọc đang tắt."
-        if self.c.speech.provider is None:
-            return False, "Chưa nhập App ID/Token Vbee."
+            return False, "Phát trên LIVE đang tắt."
         if self.c.ai_paused:
             return False, "AI đang tạm dừng."
         if self.c.speech.muted:
             return False, "Giọng đã bị tắt bằng nút khẩn cấp."
-        if not self.budget.tts_allows(1, cfg.voice_month_chars):
-            return False, "Đã hết hạn mức ký tự giọng đọc của tháng."
         return True, ""
+
+    def audio_note(self) -> str | None:
+        """Why clips will be captions only (no sound), if they will."""
+        cfg = self.config
+        if self.c.settings.tts_locked:
+            return "Giọng đọc bị khóa bằng CHIBI_TTS_LOCKED — chỉ hiện phụ đề."
+        if self.c.speech.provider is None:
+            return "Chưa nhập App ID/Token Vbee — chỉ hiện phụ đề."
+        if not self.budget.tts_allows(1, cfg.voice_month_chars):
+            return "Hết hạn mức ký tự giọng đọc của tháng — chỉ hiện phụ đề."
+        if time.monotonic() < self.c.speech.tts_down_until:
+            return self.c.speech.tts_down_reason
+        return None
+
+    def tts_ok(self, chars: int) -> bool:
+        return not self.c.settings.tts_locked and self.budget.tts_allows(chars, self.config.voice_month_chars)
 
     def status(self) -> dict[str, Any]:
         cfg = self.config
@@ -170,6 +193,8 @@ class Assistant:
         return {"configured": bool(self.api_key()), "model": cfg.model, "paused": self.c.ai_paused,
                 "budget": self.budget.status(cfg.budget_day_usd, cfg.budget_month_usd, cfg.voice_month_chars),
                 "voice_ready": ok, "voice_reason": why, "answer_mode": cfg.answer_mode, "autopilot": cfg.autopilot,
+                "audio_note": self.audio_note() if ok else None, "greet_joins": cfg.greet_joins,
+                "read_comments": cfg.read_comments,
                 "last_error": self.last_error, "fake": self.fake}
 
     def _alert(self, code: str, info: dict[str, Any]) -> None:
@@ -262,30 +287,123 @@ class Assistant:
 
         if intent.kind == IntentKind.QUESTION:
             self._read_question(item, viewer_key, now)
+        elif intent.kind == IntentKind.AMBIGUOUS or item.get("chat"):
+            self.read_comment(item, viewer_key, now, as_question=False)
         item["viewer_key"] = viewer_key
         self._persist(item)
         self._spawn(self._draft_and_maybe_speak(item, intent))
 
     def _read_question(self, item: dict[str, Any], viewer_key: str | None, now: float) -> None:
+        self.read_comment(item, viewer_key, now, as_question=True)
+
+    def read_comment(self, item: dict[str, Any], viewer_key: str | None, now: float, *, as_question: bool) -> bool:
+        """Read a viewer's comment aloud ("Bạn Lan hỏi: …" / "Bạn Lan nói: …"). Questions are always
+        kept; other comments wait at most 30 s and are skipped when many lines are already waiting."""
         cfg = self.config
         ok, _ = self.voice_ready()
-        if not (ok and cfg.read_questions):
-            return
-        if viewer_key and now - self._viewer_read.get(viewer_key, -1e9) < VIEWER_READ_GAP_S:
-            return
+        if not ok or not (cfg.read_questions if as_question else cfg.read_comments):
+            return False
         safe = sanitize_comment(item["text"], cfg.banned_words)
         if safe is None:
             item["review_reasons"] = [*item.get("review_reasons", []), "Không đọc to: có từ cấm hoặc toàn liên kết/số"]
-            return
+            return False
+        if as_question:
+            if viewer_key and now - self._viewer_read.get(viewer_key, -1e9) < VIEWER_READ_GAP_S:
+                return False
+        elif viewer_key:  # one viewer's chat: not more than one line per 8 s, never the same text twice
+            last = self._comment_last.get(viewer_key)
+            if last and (now - last[0] < COMMENT_VIEWER_GAP_S or (last[1] == fold(safe) and now - last[0] < 60)):
+                return False
         name = speakable_name(item.get("nickname") or item.get("unique_id"), cfg.banned_words)
-        try:
-            text = cfg.question_template.format(ten=name, cau_hoi=safe)
-        except (KeyError, IndexError, ValueError):
-            text = f"Bạn {name} hỏi: {safe}"
-        if self.c.speech.enqueue("question", text, ref=item["event_id"]):
+        tpl = cfg.question_template if as_question else cfg.chat_template
+        text = self._fill(tpl, ten=name, cau_hoi=safe, binh_luan=safe)
+        clip = self.c.speech.enqueue("question" if as_question else "comment", text, ref=item["event_id"],
+                                     droppable=not as_question, busy_limit=cfg.busy_limit * 3,
+                                     ttl=90.0 if as_question else COMMENT_TTL_S)
+        if clip is None:
+            return False
+        if as_question:
             if viewer_key:
                 self._viewer_read[viewer_key] = now
-            item["question_read"] = True
+        elif viewer_key:
+            self._comment_last[viewer_key] = (now, fold(safe))
+        item["question_read"] = True
+        return True
+
+    # ------------------------------------------------------------------ welcoming viewers
+    def start(self) -> None:
+        self._welcome_task = asyncio.create_task(self._welcome_loop(), name="welcome")
+
+    async def stop(self) -> None:
+        if self._welcome_task:
+            self._welcome_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._welcome_task
+
+    def on_join(self, name: str | None, viewer_key: str | None) -> bool:
+        """A viewer joined (or said hello): greet them by name — everyone, never twice in 10 minutes."""
+        cfg = self.config
+        if not cfg.greet_joins or not self.voice_ready()[0]:
+            return False
+        now = time.monotonic()
+        key = viewer_key or f"name:{name}"
+        if now - self._welcomed.get(key, -1e9) < WELCOME_AGAIN_S:
+            return False
+        self._welcomed[key] = now
+        if len(self._welcomed) > 5000:
+            self._welcomed = {k: t for k, t in self._welcomed.items() if now - t < WELCOME_AGAIN_S}
+        self._welcome_pending.append((speakable_name(name, cfg.banned_words), key, now))
+        return True
+
+    async def _welcome_loop(self) -> None:
+        while True:
+            await asyncio.sleep(0.4)
+            try:
+                self.welcome_flush()
+            except Exception:
+                log.exception("Lỗi khi chào người xem")
+
+    @staticmethod
+    def _name_list(names: list[str], others: int) -> str:
+        named = [n for n in names if n != "khách"]
+        others += len(names) - len(named)
+        parts = list(named)
+        if others:
+            parts.append(f"{others} bạn {'khác' if named else 'vừa vào'}")
+        if len(parts) == 1:
+            return parts[0]
+        return ", ".join(parts[:-1]) + " và " + parts[-1]
+
+    def welcome_flush(self, now: float | None = None) -> None:
+        """One welcome line at a time; everyone who joins meanwhile is gathered into the next line.
+        In a huge crowd, names that waited over a minute are greeted as "và N bạn khác"."""
+        if not self._welcome_pending:
+            return
+        cfg = self.config
+        sq = self.c.speech
+        wc = self._welcome_clip
+        if wc is not None and (wc in sq.queue or sq.current is wc):
+            return
+        if not self.voice_ready()[0]:
+            self._welcome_pending.clear()
+            return
+        now = time.monotonic() if now is None else now
+        pending = self._welcome_pending
+        batch = cfg.welcome_batch * (2 if len(pending) > cfg.welcome_batch * 3 else 1)
+        if len(pending) < batch and now - pending[0][2] < WELCOME_GATHER_S:
+            return
+        take, rest = pending[:batch], pending[batch:]
+        folded = [p for p in rest if now - p[2] > WELCOME_FOLD_S]
+        self._welcome_pending = [p for p in rest if now - p[2] <= WELCOME_FOLD_S]
+        names = [n for n, _, _ in take]
+        if len(names) == 1 and not folded and names[0] != "khách" and cfg.greet_templates:
+            tpl = cfg.greet_templates[self._greet_i % len(cfg.greet_templates)]
+            self._greet_i += 1
+            text = self._fill(tpl, ten=names[0], shop=cfg.shop_name)
+        else:
+            text = self._fill(cfg.welcome_many_template, danh_sach=self._name_list(names, len(folded)),
+                              shop=cfg.shop_name)
+        self._welcome_clip = sq.enqueue("welcome", text, ttl=180.0)
 
     # ------------------------------------------------------------------ drafting
     def _prompt(self, item: dict[str, Any], intent: Intent, cfg: AiConfig) -> tuple[str, str, list[str]]:
@@ -463,7 +581,19 @@ class Assistant:
             return
         text: str | None = None
         kind = ""
-        if intent.kind == IntentKind.GREETING and cfg.auto_greet and cfg.greet_templates:
+        if intent.kind == IntentKind.SPAM:
+            return
+        if intent.kind == IntentKind.GREETING and cfg.greet_joins:
+            if self.on_join(record.get("nickname") or record.get("unique_id"), viewer_key):
+                self._persist({**record, "status": ST_SIMPLE, "final_answer": "(được chào trong lời chào người xem)",
+                               "answered_by": "auto", "spoken": True})
+            return
+        if intent.kind != IntentKind.GREETING and not (intent.kind == IntentKind.PRODUCT and cfg.autopilot
+                                                       and cfg.auto_product and intent.product_id):
+            if self.read_comment(dict(record), viewer_key, now, as_question=False):  # "Bạn Lan nói: …"
+                self._persist({**record, "status": "Đã đọc to", "spoken": True})
+            return
+        if intent.kind == IntentKind.GREETING and cfg.autopilot and cfg.auto_greet and cfg.greet_templates:
             if not self._social_ok("greeting", GREET_GAP_S, viewer_key, now):
                 return
             tpl = cfg.greet_templates[self._greet_i % len(cfg.greet_templates)]
@@ -505,8 +635,6 @@ class Assistant:
     # ------------------------------------------------------------------ host actions
     def _speak_answer(self, item: dict[str, Any], text: str) -> bool:
         cfg = self.config
-        if not self.budget.tts_allows(len(text), cfg.voice_month_chars):
-            return False
         prefix = cfg.answer_prefix.strip()
         clip = self.c.speech.enqueue("answer", f"{prefix} {text}".strip() if prefix else text, ref=item["event_id"])
         if clip:

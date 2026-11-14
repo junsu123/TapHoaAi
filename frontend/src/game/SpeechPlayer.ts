@@ -76,10 +76,16 @@ export class SpeechPlayer {
     this.blocked = false;
     this.changed();
     if (!this.opts.audible || !clip.url) {
-      // preview: show the caption about as long as the clip lasts
+      // preview page, or no voice (Vbee not set up / failing): show the caption about as long as
+      // it would take to say it; the OBS page still reports start/end so the next line follows
+      if (this.opts.audible) this.opts.emit({ type: "SPEECH_STARTED", id: clip.id });
       this.silentTimer = setTimeout(() => {
-        this.clip = null;
-        this.changed();
+        this.silentTimer = null;
+        if (this.opts.audible) this.finish(true);
+        else {
+          this.clip = null;
+          this.changed();
+        }
       }, 1500 + clip.text.length * 70);
       return;
     }

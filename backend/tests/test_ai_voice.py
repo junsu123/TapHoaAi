@@ -219,8 +219,9 @@ def test_voice_test_endpoint_and_locked_setting(admin_client):
     cont.settings.fake_ai = True
     r = c.post("/api/v1/settings/voice/test", json={"text": "Xin chào"}).json()
     assert r["ok"] and c.get(r["url"]).status_code == 200
-    cont.settings.tts_locked = True
-    assert c.get("/api/v1/voice/state").json()["ai"]["voice_ready"] is False
+    cont.settings.tts_locked = True  # no sound any more, but captions still go on the LIVE
+    ai = c.get("/api/v1/voice/state").json()["ai"]
+    assert ai["voice_ready"] is True and "CHIBI_TTS_LOCKED" in ai["audio_note"]
 
 
 # ---------------------------------------------------------------------------- units

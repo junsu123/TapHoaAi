@@ -292,14 +292,10 @@ async def autopilot(body: AutopilotIn, request: Request, admin: CurrentAdmin = A
     c = request.app.state.container
     a = c.assistant
     cfg = a.config
-    if body.on:
-        if c.settings.tts_locked:
-            raise HTTPException(422, detail={"code": "tts_locked", "message": "Giọng đọc đang bị khóa (CHIBI_TTS_LOCKED)."})
-        if not cfg.voice_policy_confirmed:
-            raise HTTPException(422, detail={"code": "policy_not_confirmed",
-                                             "message": "Vào Trợ lý AI & giọng đọc, đánh dấu danh sách chính sách trước."})
-        if c.speech.provider is None:
-            raise HTTPException(422, detail={"code": "voice_not_configured", "message": "Chưa nhập App ID/Token Vbee."})
+    if body.on and not cfg.voice_policy_confirmed:
+        raise HTTPException(422, detail={"code": "policy_not_confirmed",
+                                         "message": "Vào Trợ lý AI & giọng đọc, đánh dấu danh sách chính sách trước."})
+    # without a working voice (no Vbee, locked, out of characters) everything still shows as captions
     new = cfg.model_copy(update={"autopilot": body.on, "voice_enabled": cfg.voice_enabled or body.on})
     a.update_config(new)
     if body.on and c.speech.muted:

@@ -125,17 +125,26 @@ An toàn: bình luận là dữ liệu, không phải lệnh cho AI; tên khách
 
 ### 🤖 Tự động hoàn toàn
 
-Nút lớn ở đầu trang **Người trực & Demo** (cần đã đánh dấu danh sách chính sách và nhập Vbee). Khi BẬT, phần mềm tự đọc bình luận và trả lời, không chờ người trực:
+Nút lớn ở đầu trang **Người trực & Demo** (cần đã đánh dấu danh sách chính sách; chưa có Vbee thì chỉ hiện phụ đề). Khi BẬT, phần mềm tự đọc bình luận và trả lời, không chờ người trực:
 
 | Bình luận | Phần mềm làm gì | Gọi Claude? |
 |---|---|---|
 | Câu hỏi (“giá bao nhiêu?”, “ship không?”) | Đọc câu hỏi → đọc câu trả lời (câu đã học / giá trong danh mục / Claude) | Chỉ khi chưa có sẵn câu trả lời |
 | Gọi tên sản phẩm (“trà cà gai leo”) | “Bạn … đang xem …, giá …” (chỉ đọc giá đã xác nhận; cùng sản phẩm không nhắc lại trong 45 giây) | Không |
-| Chào (“chào shop”, “hello”) | Chào lại bằng câu mẫu, lần lượt từng câu | Không |
+| Chào (“chào shop”, “hello”) | Gộp vào lời chào người xem (xem bên dưới) | Không |
 | Bình luận thường (“live vui quá”) | Claude trả lời; chỉ khi câu trả lời an toàn mới đọc cả bình luận lẫn câu trả lời | Có |
 | Spam, từ cấm | Không đọc | Không |
 
 Vẫn giữ nguyên an toàn: câu nói về bệnh/chữa trị, giá lạ, câu Claude không chắc chắn → chờ người trực. LIVE đông: câu hỏi luôn được ưu tiên; khi đã có 3 câu chờ đọc (chỉnh được) thì bỏ qua lời chào và bình luận thường; mỗi khách được chào/trả lời trò chuyện tối đa 1 lần mỗi phút. **F9** vẫn tắt giọng ngay; **Space** để nói chen.
+
+### 👋 Chào người xem & đọc bình luận
+
+Luôn chạy khi **Bật phát trên LIVE** đang bật (không cần bật “Tự động hoàn toàn”, không gọi Claude, 0 USD):
+
+- **Chào mọi người vào xem.** Một người vào → “Chào Lan Anh, …”. Nhiều người vào cùng lúc → gom tên lại để không bỏ sót ai: “Chào Lan, Minh, Hoa, Tú, Vy và Bảo! Cảm ơn các bạn đã vào LIVE của shop ạ!” (tối đa 6 tên một câu, chỉnh được 1–15). Người đông đến mức đọc không kịp thì số tên mỗi câu tự tăng, ai chờ quá 60 giây được gộp vào “… và 18 bạn khác” để lời chào không bị trễ. Mỗi người chỉ được chào một lần trong 10 phút.
+- **Đọc bình luận.** Mọi bình luận (trừ spam/từ cấm) được đọc: “Bạn Vy nói: …”. Câu hỏi luôn được ưu tiên; khi hàng chờ đọc quá dài, bình luận thường cũ được bỏ qua; mỗi khách tối đa 1 bình luận mỗi 8 giây, cùng nội dung không đọc lại.
+- **Không có tiếng vẫn có chữ.** Nếu Vbee chưa nhập, hết ký tự hoặc đang lỗi, câu vẫn hiện thành **phụ đề** trên trang game (OBS) và phần mềm thử lại Vbee sau 60 giây; lỗi được ghi trong **Nhật ký lỗi**.
+- Bật/tắt và câu chào nhiều người trong thẻ **👋 Chào người xem & đọc bình luận** (trang Trợ lý AI & giọng đọc).
 
 ### Hội thoại & câu đã học
 

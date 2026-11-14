@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.11.0 — 2026-11-15 — Chào người xem & đọc bình luận
+
+- **Chào mọi người vào LIVE**, kể cả khi nhiều người vào cùng lúc: gom tên thành câu “Chào Lan, Minh và Hoa! …” (mặc định 6 tên/câu), đông quá thì tăng số tên mỗi câu và gộp người chờ lâu thành “… và N bạn khác”; mỗi người chào một lần trong 10 phút. Trước đây người vào chỉ làm Chibi vẫy tay.
+- **Đọc mọi bình luận** (“Bạn … nói: …”), không chỉ câu hỏi; câu hỏi vẫn được ưu tiên, bình luận thường bị bỏ khi hàng chờ dài, giới hạn theo khách và bỏ câu lặp.
+- **Phụ đề khi không có tiếng**: Vbee chưa nhập/hết ký tự/lỗi thì câu vẫn hiện thành phụ đề trên trang OBS (trước đây bị bỏ hẳn nên LIVE không thấy gì); Vbee lỗi thì nghỉ 60 giây rồi thử lại, ghi vào Nhật ký lỗi.
+- Cài đặt mới trong thẻ **👋 Chào người xem & đọc bình luận**; nút Demo “+1 người vào LIVE”, “@vy: bình luận thường”.
+- Sửa: nút “Tự động hoàn toàn” không xuống dòng làm cột trái tràn, che các nút Demo trên màn hình hẹp.
+
 ## 0.10.0 — 2026-11-14 — Nhật ký lỗi
 
 - Trang **Nhật ký lỗi** trên dashboard: mọi lỗi/cảnh báo của máy chủ (Claude, Vbee, TikTok, cơ sở dữ liệu, API, tác vụ nền) và của trang game/dashboard (lỗi JavaScript, lỗi hiển thị, mất WebGL), cập nhật trực tiếp, số lỗi mới trên menu, lọc theo mức độ/khu vực/nội dung, chi tiết kỹ thuật, chép và tải về.

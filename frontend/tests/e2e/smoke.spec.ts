@@ -589,3 +589,49 @@ test("Error log: a JavaScript error on the OBS page shows up live in Nhật ký 
   expect(txt).toContain(`lỗi thử từ trang game ${RUN}`);
   await game.close();
 });
+
+test("Welcome: ten viewers join at once and every name is greeted; ordinary comments are read", async ({ page, context }) => {
+  const csrf = await login(page.request);
+  const s = await (await page.request.get("/api/v1/settings/ai")).json();
+  const cfg = { ...s.config, voice_policy_confirmed: true, voice_enabled: true, greet_joins: true, read_comments: true, autopilot: false };
+  await page.request.put("/api/v1/settings/ai", { data: { config: cfg }, headers: { "X-CSRF-Token": csrf } });
+  await page.request.post("/api/v1/voice/unmute", { headers: { "X-CSRF-Token": csrf } });
+  const game = await context.newPage();
+  await game.setViewportSize({ width: 540, height: 960 });
+  await game.goto("/game/live?debug=1&quality=low");
+  await game.waitForFunction(() => (window as any).__chibiDebug?.state().layoutVersion > 0);
+  const caption = game.getByTestId("speech-caption");
+
+  await page.goto("/dashboard/host");
+  const before = new Set(((await game.evaluate(() => (window as any).__chibiDebug.state().avatars)) as { nickname: string }[]).map((a) => a.nickname));
+  await page.getByRole("button", { name: "+10 người xem giả" }).click();
+  await game.waitForFunction((n) => (window as any).__chibiDebug.state().avatars.length >= n, before.size + 10);
+  const joined = ((await game.evaluate(() => (window as any).__chibiDebug.state().avatars)) as { nickname: string }[])
+    .map((a) => a.nickname)
+    .filter((n) => !before.has(n));
+  expect(joined.length).toBe(10);
+
+  // collect every welcome caption until all ten names have been on screen
+  let seen = "";
+  let shot = false;
+  for (let i = 0; i < 150 && !joined.every((n) => seen.includes(n)); i++) {
+    if (await caption.isVisible()) {
+      const t = await caption.innerText();
+      if (!seen.includes(t)) seen += "\n" + t;
+      if (!shot && (await caption.getAttribute("data-kind")) === "welcome") {
+        await game.screenshot({ path: `${SHOTS}/WELCOME-caption.png` });
+        shot = true;
+      }
+    }
+    await game.waitForTimeout(200);
+  }
+  for (const n of joined) expect(seen).toContain(n);
+
+  await page.getByRole("button", { name: "@vy: bình luận thường" }).click();
+  await expect(caption).toContainText("Bạn vy nói: hôm nay shop đẹp quá", { timeout: 20_000 });
+  await expect(caption).toHaveAttribute("data-kind", "comment");
+  await page.screenshot({ path: `${SHOTS}/WELCOME-host.png`, fullPage: true });
+
+  await page.request.put("/api/v1/settings/ai", { data: { config: { ...cfg, voice_enabled: false } }, headers: { "X-CSRF-Token": csrf } });
+  await game.close();
+});

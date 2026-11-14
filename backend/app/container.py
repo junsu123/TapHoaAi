@@ -245,6 +245,7 @@ class AppContainer:
         self._cancel_stale_commands()
         self.hub.start()
         self.speech.start()
+        self.assistant.start()
         self._tasks = [
             asyncio.create_task(self.orchestrator.run(), name="orchestrator"),
             asyncio.create_task(self._ticker(), name="ticker"),
@@ -256,6 +257,7 @@ class AppContainer:
         self.errors.uninstall()
         await self.live.stop()
         await self.speech.stop()
+        await self.assistant.stop()
         for t in self._tasks:
             t.cancel()
         for t in self._tasks:

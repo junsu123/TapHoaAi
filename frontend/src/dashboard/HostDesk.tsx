@@ -138,6 +138,14 @@ export function VoiceBar({ speech, ai }: { speech: SpeechState | null; ai: AiSta
         <span className="ap-icon">🤖</span>
         <span>
           <b>Tự động hoàn toàn: {auto ? "BẬT" : "TẮT"}</b>
+          {ai && (
+            <span className="small">
+              {ai.greet_joins ? "👋 chào người vào" : ""}
+              {ai.greet_joins && ai.read_comments ? " · " : ""}
+              {ai.read_comments ? "💬 đọc bình luận" : ""}
+              {ai.greet_joins || ai.read_comments ? " — luôn bật khi phát trên LIVE" : ""}
+            </span>
+          )}
           <span className="small">{auto ? "Đang tự đọc bình luận và trả lời — bấm để tắt" : "Bấm để tự đọc bình luận và trả lời, không chờ người trực"}</span>
         </span>
       </button>
@@ -181,6 +189,11 @@ export function VoiceBar({ speech, ai }: { speech: SpeechState | null; ai: AiSta
           </>
         )}
         {speech && !speech.player && <span className="chip chip-warn">Chưa mở trang game (OBS) — chưa phát được tiếng</span>}
+        {ai?.voice_ready && ai.audio_note && (
+          <span className="chip chip-warn" data-testid="caption-only-note">
+            {ai.audio_note}
+          </span>
+        )}
         {playing && (
           <span className="chip chip-ai" data-testid="voice-playing">
             ▶ {playing.label}: {playing.text.slice(0, 60)}
