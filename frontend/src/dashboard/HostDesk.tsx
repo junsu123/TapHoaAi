@@ -2,6 +2,7 @@
 // kill switch (F9), "Tôi đang nói" (hold Space) and an optional mic-level auto hold.
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Bot, Mic, Pencil, Volume2, VolumeX } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { api, ApiError } from "../lib/api";
 import { usd, type AiStatus } from "./AiSettingsPage";
@@ -135,15 +136,20 @@ export function VoiceBar({ speech, ai }: { speech: SpeechState | null; ai: AiSta
   return (
     <div className="voice-bar" data-testid="voice-bar">
       <button className={`autopilot-toggle${auto ? " on" : ""}`} onClick={() => call("/ai/autopilot", { on: !auto })} data-testid="autopilot-toggle" aria-pressed={auto}>
-        <span className="ap-icon">🤖</span>
+        <span className="ap-icon" aria-hidden>
+          <Bot size={26} strokeWidth={1.7} />
+        </span>
         <span>
-          <b>Tự động hoàn toàn: {auto ? "BẬT" : "TẮT"}</b>
+          <b>Tự động hoàn toàn: {auto ? "đang bật" : "đang tắt"}</b>
           {ai && (
             <span className="small">
-              {ai.greet_joins ? "👋 chào người vào" : ""}
-              {ai.greet_joins && ai.read_comments ? " · " : ""}
-              {ai.read_comments ? "💬 đọc bình luận" : ""}
-              {ai.greet_joins || ai.read_comments ? " — luôn bật khi phát trên LIVE" : ""}
+              {ai.greet_joins && ai.read_comments
+                ? "Chào người vào và đọc bình luận luôn chạy khi phát trên LIVE."
+                : ai.greet_joins
+                  ? "Chào người vào luôn chạy khi phát trên LIVE."
+                  : ai.read_comments
+                    ? "Đọc bình luận luôn chạy khi phát trên LIVE."
+                    : ""}
             </span>
           )}
           <span className="small">{auto ? "Đang tự đọc bình luận và trả lời — bấm để tắt" : "Bấm để tự đọc bình luận và trả lời, không chờ người trực"}</span>
@@ -152,11 +158,11 @@ export function VoiceBar({ speech, ai }: { speech: SpeechState | null; ai: AiSta
       <div className="row wrap">
         {speech?.muted ? (
           <button className="primary" onClick={() => call("/voice/unmute")} data-testid="voice-unmute">
-            🔊 Bật lại giọng
+            <Volume2 size={16} aria-hidden /> Bật lại giọng
           </button>
         ) : (
           <button className="danger" onClick={() => call("/voice/kill")} data-testid="voice-kill">
-            ⏹ Tắt giọng ngay (F9)
+            <VolumeX size={16} aria-hidden /> Tắt giọng ngay (F9)
           </button>
         )}
         <button
@@ -166,7 +172,7 @@ export function VoiceBar({ speech, ai }: { speech: SpeechState | null; ai: AiSta
           onPointerLeave={() => speech?.hold && setHold(false)}
           data-testid="voice-hold"
         >
-          🎙 {speech?.hold ? "Đang giữ — AI im" : "Giữ để nói (Space)"}
+          <Mic size={16} aria-hidden /> {speech?.hold ? "Đang giữ, AI im lặng" : "Giữ để nói (Space)"}
         </button>
         <label className="check">
           <input type="checkbox" checked={micAuto} onChange={(e) => setMicAuto(e.target.checked)} aria-label="Tự im khi micro có tiếng" />
@@ -202,7 +208,7 @@ export function VoiceBar({ speech, ai }: { speech: SpeechState | null; ai: AiSta
         )}
         {speech && speech.queue.length > 0 && <span className="chip">Chờ phát: {speech.queue.length}</span>}
         <NavLink to="/dashboard/ai" className="small">
-          Cài đặt AI & giọng đọc →
+          Cài đặt AI & giọng đọc
         </NavLink>
       </div>
       {(err || mic.err) && <p className="error small">{err || mic.err}</p>}
@@ -233,7 +239,7 @@ export function QuestionCard({ h }: { h: HostItem }) {
     <li className={`host-item${done ? " done" : ""}`} data-testid="host-item" data-status={h.status}>
       <div>
         <span className={`chip ${STATUS_CLASS[h.status] ?? "chip-warn"}`}>{h.status}</span> <b>{h.nickname}</b>: {h.text}
-        {h.question_read && <span className="muted small"> · 🔊 đã đọc câu hỏi</span>}
+        {h.question_read && <span className="muted small"> Đã đọc câu hỏi.</span>}
       </div>
       {h.hint && <div className="muted small">{h.hint}</div>}
       {h.candidates.length > 0 && <div className="muted small">Có thể là: {h.candidates.map((c) => c.name).join(", ")}</div>}
@@ -251,7 +257,7 @@ export function QuestionCard({ h }: { h: HostItem }) {
           {editing ? (
             <>
               <button className="primary" onClick={() => speak({ text })} disabled={!text.trim()}>
-                🔊 Đọc câu đã sửa
+                <Volume2 size={16} aria-hidden /> Đọc câu đã sửa
               </button>
               <button onClick={() => setEditing(false)}>Hủy</button>
             </>
@@ -259,10 +265,10 @@ export function QuestionCard({ h }: { h: HostItem }) {
             <>
               {h.suggestion && (
                 <button className="primary" onClick={() => speak({})} data-testid="speak">
-                  🔊 Đọc
+                  <Volume2 size={16} aria-hidden /> Đọc
                 </button>
               )}
-              <button onClick={() => setEditing(true)}>{h.suggestion ? "✏️ Sửa rồi đọc" : "✏️ Viết câu trả lời"}</button>
+              <button onClick={() => setEditing(true)}><Pencil size={15} aria-hidden /> {h.suggestion ? "Sửa rồi đọc" : "Viết câu trả lời"}</button>
               {!done && (
                 <button
                   onClick={() =>

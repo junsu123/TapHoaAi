@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.14.0 — 2026-11-15 — Giao diện quản trị mới
+
+- Giao diện quản trị làm lại theo tông tiệm trà: thanh bên xanh lá trà đậm, nền xám xanh nhạt, nút chính xanh ngọc, vàng cho việc cần làm, đỏ chỉ cho trạng thái đang LIVE và nút nguy hiểm; font Be Vietnam Pro (đóng gói sẵn, không cần mạng), biểu tượng nét mảnh thay cho emoji.
+- Thanh bên chia nhóm *Trong buổi LIVE / Bán hàng / Thiết lập* và luôn có ô **trạng thái phát sóng** (Đang LIVE nhấp nháy đỏ, Demo, chưa lên sóng) kèm số người xem và bình luận.
+- Mỗi trang có tiêu đề và một dòng mô tả; thẻ có mô tả và nút hành động ở góc (VD “Thêm sản phẩm”).
+- Trang **Tổng quan** mới: dải số liệu, danh sách **Sẵn sàng lên sóng** có nút “Sửa” dẫn tới đúng trang, tóm tắt Trợ lý AI và chi phí; bỏ các dòng đã lỗi thời.
+- Trang đăng nhập hai cột; trạng thái trống có hướng dẫn; bảng, ô nhập, nút, nhãn, thông báo thống nhất một kiểu; dùng được trên điện thoại.
+
 ## 0.13.0 — 2026-11-15 — Kiểm tra giọng đọc & giọng có sẵn của máy
 
 - Thẻ **🩺 Chào người vào & đọc bình luận — kiểm tra** trên trang Người trực: danh sách điều kiện ✅/❌ kèm cách sửa (bật phát trên LIVE, trang game/OBS đang mở, trình duyệt cho phát tiếng, có tiếng hay chỉ phụ đề…), nhật ký từng người vào/bình luận đã được đọc hay chưa và vì sao, nút **📣 Đọc thử một câu trên trang LIVE**.

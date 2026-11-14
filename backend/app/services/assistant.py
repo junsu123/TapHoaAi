@@ -239,9 +239,9 @@ class Assistant:
              "fix": "Trang game mở bằng trình duyệt thường đang chặn âm thanh: bấm “🔈 Bấm để bật âm thanh” trên trang đó "
                     "(OBS không cần)."},
             {"id": "greet", "ok": cfg.greet_joins, "label": "Chào người vào xem",
-             "fix": "Trang Trợ lý AI & giọng đọc → thẻ 👋 → bật “Chào người vào xem”."},
+             "fix": "Trang Trợ lý AI & giọng đọc → thẻ “Chào người xem & đọc bình luận” → bật “Chào người vào xem”."},
             {"id": "read", "ok": cfg.read_comments, "label": "Đọc bình luận",
-             "fix": "Trang Trợ lý AI & giọng đọc → thẻ 👋 → bật “Đọc bình luận”."},
+             "fix": "Trang Trợ lý AI & giọng đọc → thẻ “Chào người xem & đọc bình luận” → bật “Đọc bình luận”."},
             {"id": "audio", "ok": audio_ok, "label": "Âm thanh", "detail": audio, "fix": ""},
         ]
 
