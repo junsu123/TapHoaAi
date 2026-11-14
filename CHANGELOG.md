@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.13.0 — 2026-11-15 — Kiểm tra giọng đọc & giọng có sẵn của máy
+
+- Thẻ **🩺 Chào người vào & đọc bình luận — kiểm tra** trên trang Người trực: danh sách điều kiện ✅/❌ kèm cách sửa (bật phát trên LIVE, trang game/OBS đang mở, trình duyệt cho phát tiếng, có tiếng hay chỉ phụ đề…), nhật ký từng người vào/bình luận đã được đọc hay chưa và vì sao, nút **📣 Đọc thử một câu trên trang LIVE**.
+- **Không có Vbee (hoặc Vbee lỗi) vẫn có tiếng:** trang game đọc bằng giọng tiếng Việt có sẵn của máy phát LIVE (Web Speech), chọn giọng và tốc độ; trang game báo về máy có giọng tiếng Việt nào. Không có giọng tiếng Việt thì chỉ phụ đề và nói rõ cách cài.
+- Người đã được chào mà gõ “chào shop” thì bình luận đó được đọc như bình luận thường (trước đây bị bỏ qua).
+
 ## 0.12.1 — 2026-11-15 — Banner chạy liên tục
 
 - Banner sản phẩm mặc định **chạy liên tục**: ảnh sản phẩm trượt ngang không ngừng như băng chuyền (vòng lặp liền mạch, tự lặp lại khi ít sản phẩm), mỗi ảnh có tên và giá. Chỉnh tốc độ 2–30 giây cho mỗi sản phẩm.

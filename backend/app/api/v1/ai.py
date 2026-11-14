@@ -274,6 +274,25 @@ async def voice_unmute(request: Request, admin: CurrentAdmin = AdminDep) -> dict
     return {"speech": c.speech.state()}
 
 
+@router.post("/voice/test-live")
+async def voice_test_live(request: Request, admin: CurrentAdmin = AdminDep) -> dict:
+    """Say one test line on the OBS page, through the same path as greetings (Vbee, else the
+    computer's own voice, else a caption) — to check what viewers will actually hear."""
+    c = request.app.state.container
+    if not c.hub.has_primary():
+        raise HTTPException(409, detail={"code": "no_player", "message": "Chưa mở trang game (OBS) — mở /game/live rồi thử lại."})
+    if c.speech.muted:
+        raise HTTPException(409, detail={"code": "muted", "message": "Giọng đang bị tắt khẩn cấp — bấm “Bật lại giọng” trước."})
+    shop = c.assistant.config.shop_name or "shop"
+    clip = c.speech.enqueue("test", f"Xin chào cả nhà, đây là giọng đọc thử trên LIVE của {shop} ạ.", ttl=60.0)
+    if clip is None:
+        raise HTTPException(409, detail={"code": "busy", "message": "Hàng chờ đọc đang đầy, thử lại sau ít giây."})
+    if clip.task:
+        await clip.task
+    how = "vbee" if clip.url else ("browser" if clip.fallback else "caption")
+    return {"clip": clip.summary(), "how": how, "checks": c.assistant.checks()}
+
+
 @router.post("/voice/hold")
 async def voice_hold(body: HoldIn, request: Request, admin: CurrentAdmin = AdminDep) -> dict:
     """The host is talking: pause the clip that is playing and start no new one."""

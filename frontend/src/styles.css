@@ -277,3 +277,23 @@ a.button { display: inline-block; padding: 6px 12px; border: 1px solid var(--lin
 .banner-who-tag { position: absolute; left: 50%; bottom: -1.6vh; transform: translateX(-50%); white-space: nowrap; font-size: clamp(11px, 1.7vh, 32px); font-weight: 800; color: #fff; background: #b84a32; padding: .2em .8em; border-radius: 999px; box-shadow: 0 4px 12px rgba(0,0,0,.25); }
 .banner-mode { border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; display: flex; flex-direction: column; gap: 4px; }
 .banner-mode legend { font-size: 13px; padding: 0 4px; }
+
+/* voice checklist on the host page */
+.vc-summary { margin: 0 0 8px; font-weight: 700; padding: 8px 10px; border-radius: 10px; }
+.vc-summary.ok { background: #eafaf0; color: #1f6b43; }
+.vc-summary.bad { background: #fff1f1; color: #a12a2a; }
+.vc-list { list-style: none; padding: 0; margin: 0 0 8px; display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+.vc-list li { display: flex; gap: 8px; align-items: flex-start; }
+.vc-list li.bad { background: #fff7f7; border-radius: 8px; padding: 4px 6px; }
+.vc-detail { color: #5b4a52; }
+.vc-fix { display: block; color: #a12a2a; font-size: 13px; }
+.vc-h { font-size: 14px; margin: 12px 0 4px; }
+.vc-trace { list-style: none; padding: 0; margin: 0; font-size: 13px; max-height: 320px; overflow: auto; }
+.vc-trace li { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 0; border-bottom: 1px solid var(--line); }
+.vc-trace li.bad .vc-reason { color: #a12a2a; }
+.vc-trace li.ok .vc-reason { color: #1f6b43; }
+.vc-time { color: var(--muted); font-variant-numeric: tabular-nums; }
+.vc-kind { font-weight: 700; }
+.vc-who { font-weight: 600; }
+.vc-text { color: #5b4a52; }
+.vc-reason { flex-basis: 100%; }

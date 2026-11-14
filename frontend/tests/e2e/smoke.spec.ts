@@ -705,3 +705,47 @@ test("Herbal-tea shop look and product banner: rotates, follows the Chibi, setti
   await put({ sign_text: "TIỆM TRÀ THẢO MỘC", banner_product_ids: [] });
   await game.close();
 });
+
+test("Voice checklist: says why nobody is greeted, then shows greetings and comments going on the LIVE", async ({ page, context }) => {
+  test.setTimeout(150_000);
+  const csrf = await login(page.request);
+  const s = await (await page.request.get("/api/v1/settings/ai")).json();
+  const off = { ...s.config, voice_enabled: false, greet_joins: true, read_comments: true, autopilot: false };
+  await page.request.put("/api/v1/settings/ai", { data: { config: off }, headers: { "X-CSRF-Token": csrf } });
+  await page.request.post("/api/v1/voice/unmute", { headers: { "X-CSRF-Token": csrf } });
+  await page.setViewportSize({ width: 1360, height: 1200 });
+  await page.goto("/dashboard/host");
+  const vc = page.getByTestId("voice-check");
+  await expect(vc.getByTestId("check-voice")).toHaveAttribute("data-ok", "0");
+  await expect(vc.getByTestId("check-voice")).toContainText("Bật phát trên LIVE");
+  const nick = `vaoxem${RUN}`;
+  await page.request.post("/api/v1/demo/events", { data: { type: "JOIN", unique_id: nick, nickname: nick }, headers: { "X-CSRF-Token": csrf } });
+  await expect(vc.getByTestId("voice-trace")).toContainText(nick);
+  await expect(vc.getByTestId("voice-trace")).toContainText("Phát trên LIVE đang tắt");
+  await vc.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${SHOTS}/VOICECHECK-off.png`, fullPage: true });
+
+  // turn it on and open the OBS page: everything green, joins and comments go on the LIVE
+  await page.request.put("/api/v1/settings/ai", { data: { config: { ...off, voice_enabled: true, voice_policy_confirmed: true } }, headers: { "X-CSRF-Token": csrf } });
+  const game = await context.newPage();
+  await game.setViewportSize({ width: 540, height: 960 });
+  await game.goto("/game/live?debug=1&quality=low");
+  await game.waitForFunction(() => (window as any).__chibiDebug?.state().layoutVersion > 0);
+  await expect(vc.getByTestId("check-voice")).toHaveAttribute("data-ok", "1", { timeout: 10_000 });
+  await expect(vc.getByTestId("check-player")).toHaveAttribute("data-ok", "1", { timeout: 10_000 });
+  const nick2 = `vaolai${RUN}`;
+  await page.request.post("/api/v1/demo/events", { data: { type: "JOIN", unique_id: nick2, nickname: nick2 }, headers: { "X-CSRF-Token": csrf } });
+  await expect(vc.getByTestId("voice-trace")).toContainText("Đã xếp lời chào lên LIVE", { timeout: 10_000 });
+  await inject(page, csrf, `@${nick2}: live hôm nay vui ghê`);
+  await expect(vc.getByTestId("voice-trace")).toContainText("Đã xếp hàng đọc trên LIVE", { timeout: 10_000 });
+  await vc.getByTestId("voice-test-live").click();
+  await expect(vc.getByTestId("voice-test-live-msg")).toContainText("Đã gửi câu thử", { timeout: 20_000 });
+  await expect(game.getByTestId("speech-caption")).toBeVisible({ timeout: 20_000 });
+  await vc.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${SHOTS}/VOICECHECK-on.png`, fullPage: true });
+
+  await page.goto("/dashboard/ai");
+  await expect(page.getByLabel("Giọng có sẵn của máy")).toBeChecked();
+  await page.request.put("/api/v1/settings/ai", { data: { config: { ...off } }, headers: { "X-CSRF-Token": csrf } });
+  await game.close();
+});

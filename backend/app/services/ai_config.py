@@ -49,6 +49,10 @@ class AiConfig(BaseModel):
     answer_mode: Literal["approve", "auto"] = "approve"
     voice_code: str = Field(DEFAULT_VOICE, max_length=120)
     voice_speed: float = Field(1.0, ge=0.5, le=1.6)
+    # no Vbee (or Vbee failing): read with the computer's own Vietnamese voice on the OBS page
+    browser_voice: bool = True
+    browser_voice_name: str = Field("", max_length=120)  # empty = the first Vietnamese voice found
+    browser_voice_rate: float = Field(1.0, ge=0.5, le=1.8)
     voice_month_chars: int = Field(200_000, ge=0, le=50_000_000)
     question_template: str = Field("Bạn {ten} hỏi: {cau_hoi}", max_length=120)
     answer_prefix: str = Field("", max_length=60)

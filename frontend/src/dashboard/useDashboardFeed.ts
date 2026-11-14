@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { VoiceTraceEntry } from "./VoiceCheck";
 import { SequencedSocket, wsUrl } from "../lib/ws";
 import type { AiStatus } from "./AiSettingsPage";
 import type { LogRecord, LogStats } from "./LogsPage";
@@ -43,6 +44,7 @@ export interface SpeechState {
   muted: boolean;
   hold: boolean;
   player: boolean;
+  player_info?: { speech_api?: boolean; voices?: { name: string; lang: string; local: boolean }[]; fallback_voice?: string | null; blocked?: boolean };
   current: SpeechClipSummary | null;
   queue: SpeechClipSummary[];
   history: SpeechClipSummary[];
@@ -80,6 +82,7 @@ interface Snap {
   speech?: SpeechState;
   ai?: AiStatus;
   logs?: LogStats;
+  voice_trace?: VoiceTraceEntry[];
 }
 
 type Msg =
@@ -88,6 +91,7 @@ type Msg =
   | { type: "HOST_ATTENTION_UPDATE"; sequence: number; item: HostItem }
   | { type: "SPEECH_STATE"; sequence: number; speech: SpeechState }
   | { type: "AI_STATUS"; sequence: number; ai: AiStatus }
+  | { type: "VOICE_TRACE"; sequence: number; entry: VoiceTraceEntry }
   | { type: "ALERT"; sequence: number; code: string; message: string }
   | { type: "LOG"; sequence: number; record: LogRecord; new: boolean }
   | { type: "LOG_STATS"; sequence: number; stats: LogStats }
@@ -108,6 +112,7 @@ export function useDashboardFeed(enabled: boolean) {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [logStats, setLogStats] = useState<LogStats | null>(null);
   const [liveLogs, setLiveLogs] = useState<LogRecord[]>([]);
+  const [voiceTrace, setVoiceTrace] = useState<VoiceTraceEntry[]>([]);
   const [connected, setConnected] = useState(false);
   const sockRef = useRef<SequencedSocket<Snap, Msg> | null>(null);
 
@@ -122,6 +127,7 @@ export function useDashboardFeed(enabled: boolean) {
         if (s.speech) setSpeech(s.speech);
         if (s.ai) setAi(s.ai);
         if (s.logs) setLogStats(s.logs);
+        if (s.voice_trace) setVoiceTrace(s.voice_trace.slice().reverse());
       },
       onMessage: (m) => {
         if (m.type === "COMMENT") setComments((c) => [m.comment, ...c].slice(0, 200));
@@ -129,6 +135,7 @@ export function useDashboardFeed(enabled: boolean) {
         else if (m.type === "HOST_ATTENTION_UPDATE") setHost((h) => (h.some((x) => x.event_id === m.item.event_id) ? h.map((x) => (x.event_id === m.item.event_id ? m.item : x)) : [m.item, ...h]));
         else if (m.type === "SPEECH_STATE") setSpeech(m.speech);
         else if (m.type === "AI_STATUS") setAi(m.ai);
+        else if (m.type === "VOICE_TRACE") setVoiceTrace((t) => [m.entry, ...t].slice(0, 60));
         else if (m.type === "LOG") {
           setLiveLogs((l) => [m.record, ...l.filter((x) => x.id !== m.record.id)].slice(0, 200));
           if (m.new && m.record.level !== "INFO")
@@ -149,5 +156,5 @@ export function useDashboardFeed(enabled: boolean) {
     return () => sock.stop();
   }, [enabled]);
 
-  return { comments, host, live, metrics, aiPaused, setAiPaused, connected, speech, ai, alerts, logStats, setLogStats, liveLogs };
+  return { comments, host, live, metrics, aiPaused, setAiPaused, connected, speech, ai, alerts, logStats, setLogStats, liveLogs, voiceTrace };
 }

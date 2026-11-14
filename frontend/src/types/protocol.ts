@@ -115,6 +115,8 @@ export interface SpeechClip {
   text: string;
   url: string | null;
   caption_only?: boolean;
+  /** no Vbee audio: read it with the computer's own Vietnamese voice (Web Speech) */
+  fallback?: { name: string | null; rate: number; lang: string } | null;
 }
 
 export type ServerGameMessage =
@@ -145,5 +147,14 @@ export type ClientGameMessage =
   | { type: "FPS_REPORT"; fps: number; quality: string; avatars: number }
   | { type: "SPEECH_STARTED" | "SPEECH_ENDED"; id: string }
   | { type: "SPEECH_FAILED"; id: string; reason: string }
+  | {
+      type: "PLAYER_INFO";
+      speech_api: boolean;
+      voice_count: number;
+      voices: { name: string; lang: string; local: boolean }[];
+      fallback_voice: string | null;
+      blocked: boolean;
+      user_agent: string;
+    }
   | { type: "PING" }
   | { type: "RESYNC" };
