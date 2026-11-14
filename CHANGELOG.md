@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.1 — 2026-11-14 — Chibi rời cửa hàng khi người xem rời LIVE
+
+- TikTok không gửi sự kiện "rời LIVE", nên Chibi rời đi (vẫy tay rồi ra cửa) khi: không tương tác quá N phút (mặc định 5, chỉnh trên dashboard), số người xem giảm xuống dưới số Chibi, hoặc LIVE kết thúc.
+- Thả tim, theo dõi, chia sẻ cũng tính là còn ở lại.
+- Không rút Chibi đang lấy hàng; tương tác lại thì Chibi quay lại.
+
 ## 0.4.0 — 2026-11-14 — M3: kết nối TikTok LIVE
 
 - Adapter TikTokLive 7.0.1 (tùy chọn `backend[tiktok]`, đã cài sẵn qua `dev_windows.ps1`): bình luận, quà, thả tim, người vào, theo dõi, chia sẻ, số người xem, kết thúc LIVE.

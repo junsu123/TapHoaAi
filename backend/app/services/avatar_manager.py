@@ -52,6 +52,8 @@ class AvatarManager:
         self._by_id: dict[str, Avatar] = {}
         self.overflow: deque[str] = deque()
         self.is_busy: Callable[[str], bool] = lambda _avatar_id: False
+        # latest viewer count reported by the platform (None = not reported, e.g. Demo)
+        self.viewer_cap: int | None = None
 
     # ------------------------------------------------------------------ queries
     def get(self, avatar_id: str) -> Avatar | None:
@@ -111,6 +113,14 @@ class AvatarManager:
         if av:
             av.last_active = self.clock()
 
+    def exit_all(self, reason: str) -> list[str]:
+        """Everyone leaves the store (LIVE ended)."""
+        gone = [a.avatar_id for a in self.visible()]
+        for av in self.visible():
+            self._hide(av, reason)
+        self.overflow.clear()
+        return gone
+
     def _show(self, av: Avatar) -> None:
         av.visible = True
         self.hub.send_game({"type": "AVATAR_SPAWN", "avatar": av.to_dict()})
@@ -136,6 +146,14 @@ class AvatarManager:
         for av in self.visible():
             if now - av.last_active > self.idle_exit_seconds and not self.is_busy(av.avatar_id):
                 self._hide(av, "idle")
+        # more Chibis than people the platform says are watching → the least recently
+        # active (and not busy) ones leave; a new interaction brings a viewer back
+        if self.viewer_cap is not None:
+            excess = len(self.visible()) - max(0, self.viewer_cap)
+            if excess > 0:
+                idle = sorted((a for a in self.visible() if not self.is_busy(a.avatar_id)), key=lambda a: a.last_active)
+                for av in idle[:excess]:
+                    self._hide(av, "viewer_count")
         while self.overflow:
             if len(self.visible()) >= self.max_visible:
                 idle = [a for a in self.visible() if not self.is_busy(a.avatar_id)]

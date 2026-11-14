@@ -4,7 +4,8 @@ from fastapi import APIRouter, Query, Request
 from sqlalchemy import select, text
 
 from app.models import ActionJob
-from app.schemas.api import AiPauseIn
+from app.models import AuditLog
+from app.schemas.api import AiPauseIn, GameSettingsPatch
 from app.security.sessions import AdminDep, CurrentAdmin
 from app.services.shop_integration import shop_status
 
@@ -44,6 +45,26 @@ def game_info(request: Request, admin: CurrentAdmin = AdminDep) -> dict:
     c = request.app.state.container
     return {"game_url": "/game/live", "remote_token": c.game_token,
             "note": "Mở trên chính máy này không cần token. Máy khác: thêm ?token=… vào URL."}
+
+
+@router.get("/settings/game")
+def game_settings(request: Request, admin: CurrentAdmin = AdminDep) -> dict:
+    c = request.app.state.container
+    return {"idle_exit_minutes": round(c.avatars.idle_exit_seconds / 60, 1),
+            "note": "TikTok không gửi sự kiện người xem rời LIVE; Chibi rời cửa hàng khi người xem "
+                    "không tương tác trong khoảng thời gian này, hoặc khi số người xem giảm, hoặc khi LIVE kết thúc."}
+
+
+@router.patch("/settings/game")
+def patch_game_settings(body: GameSettingsPatch, request: Request, admin: CurrentAdmin = AdminDep) -> dict:
+    c = request.app.state.container
+    seconds = int(round(body.idle_exit_minutes * 60))
+    c.avatars.idle_exit_seconds = seconds
+    c.set_setting("avatar_idle_exit_seconds", str(seconds), secret=False)
+    with c.db.session() as s:
+        s.add(AuditLog(admin_id=admin.id, action="game_settings_update", resource="avatar_idle_exit_seconds",
+                       detail={"seconds": seconds}))
+    return game_settings(request, admin)
 
 
 @router.get("/shop/status")

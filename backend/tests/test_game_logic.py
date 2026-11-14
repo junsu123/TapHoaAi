@@ -227,3 +227,51 @@ def test_camera_holds_shot_and_queues_equal_priority(world):
     world.camera.tick()
     assert world.camera.current is None
     assert world.hub.of_type("CAMERA_FOCUS")[-1]["mode"] == "overview"
+
+
+# ---------------------------------------------------------------- leaving the LIVE
+def test_idle_viewer_leaves_but_any_interaction_keeps_them(world):
+    world.avatars.idle_exit_seconds = 300
+    quiet = world.avatars.get_or_create(user("quiet"))
+    liker = world.avatars.get_or_create(user("liker"))
+    world.clock.advance(250)
+    world.avatars.touch(liker.avatar_id)  # a like / gift / follow counts as "still here"
+    world.clock.advance(100)
+    world.avatars.tick()
+    assert not quiet.visible and liker.visible
+    exits = world.hub.of_type("AVATAR_EXIT")
+    assert [e["avatar_id"] for e in exits] == [quiet.avatar_id] and exits[0]["reason"] == "idle"
+    # the quiet viewer comments again → walks back in
+    back = world.avatars.get_or_create(user("quiet"))
+    assert back is quiet and quiet.visible
+
+
+def test_busy_chibi_is_never_removed_mid_action(world):
+    world.avatars.idle_exit_seconds = 60
+    a = world.avatars.get_or_create(user("a"))
+    world.actions.submit(a.avatar_id, a.viewer_key, "TRA_CA_GAI_LEO")
+    world.clock.advance(120)
+    world.avatars.tick()
+    assert a.visible
+
+
+def test_viewer_count_drop_removes_least_recently_active(world):
+    avs = []
+    for i in range(5):
+        avs.append(world.avatars.get_or_create(user(f"v{i}")))
+        world.clock.advance(10)
+    world.avatars.viewer_cap = 3  # TikTok now reports 3 people watching
+    world.avatars.tick()
+    assert [a.visible for a in avs] == [False, False, True, True, True]
+    assert {e["reason"] for e in world.hub.of_type("AVATAR_EXIT")} == {"viewer_count"}
+
+
+def test_everyone_leaves_when_live_ends(world):
+    a = world.avatars.get_or_create(user("a"))
+    b = world.avatars.get_or_create(user("b"))
+    world.actions.submit(a.avatar_id, a.viewer_key, "TRA_CA_GAI_LEO")
+    gone = world.avatars.exit_all("live_end")
+    for avatar_id in gone:
+        world.actions.cancel_avatar(avatar_id, "live_end")
+    assert set(gone) == {a.avatar_id, b.avatar_id}
+    assert not world.avatars.visible() and not world.actions.is_busy(a.avatar_id)

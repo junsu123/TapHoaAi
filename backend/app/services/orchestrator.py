@@ -104,10 +104,18 @@ class Orchestrator:
                     self.c.camera.request(av.avatar_id, None, PRIORITY_GIFT, max_seconds=3.0)
         elif ev.type in (EventType.LIKE, EventType.FOLLOW, EventType.SHARE):
             av = self.c.avatars.find(ev.user)  # like/follow never create avatars (LIVE-04)
+            if av:
+                self.c.avatars.touch(av.avatar_id)  # still here → not idle
             self.c.hub.send_game({"type": "SOCIAL_EFFECT", "kind": ev.type.value.lower(),
                                   "avatar_id": av.avatar_id if av and av.visible else None})
         elif ev.type == EventType.VIEWER_COUNT:
             self.viewer_count = int(ev.payload.get("count", 0))
+            if not is_demo:
+                self.c.avatars.viewer_cap = self.viewer_count
+        elif ev.type == EventType.LIVE_END:
+            for avatar_id in self.c.avatars.exit_all("live_end"):
+                self.c.actions.cancel_avatar(avatar_id, "live_end")
+            self.c.camera.forget_all()
 
     def _comment(self, ev: LiveEvent, is_demo: bool) -> None:
         now = time.monotonic()

@@ -103,7 +103,7 @@ export class GameEngine {
 
   private addAvatar(info: AvatarInfo, onReload = false): AvatarController {
     const existing = this.avatars.get(info.avatar_id);
-    if (existing && !existing.removed && existing.phase !== "exiting") {
+    if (existing && !existing.removed && existing.phase !== "exiting" && existing.phase !== "goodbye") {
       existing.info = info;
       return existing;
     }

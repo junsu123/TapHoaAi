@@ -62,6 +62,12 @@ class CameraDirector:
             self.current.done = True
         self.tick()
 
+    def forget_all(self) -> None:
+        self.queue.clear()
+        if self.current:
+            self.current.done = True
+        self.tick()
+
     def _start(self, shot: Shot, now: float) -> None:
         shot.started_at = now
         self.current = shot

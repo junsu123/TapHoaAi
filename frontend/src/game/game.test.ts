@@ -281,3 +281,21 @@ describe("label layout (GAME-09)", () => {
     expect(apart.get("b")).toEqual({ lift: 0, visible: true });
   });
 });
+
+describe("viewer leaves", () => {
+  it("waves goodbye, walks to the door, then is removed — even mid-action, without a stuck box", () => {
+    const e = new GameEngine(() => undefined);
+    e.applySnapshot({ type: "SNAPSHOT", sequence: 0, session_id: "s", live_status: "Đã kết nối", is_demo: false, layout: LAYOUT, avatars: [{ avatar_id: "a", nickname: "a", unique_id: "a", appearance_seed: 1, is_demo: false }], active_commands: [], camera: { mode: "overview" }, settings: { show_seconds: 8 } });
+    e.handle({ ...action("c1", "a"), sequence: 1 });
+    run(e, 6); // somewhere in the walk / pickup
+    e.handle({ type: "AVATAR_EXIT", sequence: 2, avatar_id: "a", reason: "idle" });
+    const a = e.avatars.get("a")!;
+    expect(a.phase).toBe("goodbye");
+    expect(a.state).toBe("wave");
+    expect(a.held).toBeNull();
+    run(e, 0.6);
+    expect(e.avatars.get("a")?.phase).toBe("goodbye");
+    run(e, 30);
+    expect(e.avatars.has("a")).toBe(false);
+  });
+});
