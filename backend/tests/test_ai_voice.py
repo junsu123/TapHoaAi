@@ -18,7 +18,9 @@ CFG = {"model": "claude-haiku-5-5", "budget_day_usd": 0.5, "budget_month_usd": 1
        "shop_name": "Mộc Tâm", "shop_facts": "Ship toàn quốc, nhận hàng rồi thanh toán (COD).", "banned_words": ["lừa đảo"],
        "voice_enabled": True, "voice_policy_confirmed": True, "read_questions": True, "answer_mode": "approve",
        "voice_code": "hn_female_ngochuyen_full_48k-fhg", "voice_speed": 1.0, "voice_month_chars": 200000,
-       "question_template": "Bạn {ten} hỏi: {cau_hoi}", "answer_prefix": ""}
+       "question_template": "Bạn {ten} hỏi: {cau_hoi}", "answer_prefix": "",
+       # these tests exercise the Claude path; the answer memory has its own tests
+       "simple_auto": False, "simple_auto_speak": True, "learn_enabled": False, "memory_threshold": 0.75}
 
 
 class ScriptedClaude:

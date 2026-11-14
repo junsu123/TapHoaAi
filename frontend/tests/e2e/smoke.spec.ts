@@ -400,6 +400,7 @@ test("M4 voice: question read aloud on the OBS page, Claude draft approved by th
   for (let i = 1; i <= 4; i++) await page.getByLabel(`Chính sách ${i}`).check();
   await page.getByLabel("Bật giọng đọc trên LIVE").check();
   await page.getByLabel("Tên shop").fill("Mộc Tâm");
+  await page.getByLabel("Câu đơn giản tự trả lời").uncheck(); // this test follows the Claude path for a price question
   await page.getByRole("button", { name: "Lưu cài đặt" }).click();
   await expect(page.getByText("Đã lưu.")).toBeVisible();
   await expect(page.getByTestId("ai-status")).toContainText("Giọng đọc: sẵn sàng");
@@ -440,5 +441,53 @@ test("M4 voice: question read aloud on the OBS page, Claude draft approved by th
   // leave the voice off for the other tests
   const s = await (await page.request.get("/api/v1/settings/ai")).json();
   await page.request.put("/api/v1/settings/ai", { data: { config: { ...s.config, voice_enabled: false } }, headers: { "X-CSRF-Token": csrf } });
+  await game.close();
+});
+
+test("Learning: an answer the host confirmed is reused for a similar question without Claude", async ({ page, context }) => {
+  const csrf = await login(page.request);
+  const s = await (await page.request.get("/api/v1/settings/ai")).json();
+  const cfg = { ...s.config, voice_enabled: true, voice_policy_confirmed: true, simple_auto: true, simple_auto_speak: true, learn_enabled: true };
+  await page.request.put("/api/v1/settings/ai", { data: { config: cfg }, headers: { "X-CSRF-Token": csrf } });
+  await page.request.post("/api/v1/voice/unmute", { headers: { "X-CSRF-Token": csrf } });
+  const game = await context.newPage();
+  await game.goto("/game/live?debug=1&quality=low");
+  await game.waitForFunction(() => (window as any).__chibiDebug?.state().layoutVersion > 0);
+  const nick1 = `hoiship${RUN}`;
+  const nick2 = `hoilai${RUN}`;
+
+  await page.setViewportSize({ width: 1360, height: 1000 });
+  await page.goto("/dashboard/host");
+  await inject(page, csrf, `@${nick1}: shop ơi có ship COD toàn quốc không`);
+  const first = page.getByTestId("host-item").filter({ hasText: nick1 }).first();
+  await expect(first).toHaveAttribute("data-status", /Cần người trực xem|AI đề xuất/, { timeout: 15_000 });
+  await first.getByRole("button", { name: /Sửa rồi đọc|Viết câu trả lời/ }).click();
+  await first.getByLabel("Sửa câu trả lời").fill("Dạ shop có giao COD toàn quốc, bạn nhận hàng rồi thanh toán ạ.");
+  await first.getByRole("button", { name: "🔊 Đọc câu đã sửa" }).click();
+  await expect(first).toHaveAttribute("data-status", "Người trực đã xác nhận");
+
+  // a different viewer, different words, same question → answered at once, no Claude
+  await inject(page, csrf, `@${nick2}: sốp có giao cod toàn quốc ko ạ`);
+  const second = page.getByTestId("host-item").filter({ hasText: nick2 }).first();
+  await expect(second).toHaveAttribute("data-status", "Đã trả lời tự động", { timeout: 15_000 });
+  await expect(second.getByTestId("suggestion")).toContainText("Câu đã học");
+  await expect(game.getByTestId("speech-caption")).toContainText("nhận hàng rồi thanh toán", { timeout: 20_000 });
+  await page.screenshot({ path: `${SHOTS}/LEARN-host-auto-answer.png`, fullPage: true });
+
+  await page.goto("/dashboard/knowledge");
+  await expect(page.getByTestId("kn-stats")).toContainText(/[1-9]\d* câu tự trả lời/);
+  await expect(page.getByTestId("kn-entry").filter({ hasText: "giao COD toàn quốc" })).toBeVisible();
+  await page.getByLabel("Câu hỏi thử").fill("có nhận hàng rồi trả tiền ko shop");
+  await page.getByRole("button", { name: "Thử", exact: true }).click();
+  await expect(page.getByTestId("kn-test")).toBeVisible();
+  await page.screenshot({ path: `${SHOTS}/LEARN-knowledge.png`, fullPage: true });
+  await page.getByRole("button", { name: "Lịch sử hội thoại LIVE" }).click();
+  await expect(page.getByTestId("conv-table")).toContainText(nick2);
+  await expect(page.getByTestId("conv-table")).toContainText("Câu đã học");
+  await page.screenshot({ path: `${SHOTS}/LEARN-history.png`, fullPage: true });
+  const csv = await page.request.get("/api/v1/conversations/export.csv");
+  expect(await csv.text()).toContain(nick1);
+
+  await page.request.put("/api/v1/settings/ai", { data: { config: { ...cfg, voice_enabled: false } }, headers: { "X-CSRF-Token": csrf } });
   await game.close();
 });

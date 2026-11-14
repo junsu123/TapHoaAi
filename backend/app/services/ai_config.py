@@ -52,6 +52,11 @@ class AiConfig(BaseModel):
     voice_month_chars: int = Field(200_000, ge=0, le=50_000_000)
     question_template: str = Field("Bạn {ten} hỏi: {cau_hoi}", max_length=120)
     answer_prefix: str = Field("", max_length=60)
+    # --- answer memory (learned answers, no Claude call) ----------------------------------------
+    simple_auto: bool = True  # a learned answer or a catalog price answer replaces the Claude call
+    simple_auto_speak: bool = True  # …and is read at once (it was confirmed by a person before)
+    learn_enabled: bool = True  # remember answers a person confirmed (and auto answers, as "chờ duyệt")
+    memory_threshold: float = Field(0.75, ge=0.5, le=1.0)
 
 
 def load_config(c: AppContainer) -> AiConfig:

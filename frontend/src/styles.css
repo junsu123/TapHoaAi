@@ -179,3 +179,17 @@ button.danger { background: #d63a4a; color: #fff; border-color: #c02c3b; font-we
 label.check.big { font-size: 16px; }
 .save-bar { position: sticky; bottom: 0; background: var(--bg, #fff8f3); padding: 10px 0; display: flex; gap: 12px; align-items: center; border-top: 1px solid var(--line); }
 textarea { font-family: inherit; font-size: 14px; }
+
+/* conversation log & answer memory */
+.kn-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.kn-entry { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: grid; gap: 8px; background: #fff; }
+.kn-entry.pending { border-color: #f0c36a; background: #fffaf0; }
+.kn-entry.off { opacity: .6; }
+.kn-variants { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.kn-q { background: #f3eee9; border-radius: 999px; padding: 3px 4px 3px 10px; font-size: 13px; display: inline-flex; gap: 2px; align-items: center; }
+.kn-addq { font-size: 13px; padding: 3px 8px; min-width: 180px; }
+button.link { background: none; border: none; padding: 0 4px; cursor: pointer; color: #a0525f; }
+.conv-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.conv-table th, .conv-table td { border-bottom: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top; }
+.conv-table th { font-size: 13px; color: #7a6470; font-weight: 600; }
+a.button { display: inline-block; padding: 6px 12px; border: 1px solid var(--line); border-radius: 10px; text-decoration: none; color: inherit; background: #fff; }

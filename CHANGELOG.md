@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.0 — 2026-11-14 — Lưu hội thoại LIVE và tự trả lời câu đã học
+
+- Mọi câu hỏi trong LIVE được lưu theo phiên (câu hỏi, gợi ý, câu trả lời cuối, ai trả lời, đã đọc, chi phí); trang **Hội thoại & câu đã học** xem, tìm, tải CSV. Tên khách tự xóa sau số ngày lưu bình luận, nội dung giữ lại để học.
+- Học từ LIVE: câu trả lời người trực xác nhận được nhớ; câu hỏi giống (chuẩn hóa tiếng Việt, viết tắt, từ đệm, bỏ tên sản phẩm) được trả lời ngay **không gọi Claude** và đọc luôn; câu hỏi giá dùng giá đã xác nhận.
+- Giá trong câu đã học tự theo giá hiện tại; giá chưa xác nhận, nội dung về chữa bệnh hay giá lạ → không dùng. Tồn kho không học; khuyến mãi/“hôm nay” và câu Claude tự đọc chờ duyệt.
+- Quản lý câu đã học: sửa, thêm cách hỏi, duyệt, tắt, xóa, thêm tay, thử câu hỏi; cài đặt độ giống, học, tự trả lời.
+- Migration 0003 (`conversation_turns`, `knowledge_entries`, `knowledge_variants`).
+
 ## 0.7.0 — 2026-11-14 — Trợ lý AI Claude và giọng đọc Vbee (M4)
 
 - Câu hỏi của khách được đọc to trên LIVE (“Bạn {tên} hỏi: …”, đã bỏ số điện thoại/liên kết/từ cấm), Claude soạn câu trả lời 1–2 câu chỉ từ danh mục và thông tin shop, người trực bấm **Đọc** (hoặc chế độ tự động cho câu an toàn).

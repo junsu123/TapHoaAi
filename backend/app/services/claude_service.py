@@ -119,7 +119,9 @@ class Draft:
     review_reasons: list[str] = field(default_factory=list)
     tokens_in: int = 0
     tokens_out: int = 0
-    source: str = "claude"  # claude | cache | template
+    source: str = "claude"  # claude | cache | template | memory
+    knowledge_id: int | None = None
+    match_score: float | None = None
 
 
 def catalog_context(catalog: Catalog, focus: list[str], shop_facts: str) -> str:

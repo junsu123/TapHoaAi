@@ -12,16 +12,16 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from cryptography.fernet import InvalidToken
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 
 from app.config import Settings
 from app.db import Database
 from app.events.bus import EventBus
 from app.events.deduper import Deduper, GiftStreakTracker
-from app.models import ActionJob, LiveEventRow, Setting
+from app.models import ActionJob, ConversationTurn, LiveEventRow, Setting
 from app.security.crypto import SecretBox, load_or_create_key
+from app.services.action_queue import TERMINAL, CmdStatus, Command, GameActionQueue
 from app.services.assistant import Assistant
-from app.services.action_queue import CmdStatus, Command, GameActionQueue, TERMINAL
 from app.services.avatar_manager import AvatarManager
 from app.services.camera_director import CameraDirector
 from app.services.catalog import build_catalog
@@ -74,6 +74,7 @@ class AppContainer:
         self.assistant = Assistant(self)
         self.speech.on_chars = self.assistant.budget.record_tts
         self.assistant.apply_voice()
+        self.assistant.memory.load(self.catalog)
         self.fps_reports: deque[dict[str, Any]] = deque(maxlen=120)
         self.started_at = time.time()
         self.game_token = self._load_or_create_game_token()
@@ -164,6 +165,7 @@ class AppContainer:
         self.catalog = build_catalog(self.db, self.catalog_version)
         self.matcher.catalog = self.catalog
         self.actions.set_catalog(self.catalog)
+        self.assistant.memory.load(self.catalog)
         self.hub.send_game({"type": "LAYOUT_UPDATED", "layout": self.catalog.layout_dict()})
 
     # ------------------------------------------------------------------ snapshot
@@ -247,7 +249,7 @@ class AppContainer:
                 self.actions.tick()
                 self.avatars.tick()
                 self.camera.tick()
-            except Exception:  # noqa: BLE001
+            except Exception:
                 log.exception("tick failed")
             await asyncio.sleep(TICK_SECONDS)
 
@@ -257,12 +259,18 @@ class AppContainer:
             if self.hub.dashboard.clients:
                 self.hub.send_dashboard({"type": "METRICS", "metrics": self.metrics()})
 
+    def retention_once(self, now: datetime | None = None) -> None:
+        cutoff = (now or datetime.now(UTC)) - timedelta(days=self.settings.event_retention_days)
+        with self.db.session() as s:
+            s.execute(delete(LiveEventRow).where(LiveEventRow.observed_at < cutoff))
+            # conversations are kept for learning, but viewer names only as long as comments
+            s.execute(update(ConversationTurn).where(ConversationTurn.asked_at < cutoff,
+                                                     ConversationTurn.nickname.is_not(None)).values(nickname=None))
+
     async def _retention(self) -> None:
         while True:
             try:
-                cutoff = datetime.now(UTC) - timedelta(days=self.settings.event_retention_days)
-                with self.db.session() as s:
-                    s.execute(delete(LiveEventRow).where(LiveEventRow.observed_at < cutoff))
-            except Exception:  # noqa: BLE001
+                await asyncio.to_thread(self.retention_once)
+            except Exception:
                 log.exception("retention cleanup failed")
             await asyncio.sleep(3600)

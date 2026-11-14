@@ -15,7 +15,7 @@ import logging
 import time
 from typing import TYPE_CHECKING, Any
 
-from app.models import AiMessage
+from app.models import AiMessage, ConversationTurn
 from app.services.ai_config import (
     SECRET_CLAUDE_KEY,
     SECRET_VBEE_APP_ID,
@@ -24,6 +24,7 @@ from app.services.ai_config import (
     load_config,
     save_config,
 )
+from app.services.answer_memory import AnswerMemory
 from app.services.budget_guard import BudgetGuard
 from app.services.claude_service import (
     AnthropicClient,
@@ -38,7 +39,7 @@ from app.services.claude_service import (
     template_reply,
 )
 from app.services.intent_router import Intent, IntentKind
-from app.services.text_safety import sanitize_comment, speakable_name
+from app.services.text_safety import sanitize_comment, scrub_pii, speakable_name
 from app.services.tts_vbee import FakeTts, VbeeTts
 from app.text_norm import fold
 
@@ -60,6 +61,10 @@ ST_CONFIRMED = "Người trực đã xác nhận"
 ST_AUTO = "Đã đọc tự động"
 ST_DISMISSED = "Đã bỏ qua"
 ST_DUPLICATE = "Trùng câu hỏi"
+ST_SIMPLE = "Đã trả lời tự động"
+
+SOURCE_LABEL = {"claude": "AI đề xuất", "cache": "AI đề xuất (dùng lại)", "template": "Câu mẫu từ danh mục",
+                "memory": "Câu đã học (không gọi Claude)"}
 
 
 class FakeClaude:
@@ -92,6 +97,7 @@ class Assistant:
         self.fake = c.settings.fake_ai
         self.client: ClaudeClient = FakeClaude() if self.fake else AnthropicClient()
         self.budget = BudgetGuard(c.db, alert=self._alert)
+        self.memory = AnswerMemory(c.db)
         self._cfg: AiConfig | None = None
         self.items: dict[str, dict[str, Any]] = {}
         self._recent_q: dict[tuple[str, str | None], tuple[str, float]] = {}
@@ -159,7 +165,48 @@ class Assistant:
     # ------------------------------------------------------------------ item updates
     def _update(self, item: dict[str, Any], **changes: Any) -> None:
         item.update(changes)
+        self._persist(item)
         self.c.hub.send_dashboard({"type": "HOST_ATTENTION_UPDATE", "item": item})
+
+    # ------------------------------------------------------------------ conversation log
+    def _persist(self, item: dict[str, Any]) -> None:
+        """Mirror the item into conversation_turns (one row per question, upserted)."""
+        try:
+            with self.c.db.session() as s:
+                row = s.query(ConversationTurn).filter_by(event_id=item["event_id"]).one_or_none()
+                if row is None:
+                    row = ConversationTurn(event_id=item["event_id"], session_id=self.c.live.session_id,
+                                           is_demo=bool(item.get("is_demo")), nickname=item.get("nickname"),
+                                           question=scrub_pii(item["text"]) or "(trống)", intent=item.get("intent"),
+                                           product_id=item.get("product_id"), status=item.get("status") or ST_NEW)
+                    s.add(row)
+                row.status = item.get("status") or row.status
+                if item.get("suggestion") and not row.draft:
+                    row.draft = item["suggestion"]
+                    row.draft_source = item.get("draft_source")
+                if item.get("final_answer"):
+                    row.answer = item["final_answer"]
+                    row.answered_by = item.get("answered_by")
+                row.spoken = bool(item.get("spoken"))
+                row.knowledge_id = item.get("knowledge_id") or row.knowledge_id
+                row.cost_usd = float(item.get("cost_usd") or row.cost_usd or 0.0)
+        except Exception:
+            log.exception("conversation log failed")
+
+    def _learn(self, item: dict[str, Any], answer: str, *, trusted: bool, source: str) -> None:
+        cfg = self.config
+        if not cfg.learn_enabled:
+            return
+        catalog = self.c.catalog
+
+        def job() -> None:
+            kid = self.memory.learn(scrub_pii(item["text"]), item.get("product_id"), item.get("ai_intent"), answer,
+                                    trusted=trusted, source=source, catalog=catalog, threshold=cfg.memory_threshold)
+            if kid:
+                item["knowledge_id"] = kid
+                self._persist(item)
+
+        self._spawn(asyncio.to_thread(job))
 
     def _spawn(self, coro) -> None:
         t = asyncio.create_task(coro)
@@ -180,8 +227,10 @@ class Assistant:
             self.items.pop(next(iter(self.items)))
         item.setdefault("suggestion", None)
         item.setdefault("review_reasons", [])
+        item["product_id"] = intent.product_id
         if self.c.ai_paused:
             item["hint"] = item.get("hint", "") + " (AI đang tạm dừng)"
+            self._persist(item)
             return
         now = time.monotonic()
         key = (" ".join(fold(item["text"]).split()), intent.product_id)
@@ -190,12 +239,14 @@ class Assistant:
             orig = self.items[first[0]]
             item.update(status=ST_DUPLICATE, duplicate_of=first[0], suggestion=orig.get("suggestion"),
                         hint="Câu hỏi giống hệt vừa có — dùng chung câu trả lời bên trên.")
+            self._persist(item)
             return
         self._recent_q[key] = (item["event_id"], now)
         self._recent_q = {k: v for k, v in self._recent_q.items() if now - v[1] < DUPLICATE_WINDOW_S}
 
         if intent.kind == IntentKind.QUESTION:
             self._read_question(item, viewer_key, now)
+        self._persist(item)
         self._spawn(self._draft_and_maybe_speak(item, intent))
 
     def _read_question(self, item: dict[str, Any], viewer_key: str | None, now: float) -> None:
@@ -251,6 +302,13 @@ class Assistant:
         cfg = self.config
         folded = " ".join(fold(item["text"]).split())
         template = template_reply(folded, intent.product_id, self.c.catalog)
+        if cfg.simple_auto:
+            hit = self.memory.match(item["text"], intent.product_id, self.c.catalog, cfg.memory_threshold)
+            if hit:
+                return Draft(hit.entry.intent or "OTHER", hit.entry.product_id, hit.score, hit.answer, False, [],
+                             source="memory", knowledge_id=hit.entry.id, match_score=round(hit.score, 2)), None
+            if template:
+                return template, None
         key = self.api_key()
         if not key:
             return template, "Chưa cài Claude API key."
@@ -278,6 +336,7 @@ class Assistant:
             return template, self.last_error
         self.last_error = None
         cost = self.budget.record(cfg.model, draft.tokens_in, draft.tokens_out, cfg.budget_day_usd, cfg.budget_month_usd)
+        item["cost_usd"] = cost
         await asyncio.to_thread(self._log_message, item, draft, cfg.model, cost)
         self._cache[ckey] = (draft, time.monotonic())
         return draft, None
@@ -296,24 +355,43 @@ class Assistant:
             self._update(item, status=ST_DRAFTING)
         draft, why = await self.make_draft(item, intent)
         cfg = self.config
+        if draft is not None and draft.source in ("memory", "template") and why is None:
+            await self._answer_simple(item, draft, cfg)
+            return
         if draft is None:
             base = item.get("hint") or "Người trực trả lời trực tiếp."
             self._update(item, status=ST_NEW, hint=f"{base} ({why})" if why and why not in base else base)
             return
         reasons = list(draft.review_reasons)
         status = ST_REVIEW if draft.needs_review else ST_SUGGESTED
-        label = {"claude": "AI đề xuất", "cache": "AI đề xuất (dùng lại)", "template": "Câu mẫu từ danh mục"}[draft.source]
+        label = SOURCE_LABEL[draft.source]
         hint = f"{why} Dùng câu mẫu từ danh mục." if why else (
             "Xem câu gợi ý, bấm Đọc hoặc sửa trước khi đọc." if draft.needs_review or cfg.answer_mode == "approve" else None)
         self._update(item, status=status, suggestion=draft.reply, suggestion_label=label,
                      review_reasons=[*item.get("review_reasons", []), *reasons], hint=hint,
-                     ai_intent=draft.intent, ai_confidence=round(draft.confidence, 2))
+                     ai_intent=draft.intent, ai_confidence=round(draft.confidence, 2), draft_source=draft.source)
         for other in self.items.values():  # duplicates that arrived meanwhile get the answer too
             if other.get("duplicate_of") == item["event_id"]:
                 self._update(other, suggestion=draft.reply)
         ok, _ = self.voice_ready()
         if cfg.answer_mode == "auto" and not draft.needs_review and ok and self._speak_answer(item, draft.reply):
-            self._update(item, status=ST_AUTO)
+            self._update(item, status=ST_AUTO, final_answer=draft.reply, answered_by="auto", spoken=True)
+            if draft.source in ("claude", "cache"):
+                self._learn(item, draft.reply, trusted=False, source="auto")  # waits for a person's review
+
+    async def _answer_simple(self, item: dict[str, Any], draft: Draft, cfg: AiConfig) -> None:
+        """A learned answer or a catalog price answer: no Claude call, read at once if allowed."""
+        common = {"suggestion": draft.reply, "suggestion_label": SOURCE_LABEL[draft.source], "draft_source": draft.source,
+                      "ai_intent": draft.intent, "knowledge_id": draft.knowledge_id, "match_score": draft.match_score}
+        if draft.knowledge_id:
+            self._spawn(asyncio.to_thread(self.memory.mark_used, draft.knowledge_id))
+        ok, why = self.voice_ready()
+        if cfg.simple_auto_speak and ok and self._speak_answer(item, draft.reply):
+            self._update(item, status=ST_SIMPLE, final_answer=draft.reply, answered_by=draft.source, spoken=True,
+                         hint="Câu đơn giản — tự trả lời, không gọi Claude.", **common)
+            return
+        self._update(item, status=ST_SUGGESTED, hint="Câu đơn giản — có sẵn câu trả lời, không gọi Claude."
+                     + ("" if ok else f" (Chưa phát giọng: {why})"), **common)
 
     # ------------------------------------------------------------------ host actions
     def _speak_answer(self, item: dict[str, Any], text: str) -> bool:
@@ -337,8 +415,9 @@ class Assistant:
             raise ValueError("Câu trả lời tối đa 280 ký tự (một lần đọc).")
         ok, why = self.voice_ready()
         spoken = ok and self._speak_answer(item, reply)
-        self._update(item, status=ST_CONFIRMED, suggestion=reply, spoken=spoken,
+        self._update(item, status=ST_CONFIRMED, suggestion=reply, spoken=spoken, final_answer=reply, answered_by="host",
                      hint=item.get("hint") if spoken else f"Không phát giọng: {why or 'hết hạn mức ký tự'}")
+        self._learn(item, reply, trusted=True, source="host")
         if item.get("ai_message_id"):
             self._spawn(asyncio.to_thread(self._mark_approved, item["ai_message_id"]))
         return {"spoken": spoken, "reason": None if spoken else (why or "Hết hạn mức ký tự giọng đọc."), "item": item}
