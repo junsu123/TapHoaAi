@@ -259,3 +259,21 @@ a.button { display: inline-block; padding: 6px 12px; border: 1px solid var(--lin
 .banner-pick-item.on { border: 2px solid #3f6b3f; background: #f1f7ea; }
 .banner-pick-n { position: absolute; top: 4px; left: 4px; background: #3f6b3f; color: #fff; border-radius: 999px; min-width: 20px; text-align: center; font-size: 12px; }
 .banner-who { font-size: clamp(11px, 1.7vh, 32px); font-weight: 800; color: #b84a32; overflow-wrap: anywhere; }
+/* conveyor banner: product photos slide past continuously */
+.product-banner.scrolling { position: relative; padding: 1.2% 0; }
+.scroll-viewport { overflow: hidden; width: 100%; height: 100%; border-radius: 14px; }
+.scroll-track { display: flex; gap: 2.4vh; height: 100%; width: max-content; padding: 0 1.2vh; animation-name: banner-scroll; animation-timing-function: linear; animation-iteration-count: infinite; will-change: transform; }
+@keyframes banner-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.scroll-card { height: 100%; aspect-ratio: 0.82; display: flex; flex-direction: column; background: #fff; border-radius: 14px; overflow: hidden; box-shadow: 0 2px 8px rgba(60, 40, 10, .18); }
+.product-banner.herbal .scroll-card { box-shadow: inset 0 0 0 2px #d9c290, 0 2px 8px rgba(60, 40, 10, .18); }
+.scroll-card.hot { outline: 4px solid #b84a32; outline-offset: -4px; }
+.scroll-photo { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 4%; }
+.scroll-photo img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.scroll-caption { display: flex; flex-direction: column; align-items: center; gap: .3vh; padding: .5vh 1vh .7vh; background: #fbf5e6; min-width: 0; }
+.product-banner:not(.herbal) .scroll-caption { background: #fff3f7; }
+.scroll-name { max-width: 100%; font-size: clamp(11px, 1.7vh, 32px); font-weight: 800; color: #2f2414; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scroll-price { flex: 0 0 auto; font-size: clamp(11px, 1.6vh, 30px); font-weight: 900; color: #fff; background: #b84a32; padding: .05em .5em; border-radius: 999px; }
+.product-banner:not(.herbal) .scroll-price { background: var(--pink-d); }
+.banner-who-tag { position: absolute; left: 50%; bottom: -1.6vh; transform: translateX(-50%); white-space: nowrap; font-size: clamp(11px, 1.7vh, 32px); font-weight: 800; color: #fff; background: #b84a32; padding: .2em .8em; border-radius: 999px; box-shadow: 0 4px 12px rgba(0,0,0,.25); }
+.banner-mode { border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; display: flex; flex-direction: column; gap: 4px; }
+.banner-mode legend { font-size: 13px; padding: 0 4px; }

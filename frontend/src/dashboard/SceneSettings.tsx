@@ -73,9 +73,21 @@ export function SceneSettings() {
         <input type="checkbox" checked={cfg.banner_enabled} onChange={(e) => set({ banner_enabled: e.target.checked })} />
         Hiện banner ảnh sản phẩm to ở đầu màn hình LIVE
       </label>
-      <p className="muted small">
-        Banner lần lượt hiện từng sản phẩm. Khi có người hỏi và Chibi cầm sản phẩm ra, banner chuyển ngay sang sản phẩm đó kèm tên người xem.
-      </p>
+      <fieldset className="banner-mode">
+        <legend>Cách chạy</legend>
+        <label className="check">
+          <input type="radio" name="banner_mode" checked={cfg.banner_mode === "scroll"} onChange={() => set({ banner_mode: "scroll" })} />
+          Chạy liên tục — ảnh sản phẩm trượt ngang không ngừng như băng chuyền
+        </label>
+        <label className="check">
+          <input type="radio" name="banner_mode" checked={cfg.banner_mode === "slide"} onChange={() => set({ banner_mode: "slide" })} />
+          Lần lượt — mỗi lần một sản phẩm thật to, đổi sau vài giây
+        </label>
+      </fieldset>
+      <label className="check">
+        <input type="checkbox" checked={cfg.banner_focus_on_show} onChange={(e) => set({ banner_focus_on_show: e.target.checked })} />
+        Khi Chibi cầm sản phẩm ra cho khách xem: banner dừng lại, chỉ hiện sản phẩm đó (tắt = banner vẫn chạy, sản phẩm đó được viền đỏ)
+      </label>
       <label>
         <span>
           Chiều cao banner: <b>{Math.round(cfg.banner_height * 100)}%</b> màn hình
@@ -84,9 +96,11 @@ export function SceneSettings() {
       </label>
       <label>
         <span>
-          Đổi sản phẩm sau: <b>{cfg.banner_seconds} giây</b>
+          {cfg.banner_mode === "scroll" ? "Tốc độ: mỗi sản phẩm trượt qua trong " : "Đổi sản phẩm sau: "}
+          <b>{cfg.banner_seconds} giây</b>
+          {cfg.banner_mode === "scroll" ? " (ít giây hơn = chạy nhanh hơn)" : ""}
         </span>
-        <input type="range" min={3} max={30} step={1} value={cfg.banner_seconds} onChange={(e) => set({ banner_seconds: Number(e.target.value) })} aria-label="Thời gian mỗi sản phẩm" />
+        <input type="range" min={2} max={30} step={1} value={cfg.banner_seconds} onChange={(e) => set({ banner_seconds: Number(e.target.value) })} aria-label="Thời gian mỗi sản phẩm" />
       </label>
       <label className="check">
         <input type="checkbox" checked={cfg.banner_show_price} onChange={(e) => set({ banner_show_price: e.target.checked })} />
