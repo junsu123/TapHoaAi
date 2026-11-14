@@ -13,7 +13,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from app.models import Product, Shelf
+from app.models import MediaAsset, Product, Shelf
 from app.services.store_layout import COUNTER, DOOR, STORE_D, STORE_W
 from app.text_norm import normalize_vi
 
@@ -30,6 +30,9 @@ class CatalogProduct:
     image_url: str | None
     model_url: str | None
     box_size: dict[str, float]
+    face_urls: dict[str, str]
+    box_color: str | None
+    card_image_url: str | None
     claim_text: str | None
     disclaimer: str | None
 
@@ -90,10 +93,22 @@ class Catalog:
             "products": [
                 {"id": p.id, "sku": p.sku, "name": p.name, "price": p.display_price,
                  "currency": p.currency, "image_url": p.image_url, "model_url": p.model_url,
-                 "box_size": p.box_size}
+                 "box_size": p.box_size, "face_urls": p.face_urls, "box_color": p.box_color,
+                 "card_image_url": p.card_image_url}
                 for p in self.products.values()
             ],
         }
+
+
+def face_urls(s, face_assets: dict | None) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for face, asset_id in (face_assets or {}).items():
+        if asset_id is None:
+            continue
+        a = s.get(MediaAsset, asset_id)
+        if a is not None and a.kind == "image":
+            out[face] = f"/media/{a.file_path}"
+    return out
 
 
 def build_catalog(db, version: int, price_valid_days: int = 30) -> Catalog:
@@ -101,7 +116,8 @@ def build_catalog(db, version: int, price_valid_days: int = 30) -> Catalog:
     now = datetime.now(UTC)
     with db.session() as s:
         products = s.execute(
-            select(Product).options(selectinload(Product.aliases), selectinload(Product.image_asset), selectinload(Product.model_asset))
+            select(Product).options(selectinload(Product.aliases), selectinload(Product.image_asset),
+                                    selectinload(Product.model_asset), selectinload(Product.card_image_asset))
         ).scalars().all()
         for p in products:
             if not p.approved:
@@ -119,6 +135,8 @@ def build_catalog(db, version: int, price_valid_days: int = 30) -> Catalog:
                 id=p.id, sku=p.sku, name=p.name,
                 display_price=p.price if price_ok else None, currency=p.currency,
                 image_url=image_url, model_url=model_url, box_size=p.box_size or DEFAULT_BOX,
+                face_urls=face_urls(s, p.face_assets), box_color=p.box_color,
+                card_image_url=f"/media/{p.card_image_asset.file_path}" if p.card_image_asset else None,
                 claim_text=p.claim_text, disclaimer=p.disclaimer,
             )
             names = {(normalize_vi(p.name), False, 100)}

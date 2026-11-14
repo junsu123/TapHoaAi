@@ -131,6 +131,10 @@ class Product(Base):
     image_asset_id: Mapped[int | None] = mapped_column(ForeignKey("media_assets.id"))
     model_asset_id: Mapped[int | None] = mapped_column(ForeignKey("media_assets.id"))
     box_size: Mapped[dict | None] = mapped_column(JSON)  # {"w":..,"h":..,"d":..} metres
+    # extra approved package faces: {"left"|"right"|"back"|"top"|"bottom": media_asset_id}
+    face_assets: Mapped[dict | None] = mapped_column(JSON)
+    box_color: Mapped[str | None] = mapped_column(String(9))  # colour of faces without a photo
+    card_image_asset_id: Mapped[int | None] = mapped_column(ForeignKey("media_assets.id"))
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
@@ -139,6 +143,7 @@ class Product(Base):
     )
     image_asset: Mapped[MediaAsset | None] = relationship(foreign_keys=[image_asset_id])
     model_asset: Mapped[MediaAsset | None] = relationship(foreign_keys=[model_asset_id])
+    card_image_asset: Mapped[MediaAsset | None] = relationship(foreign_keys=[card_image_asset_id])
 
     @property
     def approved(self) -> bool:

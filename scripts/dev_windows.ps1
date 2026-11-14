@@ -39,7 +39,7 @@ if (-not $SkipInstall) {
     Write-Host "== 1/3 Python venv + backend packages" -ForegroundColor Cyan
     if (-not (Test-Path "backend\.venv")) { python -m venv backend\.venv }
     & $Py -m pip install --upgrade pip | Out-Null
-    & $Py -m pip install -e "backend[dev,tiktok]"
+    & $Py -m pip install -e "backend[dev,tiktok,tools]"
 
     Write-Host "== 2/3 Frontend build" -ForegroundColor Cyan
     Push-Location frontend

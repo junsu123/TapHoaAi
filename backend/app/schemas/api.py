@@ -7,6 +7,20 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, field_validator
 
 _PRODUCT_ID = re.compile(r"^[A-Z0-9_]{2,64}$")
+FACE_NAMES = ("left", "right", "back", "top", "bottom")
+_HEX = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+
+def _check_faces(v: dict[str, int | None] | None) -> dict[str, int | None] | None:
+    if v is not None and not set(v) <= set(FACE_NAMES):
+        raise ValueError("Mặt hộp chỉ gồm: left, right, back, top, bottom")
+    return v
+
+
+def _check_color(v: str | None) -> str | None:
+    if v is not None and v != "" and not _HEX.match(v):
+        raise ValueError("Màu phải có dạng #RRGGBB")
+    return v or None
 
 
 class LoginIn(BaseModel):
@@ -74,7 +88,13 @@ class ProductIn(BaseModel):
     image_asset_id: int | None = None
     model_asset_id: int | None = None
     box_size: dict[str, float] | None = None
+    face_assets: dict[str, int | None] | None = None
+    box_color: str | None = None
+    card_image_asset_id: int | None = None
     verify_price: bool = False
+
+    _faces = field_validator("face_assets")(classmethod(lambda cls, v: _check_faces(v)))
+    _color = field_validator("box_color")(classmethod(lambda cls, v: _check_color(v)))
 
     @field_validator("id")
     @classmethod
@@ -94,7 +114,13 @@ class ProductPatch(BaseModel):
     image_asset_id: int | None = None
     model_asset_id: int | None = None
     box_size: dict[str, float] | None = None
+    face_assets: dict[str, int | None] | None = None
+    box_color: str | None = None
+    card_image_asset_id: int | None = None
     verify_price: bool = False
+
+    _faces = field_validator("face_assets")(classmethod(lambda cls, v: _check_faces(v)))
+    _color = field_validator("box_color")(classmethod(lambda cls, v: _check_color(v)))
 
 
 class ProductOut(BaseModel):
@@ -110,6 +136,9 @@ class ProductOut(BaseModel):
     image_url: str | None
     model_url: str | None
     box_size: dict[str, float] | None
+    face_urls: dict[str, str] = {}
+    box_color: str | None = None
+    card_image_url: str | None = None
     aliases: list[dict[str, Any]]
     location: dict[str, str] | None
     updated_at: datetime | None

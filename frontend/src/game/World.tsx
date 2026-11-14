@@ -38,8 +38,12 @@ function CameraRig({ engine }: { engine: GameEngine }) {
         // close-up: in front of the presented box, slightly above
         const fx = a.pos.x + Math.sin(a.yaw) * 0.34;
         const fz = a.pos.z + Math.cos(a.yaw) * 0.34;
-        goalLook.set(fx, 0.5, fz);
-        goalPos.set(fx + Math.sin(a.yaw) * 2.0, 0.85, fz + Math.cos(a.yaw) * 2.0);
+        // slow push-in while the product is presented: frame the Chibi first, then the box
+        const t = a.phase === "show" ? Math.min(1, a.fsm.elapsed / 3) : 0;
+        const ease = t * t * (3 - 2 * t);
+        const dist = 2.0 - 0.85 * ease;
+        goalLook.set(fx, 0.5 - 0.1 * ease, fz);
+        goalPos.set(fx + Math.sin(a.yaw) * dist, 0.85 - 0.25 * ease, fz + Math.cos(a.yaw) * dist);
         shot = "closeup";
       } else {
         goalLook.set(a.pos.x, 0.55, a.pos.z);

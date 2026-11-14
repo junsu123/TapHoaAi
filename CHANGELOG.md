@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.0 — 2026-11-14 — Hộp sản phẩm trông như thật
+
+- Mỗi sản phẩm có ảnh riêng cho từng mặt hộp (trước, sau, trái, phải, nắp); mặt chưa có ảnh dùng màu nền chọn trên dashboard, không tự vẽ thêm nội dung bao bì.
+- Hộp bo góc, nhận ánh sáng và đổ bóng như vật thật; kích thước nhập theo cm thật.
+- Ảnh riêng cho thẻ sản phẩm trên LIVE (ví dụ ảnh 3D mockup của shop).
+- Khi Chibi giới thiệu sản phẩm: camera tiến lại gần và hộp xoay nhẹ trái phải để thấy cả mặt bên.
+- `scripts/unwarp_box.py`: cắt ảnh phẳng từng mặt hộp từ ảnh mockup 3D (cần `pip install -e "backend[tools]"`).
+- Migration 0002 (tự chạy khi khởi động).
+
 ## 0.4.1 — 2026-11-14 — Chibi rời cửa hàng khi người xem rời LIVE
 
 - TikTok không gửi sự kiện "rời LIVE", nên Chibi rời đi (vẫy tay rồi ra cửa) khi: không tương tác quá N phút (mặc định 5, chỉnh trên dashboard), số người xem giảm xuống dưới số Chibi, hoặc LIVE kết thúc.

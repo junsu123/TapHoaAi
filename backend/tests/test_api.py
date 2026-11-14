@@ -154,3 +154,30 @@ def test_idle_exit_setting_persists(admin_client):
     assert c.app.state.container.avatars.idle_exit_seconds == 120
     assert c.app.state.container.get_setting("avatar_idle_exit_seconds") == "120"
     assert c.patch("/api/v1/settings/game", json={"idle_exit_minutes": 0}).status_code == 422
+
+
+def test_product_package_faces_colour_and_card_image(admin_client):
+    """Realistic box: approved photos per face, colour for the rest, a separate card image."""
+    c = admin_client
+
+    def upload(color):
+        r = c.post("/api/v1/assets/upload", files={"file": ("f.png", png_bytes(color), "image/png")}, data={"kind": "image"})
+        assert r.status_code == 201
+        return r.json()["id"]
+
+    left, back, card = upload((200, 100, 50)), upload((50, 60, 70)), upload((250, 230, 200))
+    r = c.patch("/api/v1/products/TRA_CA_GAI_LEO", json={
+        "face_assets": {"left": left, "back": back}, "box_color": "#7A4A2A", "card_image_asset_id": card})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert set(body["face_urls"]) == {"left", "back"} and body["box_color"] == "#7A4A2A"
+    assert body["card_image_url"].startswith("/media/")
+    # merge: remove one face, keep the other
+    body = c.patch("/api/v1/products/TRA_CA_GAI_LEO", json={"face_assets": {"back": None}}).json()
+    assert set(body["face_urls"]) == {"left"}
+    lay = next(p for p in c.app.state.container.catalog.layout_dict()["products"] if p["id"] == "TRA_CA_GAI_LEO")
+    assert set(lay["face_urls"]) == {"left"} and lay["box_color"] == "#7A4A2A" and lay["card_image_url"]
+    # validation
+    assert c.patch("/api/v1/products/TRA_CA_GAI_LEO", json={"face_assets": {"inside": left}}).status_code == 422
+    assert c.patch("/api/v1/products/TRA_CA_GAI_LEO", json={"box_color": "brown"}).status_code == 422
+    assert c.patch("/api/v1/products/TRA_CA_GAI_LEO", json={"face_assets": {"left": 99999}}).status_code == 422

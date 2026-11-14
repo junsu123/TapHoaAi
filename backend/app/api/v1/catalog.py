@@ -12,6 +12,7 @@ from app.models import AuditLog, MediaAsset, Product, ProductAlias, Shelf, Shelf
 from app.schemas.api import AliasesIn, ProductIn, ProductOut, ProductPatch, ShelfIn, ShelfPatch, SlotPatch
 from app.security.sessions import AdminDep, CurrentAdmin
 from app.services.action_queue import TERMINAL
+from app.services.catalog import face_urls
 from app.services.media import MediaError, store_glb, store_image
 from app.services.store_layout import SHELF_D, SLOT_XS, rot_deg, shelf_geometry, validate_layout
 from app.text_norm import normalize_vi
@@ -23,13 +24,15 @@ def _err(status: int, code: str, message: str) -> HTTPException:
     return HTTPException(status, detail={"code": code, "message": message})
 
 
-def _product_out(p: Product, c) -> ProductOut:
+def _product_out(p: Product, c, s) -> ProductOut:
     loc = c.catalog.location_of(p.id)
     return ProductOut(
         id=p.id, sku=p.sku, name=p.name, price=p.price, currency=p.currency,
         price_verified_at=p.price_verified_at, status=p.status, claim_text=p.claim_text,
         disclaimer=p.disclaimer, image_url=f"/media/{p.image_asset.file_path}" if p.image_asset else None,
         model_url=f"/media/{p.model_asset.file_path}" if p.model_asset else None,
+        face_urls=face_urls(s, p.face_assets), box_color=p.box_color,
+        card_image_url=f"/media/{p.card_image_asset.file_path}" if p.card_image_asset else None,
         box_size=p.box_size,
         aliases=[{"id": a.id, "alias": a.alias, "is_generic": a.is_generic, "priority": a.priority} for a in p.aliases],
         location={"shelf_id": loc[0], "slot_id": loc[1]} if loc else None, updated_at=p.updated_at,
@@ -38,7 +41,7 @@ def _product_out(p: Product, c) -> ProductOut:
 
 def _load(s, product_id: str) -> Product:
     p = s.execute(select(Product).options(selectinload(Product.aliases), selectinload(Product.image_asset),
-                                          selectinload(Product.model_asset))
+                                          selectinload(Product.model_asset), selectinload(Product.card_image_asset))
                   .where(Product.id == product_id, Product.deleted_at.is_(None))).scalar_one_or_none()
     if p is None:
         raise _err(404, "not_found", "Không tìm thấy sản phẩm.")
@@ -53,6 +56,15 @@ def _check_assets(s, image_asset_id: int | None, model_asset_id: int | None) -> 
         a = s.get(MediaAsset, asset_id)
         if a is None or a.kind != kind:
             raise _err(422, "bad_asset", f"File {label} không hợp lệ — hãy tải lên lại.")
+
+
+def _check_image_ids(s, ids: list[int | None]) -> None:
+    for asset_id in ids:
+        if asset_id is None:
+            continue
+        a = s.get(MediaAsset, asset_id)
+        if a is None or a.kind != "image":
+            raise _err(422, "bad_asset", "File ảnh không hợp lệ — hãy tải lên lại.")
 
 
 def _check_alias_conflicts(s, product_id: str, normalized: str, is_generic: bool) -> None:
@@ -73,9 +85,9 @@ def list_products(request: Request, admin: CurrentAdmin = AdminDep) -> list[Prod
     c = request.app.state.container
     with c.db.session() as s:
         rows = s.execute(select(Product).options(selectinload(Product.aliases), selectinload(Product.image_asset),
-                                                 selectinload(Product.model_asset))
+                                                 selectinload(Product.model_asset), selectinload(Product.card_image_asset))
                          .where(Product.deleted_at.is_(None)).order_by(Product.name)).scalars().all()
-        return [_product_out(p, c) for p in rows]
+        return [_product_out(p, c, s) for p in rows]
 
 
 @router.post("/products", status_code=201)
@@ -88,6 +100,7 @@ def create_product(body: ProductIn, request: Request, admin: CurrentAdmin = Admi
             raise _err(409, "sku_exists", "SKU đã tồn tại.")
         data = body.model_dump(exclude={"verify_price"})
         _check_assets(s, body.image_asset_id, body.model_asset_id)
+        _check_image_ids(s, [body.card_image_asset_id, *(body.face_assets or {}).values()])
         p = Product(**data)
         if body.verify_price and body.price is not None:
             p.price_verified_at = datetime.now(UTC)
@@ -95,14 +108,14 @@ def create_product(body: ProductIn, request: Request, admin: CurrentAdmin = Admi
         s.add(AuditLog(admin_id=admin.id, action="product_create", resource=body.id, detail={"price": body.price}))
     c.reload_catalog()
     with c.db.session() as s:
-        return _product_out(_load(s, body.id), c)
+        return _product_out(_load(s, body.id), c, s)
 
 
 @router.get("/products/{product_id}")
 def get_product(product_id: str, request: Request, admin: CurrentAdmin = AdminDep) -> ProductOut:
     c = request.app.state.container
     with c.db.session() as s:
-        return _product_out(_load(s, product_id), c)
+        return _product_out(_load(s, product_id), c, s)
 
 
 @router.patch("/products/{product_id}")
@@ -112,6 +125,16 @@ def patch_product(product_id: str, body: ProductPatch, request: Request, admin: 
     with c.db.session() as s:
         p = _load(s, product_id)
         _check_assets(s, changes.get("image_asset_id"), changes.get("model_asset_id"))
+        _check_image_ids(s, [changes.get("card_image_asset_id"), *(changes.get("face_assets") or {}).values()])
+        if "face_assets" in changes and changes["face_assets"] is not None:
+            # merge: {"left": 12} sets the left face, {"left": null} removes it
+            merged = dict(p.face_assets or {})
+            for face, aid in changes["face_assets"].items():
+                if aid is None:
+                    merged.pop(face, None)
+                else:
+                    merged[face] = aid
+            changes["face_assets"] = merged or None
         price_changed = "price" in changes and changes["price"] != p.price
         for k, v in changes.items():
             setattr(p, k, v)
@@ -123,7 +146,7 @@ def patch_product(product_id: str, body: ProductPatch, request: Request, admin: 
                        detail={k: v for k, v in changes.items() if k in ("price", "status", "claim_text")}))
     c.reload_catalog()
     with c.db.session() as s:
-        return _product_out(_load(s, product_id), c)
+        return _product_out(_load(s, product_id), c, s)
 
 
 @router.delete("/products/{product_id}")
@@ -162,7 +185,7 @@ def set_aliases(product_id: str, body: AliasesIn, request: Request, admin: Curre
         s.add(AuditLog(admin_id=admin.id, action="aliases_update", resource=product_id))
     c.reload_catalog()
     with c.db.session() as s:
-        return _product_out(_load(s, product_id), c)
+        return _product_out(_load(s, product_id), c, s)
 
 
 @router.post("/assets/upload", status_code=201)
