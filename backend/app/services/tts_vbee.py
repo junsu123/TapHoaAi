@@ -19,7 +19,7 @@ import httpx
 
 VBEE_URL = "https://api.vbee.vn/v1/tts"
 VOICES_URL = "https://vbee.vn/api/public/v1/voices"  # "Get list voices" (api-docs.vbee.vn)
-MAX_VOICE_PAGES = 10
+MAX_VOICE_PAGES = 15
 MAX_CHARS = 300
 TIMEOUT_S = 15.0
 
@@ -126,58 +126,122 @@ class Voice:
         return self.__dict__.copy()
 
 
+# Vbee's page for "Get list voices" names the query parameters in snake_case in its table but
+# uses camelCase in its own example (?voiceOwnership=VBEE&languageCode=vi-VN). Try the example's
+# form first, then the others, and keep the first one Vbee accepts.
+_PARAM_STYLES: tuple[tuple[str, str | None, str | None, str | None], ...] = (
+    # (name, language key, ownership key, ownership value for the first pass)
+    ("camel", "languageCode", "voiceOwnership", None),
+    ("camel+vbee", "languageCode", "voiceOwnership", "VBEE"),  # exactly the documented example
+    ("snake", "language_code", "voice_ownership", None),
+    ("bare", None, None, None),
+)
+
+
+def _vbee_message(r: httpx.Response) -> str:
+    try:
+        body = r.json()
+    except ValueError:
+        return r.text[:160].strip()
+    if isinstance(body, dict):
+        err = body.get("error")
+        for v in (body.get("error_message"), body.get("message"), err.get("message") if isinstance(err, dict) else err,
+                  body.get("errors")):
+            if v:
+                return str(v)[:160]
+    return ""
+
+
 async def list_voices(app_id: str, token: str, language_code: str | None = "vi-VN",
                       transport: httpx.AsyncBaseTransport | None = None) -> list[Voice]:
     """Every voice this app may use: Vbee's own, community and the account's personal voices.
-    GET https://vbee.vn/api/public/v1/voices, cursor pagination, ≤ 100 per page."""
+    GET https://vbee.vn/api/public/v1/voices with cursor pagination."""
     if not app_id or not token:
         raise TtsError("not_configured", "Chưa nhập App ID và Token Vbee.")
     headers = {"Authorization": f"Bearer {token}", "App-Id": app_id}
     found: dict[str, Voice] = {}
+
+    async def get(client: httpx.AsyncClient, params: dict[str, str]) -> httpx.Response:
+        try:
+            return await client.get(VOICES_URL, params=params, headers=headers)
+        except httpx.TimeoutException as exc:
+            raise TtsError("timeout", "Vbee trả lời quá lâu.") from exc
+        except httpx.HTTPError as exc:
+            raise TtsError("network", "Không kết nối được tới Vbee.") from exc
+
+    def take(r: httpx.Response, ownership: str | None) -> str | None:
+        try:
+            body = r.json()
+            if isinstance(body, dict) and body.get("status") == 0:
+                raise TtsError("api", f"Vbee từ chối: {_vbee_message(r) or 'không rõ lý do'}.")
+            result = body.get("result") or {}
+            voices = result.get("voices") or []
+            page = result.get("pagination") or {}
+        except (ValueError, AttributeError) as exc:
+            raise TtsError("api", "Vbee trả về danh sách giọng không đúng định dạng.") from exc
+        for v in voices:
+            code = str(v.get("code") or "").strip()
+            if not code:
+                continue
+            if language_code and v.get("language_code") and v["language_code"] != language_code:
+                continue  # the "bare" form may return every language
+            voice = found.setdefault(code, Voice(
+                code=code, name=str(v.get("name") or code), gender=v.get("gender"),
+                language_code=v.get("language_code"), demo=v.get("demo") or None,
+                credit_factor=v.get("credit_factor"), ownership=ownership or v.get("voice_ownership")))
+            if ownership and voice.ownership in (None, "VBEE"):
+                voice.ownership = ownership
+        return page.get("next_cursor") if page.get("has_next_page") else None
+
     async with httpx.AsyncClient(timeout=TIMEOUT_S, transport=transport) as client:
-        # without a filter first; PERSONAL again in case the default leaves out cloned voices
-        for ownership in (None, "PERSONAL"):
-            cursor: str | None = None
+        style = None
+        first: httpx.Response | None = None
+        errors: list[str] = []
+        for st in _PARAM_STYLES:
+            _, lang_key, own_key, own_value = st
+            params = {}
+            if lang_key and language_code:
+                params[lang_key] = language_code
+            if own_key and own_value:
+                params[own_key] = own_value
+            r = await get(client, params)
+            if r.status_code == 401:
+                raise TtsError("auth", "Sai App ID hoặc Token Vbee (hoặc token đã hết hạn).")
+            if r.status_code == 200:
+                style, first = st, r
+                break
+            errors.append(f"{r.status_code} {_vbee_message(r)}".strip())
+        if style is None or first is None:
+            detail = errors[0] if errors else ""
+            raise TtsError("api", f"Vbee từ chối lấy danh sách giọng ({detail}).")
+        _, lang_key, own_key, own_value = style
+
+        async def walk(r: httpx.Response, base: dict[str, str], ownership: str | None) -> None:
+            cursor = take(r, ownership)
             for _ in range(MAX_VOICE_PAGES):
-                params: dict[str, str | int] = {"limit": 100}
-                if language_code:
-                    params["language_code"] = language_code
-                if ownership:
-                    params["voice_ownership"] = ownership
-                if cursor:
-                    params["cursor"] = cursor
-                try:
-                    r = await client.get(VOICES_URL, params=params, headers=headers)
-                except httpx.TimeoutException as exc:
-                    raise TtsError("timeout", "Vbee trả lời quá lâu.") from exc
-                except httpx.HTTPError as exc:
-                    raise TtsError("network", "Không kết nối được tới Vbee.") from exc
-                if r.status_code == 401:
-                    raise TtsError("auth", "Sai App ID hoặc Token Vbee (hoặc token đã hết hạn).")
-                if r.status_code >= 400:
-                    if ownership:  # the extra PERSONAL pass is best effort
-                        break
-                    raise TtsError("api", f"Vbee lỗi {r.status_code} khi lấy danh sách giọng.")
-                try:
-                    body = r.json()
-                    result = body.get("result") or {}
-                    voices = result.get("voices") or []
-                    page = result.get("pagination") or {}
-                except (ValueError, AttributeError) as exc:
-                    raise TtsError("api", "Vbee trả về danh sách giọng không đúng định dạng.") from exc
-                for v in voices:
-                    code = str(v.get("code") or "").strip()
-                    if not code:
-                        continue
-                    found.setdefault(code, Voice(
-                        code=code, name=str(v.get("name") or code), gender=v.get("gender"),
-                        language_code=v.get("language_code"), demo=v.get("demo") or None,
-                        credit_factor=v.get("credit_factor"), ownership=ownership or v.get("voice_ownership")))
-                    if ownership and found[code].ownership is None:
-                        found[code].ownership = ownership
-                cursor = page.get("next_cursor") if page.get("has_next_page") else None
                 if not cursor:
-                    break
+                    return
+                r = await get(client, {**base, "cursor": cursor})
+                if r.status_code != 200:
+                    return
+                cursor = take(r, ownership)
+
+        base: dict[str, str] = {}
+        if lang_key and language_code:
+            base[lang_key] = language_code
+        if own_key and own_value:
+            base[own_key] = own_value
+        await walk(first, base, own_value)
+        # the account's own and community voices, when the API filters by ownership (best effort)
+        if own_key:
+            for ownership in ("PERSONAL", "COMMUNITY"):
+                b = {**base, own_key: ownership}
+                r = await get(client, b)
+                if r.status_code == 200:
+                    try:
+                        await walk(r, b, ownership)
+                    except TtsError:
+                        pass
     return sorted(found.values(), key=lambda v: (v.ownership != "PERSONAL", v.gender or "", v.name.lower()))
 
 
