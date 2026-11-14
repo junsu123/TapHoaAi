@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.12.0 — 2026-11-15 — Tiệm trà thảo mộc & banner sản phẩm
+
+- Không gian 3D mới **Tiệm trà thảo mộc** (mặc định): sàn gỗ trầm, vách tre, kệ gỗ với hũ thảo mộc/chum đất, đèn lồng, chậu tre, thúng thảo mộc, quầy trà có ấm chén, biển hiệu gỗ chữ vàng kèm dòng phụ. Kiểu hồng cũ vẫn chọn được.
+- **Banner ảnh sản phẩm** ở đầu màn hình LIVE: ảnh lớn, nét, tên và giá; tự đổi sản phẩm, chuyển ngay sang sản phẩm Chibi đang cầm kèm tên người xem (thay cho thẻ sản phẩm nhỏ ở dưới). Góc máy tổng quan/cận cảnh tự lùi xuống dưới banner.
+- Khung ảnh sản phẩm treo trên tường sau quầy.
+- Cài đặt trong thẻ **🍵 Không gian cửa hàng & banner sản phẩm** (trang Game 3D & OBS), đổi ngay trên OBS; API `GET/PUT /api/v1/settings/scene`, sự kiện game `SCENE_UPDATED`.
+
 ## 0.11.0 — 2026-11-15 — Chào người xem & đọc bình luận
 
 - **Chào mọi người vào LIVE**, kể cả khi nhiều người vào cùng lúc: gom tên thành câu “Chào Lan, Minh và Hoa! …” (mặc định 6 tên/câu), đông quá thì tăng số tên mỗi câu và gộp người chờ lâu thành “… và N bạn khác”; mỗi người chào một lần trong 10 phút. Trước đây người vào chỉ làm Chibi vẫy tay.

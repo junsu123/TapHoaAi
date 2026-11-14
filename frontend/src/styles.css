@@ -230,3 +230,32 @@ a.button { display: inline-block; padding: 6px 12px; border: 1px solid var(--lin
 .log-toolbar input { min-width: 240px; }
 .log-detail button { justify-self: start; width: auto; }
 .log-trace { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; }
+
+/* product banner across the top of the LIVE frame */
+.product-banner { display: flex; gap: 3%; align-items: stretch; margin: 1.5% 3% auto; padding: 1.8%; min-height: 0; border-radius: 22px; background: rgba(255, 255, 255, .96); border: 4px solid var(--pink); box-shadow: 0 10px 28px rgba(160, 60, 100, .25); }
+.product-banner.herbal { background: linear-gradient(135deg, #fffaf0, #f3e6c6); border: 6px solid #3b2a1a; box-shadow: inset 0 0 0 3px #e8c46a, 0 12px 30px rgba(40, 28, 10, .35); }
+.banner-photo { flex: 0 0 56%; min-width: 0; background: #fff; border-radius: 14px; display: flex; align-items: center; justify-content: center; overflow: hidden; animation: banner-in .5s ease-out; }
+.product-banner.herbal .banner-photo { box-shadow: inset 0 0 0 2px #d9c290; }
+.banner-photo img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.banner-noimg { font-size: 6vh; }
+.banner-body { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: .5vh; animation: banner-in .5s ease-out; }
+.banner-shop { font-size: clamp(10px, 1.5vh, 30px); font-weight: 800; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--pink-d); text-transform: uppercase; }
+.product-banner.herbal .banner-shop { color: #3f6b3f; }
+.banner-name { font-size: clamp(16px, 3.4vh, 66px); font-weight: 900; color: var(--ink); line-height: 1.1; overflow-wrap: anywhere; }
+.product-banner.herbal .banner-name { color: #2f2414; font-family: Georgia, "Times New Roman", serif; }
+.banner-price { align-self: flex-start; font-size: clamp(14px, 2.8vh, 54px); font-weight: 900; color: #fff; background: var(--pink-d); padding: .1em .55em; border-radius: 999px; }
+.product-banner.herbal .banner-price { background: #b84a32; }
+.banner-dots { display: flex; gap: .5vh; margin-top: .4vh; }
+.banner-dots span { width: 1vh; height: 1vh; border-radius: 50%; background: #d9c9a3; }
+.banner-dots span.on { background: #3f6b3f; }
+.product-banner.showcase { border-color: #b84a32; animation: pop .35s ease-out; }
+@keyframes banner-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.scene-form label { display: flex; flex-direction: column; gap: 4px; }
+.scene-form label.check { flex-direction: row; align-items: center; }
+.scene-form h3 { margin: 6px 0 0; font-size: 15px; }
+.banner-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; margin-top: 6px; }
+.banner-pick-item { position: relative; white-space: normal; display: flex; flex-direction: column; gap: 3px; align-items: stretch; text-align: left; padding: 6px; font-size: 12px; }
+.banner-pick-item img { width: 100%; aspect-ratio: 1; object-fit: contain; background: #fffaf0; border-radius: 8px; }
+.banner-pick-item.on { border: 2px solid #3f6b3f; background: #f1f7ea; }
+.banner-pick-n { position: absolute; top: 4px; left: 4px; background: #3f6b3f; color: #fff; border-radius: 999px; min-width: 20px; text-align: center; font-size: 12px; }
+.banner-who { font-size: clamp(11px, 1.7vh, 32px); font-weight: 800; color: #b84a32; overflow-wrap: anywhere; }
