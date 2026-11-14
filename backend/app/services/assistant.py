@@ -39,7 +39,13 @@ from app.services.claude_service import (
     template_reply,
 )
 from app.services.intent_router import Intent, IntentKind
-from app.services.text_safety import sanitize_comment, scrub_pii, speakable_name
+from app.services.text_safety import (
+    contains_banned,
+    format_vnd,
+    sanitize_comment,
+    scrub_pii,
+    speakable_name,
+)
 from app.services.tts_vbee import FakeTts, VbeeTts
 from app.text_norm import fold
 
@@ -51,6 +57,12 @@ log = logging.getLogger("chibi.ai")
 DUPLICATE_WINDOW_S = 120.0
 CACHE_TTL_S = 30 * 60
 VIEWER_READ_GAP_S = 20.0  # one viewer's questions are read aloud at most this often
+# "Tự động hoàn toàn": how often each kind of non-question comment may be answered out loud
+GREET_GAP_S = 12.0
+PRODUCT_GAP_S = 8.0
+SAME_PRODUCT_GAP_S = 45.0
+CHAT_GAP_S = 15.0
+VIEWER_SOCIAL_GAP_S = 60.0  # one viewer is greeted/answered for small talk at most once a minute
 MAX_ITEMS = 200
 
 ST_NEW = "Chưa được trả lời"
@@ -103,6 +115,10 @@ class Assistant:
         self._recent_q: dict[tuple[str, str | None], tuple[str, float]] = {}
         self._cache: dict[tuple[str, str | None, int, str], tuple[Draft, float]] = {}
         self._viewer_read: dict[str, float] = {}
+        self._kind_last: dict[str, float] = {}
+        self._product_last: dict[str, float] = {}
+        self._viewer_social: dict[str, float] = {}
+        self._greet_i = 0
         self._sem = asyncio.Semaphore(2)
         self._tasks: set[asyncio.Task] = set()
         self.last_error: str | None = None
@@ -153,7 +169,7 @@ class Assistant:
         ok, why = self.voice_ready()
         return {"configured": bool(self.api_key()), "model": cfg.model, "paused": self.c.ai_paused,
                 "budget": self.budget.status(cfg.budget_day_usd, cfg.budget_month_usd, cfg.voice_month_chars),
-                "voice_ready": ok, "voice_reason": why, "answer_mode": cfg.answer_mode,
+                "voice_ready": ok, "voice_reason": why, "answer_mode": cfg.answer_mode, "autopilot": cfg.autopilot,
                 "last_error": self.last_error, "fake": self.fake}
 
     def _alert(self, code: str, info: dict[str, Any]) -> None:
@@ -220,7 +236,7 @@ class Assistant:
 
     # ------------------------------------------------------------------ entry point (sync, from the orchestrator)
     def on_comment(self, item: dict[str, Any], intent: Intent, viewer_key: str | None) -> None:
-        if intent.kind not in (IntentKind.QUESTION, IntentKind.AMBIGUOUS):
+        if intent.kind not in (IntentKind.QUESTION, IntentKind.AMBIGUOUS) and not item.get("chat"):
             return
         self.items[item["event_id"]] = item
         while len(self.items) > MAX_ITEMS:
@@ -246,6 +262,7 @@ class Assistant:
 
         if intent.kind == IntentKind.QUESTION:
             self._read_question(item, viewer_key, now)
+        item["viewer_key"] = viewer_key
         self._persist(item)
         self._spawn(self._draft_and_maybe_speak(item, intent))
 
@@ -374,7 +391,8 @@ class Assistant:
             if other.get("duplicate_of") == item["event_id"]:
                 self._update(other, suggestion=draft.reply)
         ok, _ = self.voice_ready()
-        if cfg.answer_mode == "auto" and not draft.needs_review and ok and self._speak_answer(item, draft.reply):
+        auto = cfg.answer_mode == "auto" or cfg.autopilot
+        if auto and not draft.needs_review and ok and self._speak_chat_then(item) and self._speak_answer(item, draft.reply):
             self._update(item, status=ST_AUTO, final_answer=draft.reply, answered_by="auto", spoken=True)
             if draft.source in ("claude", "cache"):
                 self._learn(item, draft.reply, trusted=False, source="auto")  # waits for a person's review
@@ -386,12 +404,101 @@ class Assistant:
         if draft.knowledge_id:
             self._spawn(asyncio.to_thread(self.memory.mark_used, draft.knowledge_id))
         ok, why = self.voice_ready()
-        if cfg.simple_auto_speak and ok and self._speak_answer(item, draft.reply):
+        if (cfg.simple_auto_speak or cfg.autopilot) and ok and self._speak_chat_then(item) \
+                and self._speak_answer(item, draft.reply):
             self._update(item, status=ST_SIMPLE, final_answer=draft.reply, answered_by=draft.source, spoken=True,
                          hint="Câu đơn giản — tự trả lời, không gọi Claude.", **common)
             return
         self._update(item, status=ST_SUGGESTED, hint="Câu đơn giản — có sẵn câu trả lời, không gọi Claude."
                      + ("" if ok else f" (Chưa phát giọng: {why})"), **common)
+
+    # ------------------------------------------------------------------ "Tự động hoàn toàn"
+    def _social_ok(self, kind: str, gap: float, viewer_key: str | None, now: float) -> bool:
+        cfg = self.config
+        if not cfg.autopilot or self.c.ai_paused or not self.voice_ready()[0]:
+            return False
+        if now - self._kind_last.get(kind, -1e9) < gap:
+            return False
+        if viewer_key and now - self._viewer_social.get(viewer_key, -1e9) < VIEWER_SOCIAL_GAP_S:
+            return False
+        return self.c.speech.pending() < cfg.busy_limit
+
+    def wants_chat(self, intent: Intent, viewer_key: str | None) -> bool:
+        """An ordinary comment (not a question/product/greeting) that autopilot should answer."""
+        cfg = self.config
+        return (intent.kind == IntentKind.NONE and cfg.autopilot and cfg.auto_chat
+                and self._social_ok("chat", CHAT_GAP_S, viewer_key, time.monotonic()))
+
+    def _speak_chat_then(self, item: dict[str, Any]) -> bool:
+        """Small talk is read out only together with its answer: queue the comment first."""
+        if not item.get("chat") or item.get("question_read"):
+            return True
+        cfg = self.config
+        safe = sanitize_comment(item["text"], cfg.banned_words)
+        if safe is None:
+            return False
+        name = speakable_name(item.get("nickname") or item.get("unique_id"), cfg.banned_words)
+        try:
+            text = cfg.chat_template.format(ten=name, binh_luan=safe, cau_hoi=safe)
+        except (KeyError, IndexError, ValueError):
+            text = f"Bạn {name} nói: {safe}"
+        clip = self.c.speech.enqueue("comment", text, ref=item["event_id"])
+        if clip is None:
+            return False
+        now = time.monotonic()
+        self._kind_last["chat"] = now
+        if item.get("viewer_key"):
+            self._viewer_social[item["viewer_key"]] = now
+        item["question_read"] = True
+        return True
+
+    def on_other(self, record: dict[str, Any], intent: Intent, viewer_key: str | None) -> None:
+        """Greetings and product-name comments in autopilot: one short spoken line, no Claude."""
+        cfg = self.config
+        now = time.monotonic()
+        name = speakable_name(record.get("nickname") or record.get("unique_id"), cfg.banned_words)
+        if contains_banned(record["text"], cfg.banned_words):
+            return
+        text: str | None = None
+        kind = ""
+        if intent.kind == IntentKind.GREETING and cfg.auto_greet and cfg.greet_templates:
+            if not self._social_ok("greeting", GREET_GAP_S, viewer_key, now):
+                return
+            tpl = cfg.greet_templates[self._greet_i % len(cfg.greet_templates)]
+            self._greet_i += 1
+            text, kind = self._fill(tpl, ten=name, shop=cfg.shop_name), "greeting"
+        elif intent.kind == IntentKind.PRODUCT and cfg.auto_product and intent.product_id:
+            pid = intent.product_id
+            if now - self._product_last.get(pid, -1e9) < SAME_PRODUCT_GAP_S:
+                return
+            if not self._social_ok("product", PRODUCT_GAP_S, viewer_key, now):
+                return
+            p = self.c.catalog.products.get(pid)
+            if p is None:
+                return
+            if p.display_price:
+                text = self._fill(cfg.product_template, ten=name, san_pham=p.name, gia=format_vnd(p.display_price))
+            else:  # no verified price: never say one
+                text = f"Bạn {name} đang xem {p.name} ạ."
+            kind = "product"
+            self._product_last[pid] = now
+        if not text:
+            return
+        clip = self.c.speech.enqueue(kind, text, ref=record["event_id"], droppable=True, busy_limit=cfg.busy_limit)
+        if clip is None:
+            return
+        self._kind_last[kind] = now
+        if viewer_key:
+            self._viewer_social[viewer_key] = now
+        self._persist({**record, "status": ST_SIMPLE, "suggestion": text, "draft_source": "template",
+                       "final_answer": text, "answered_by": "auto", "spoken": True})
+
+    @staticmethod
+    def _fill(template: str, **values: str) -> str:
+        try:
+            return template.format(**values)
+        except (KeyError, IndexError, ValueError):
+            return " ".join(v for v in values.values() if v)
 
     # ------------------------------------------------------------------ host actions
     def _speak_answer(self, item: dict[str, Any], text: str) -> bool:

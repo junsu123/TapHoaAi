@@ -40,7 +40,7 @@ class Orchestrator:
             ev = await self.c.bus.get()
             try:
                 await self.handle(ev)
-            except Exception:  # noqa: BLE001 - one bad event must not stop the pipeline
+            except Exception:
                 self.errors += 1
                 log.exception("failed to handle event %s", ev.event_id)
             finally:
@@ -153,14 +153,18 @@ class Orchestrator:
         }
         self.recent_comments.append(record)
         self.c.hub.send_dashboard({"type": "COMMENT", "comment": record})
-        if intent.needs_host or outcome == "no_location":
+        viewer_key = av.viewer_key if av else (ev.user.identity_key if ev.user else None)
+        chat = not intent.needs_host and outcome != "no_location" and self.c.assistant.wants_chat(intent, viewer_key)
+        if intent.needs_host or outcome == "no_location" or chat:
             item = {**record, "status": "Chưa được trả lời",
-                    "suggestion": None, "suggestion_label": None,
-                    "hint": self._host_hint(intent.kind, outcome, record)}
+                    "suggestion": None, "suggestion_label": None, "chat": chat,
+                    "hint": "Bình luận thường — tự động hoàn toàn: chỉ đọc khi có câu trả lời an toàn." if chat
+                    else self._host_hint(intent.kind, outcome, record)}
             self.host_attention.append(item)
-            viewer_key = av.viewer_key if av else (ev.user.identity_key if ev.user else None)
             self.c.assistant.on_comment(item, intent, viewer_key)
             self.c.hub.send_dashboard({"type": "HOST_ATTENTION", "item": item})
+        elif intent.kind in (IntentKind.GREETING, IntentKind.PRODUCT):
+            self.c.assistant.on_other(record, intent, viewer_key)
 
     @staticmethod
     def _host_hint(kind: IntentKind, outcome: str | None, record: dict[str, Any]) -> str:

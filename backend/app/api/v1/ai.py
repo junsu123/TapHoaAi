@@ -180,3 +180,32 @@ async def voice_hold(body: HoldIn, request: Request, admin: CurrentAdmin = Admin
     c = request.app.state.container
     c.speech.set_hold(body.hold)
     return {"speech": c.speech.state()}
+
+
+class AutopilotIn(BaseModel):
+    on: bool
+
+
+@router.post("/ai/autopilot")
+async def autopilot(body: AutopilotIn, request: Request, admin: CurrentAdmin = AdminDep) -> dict:
+    """One switch on the host desk: read comments and answer them without waiting for the host."""
+    c = request.app.state.container
+    a = c.assistant
+    cfg = a.config
+    if body.on:
+        if c.settings.tts_locked:
+            raise HTTPException(422, detail={"code": "tts_locked", "message": "Giọng đọc đang bị khóa (CHIBI_TTS_LOCKED)."})
+        if not cfg.voice_policy_confirmed:
+            raise HTTPException(422, detail={"code": "policy_not_confirmed",
+                                             "message": "Vào Trợ lý AI & giọng đọc, đánh dấu danh sách chính sách trước."})
+        if c.speech.provider is None:
+            raise HTTPException(422, detail={"code": "voice_not_configured", "message": "Chưa nhập App ID/Token Vbee."})
+    new = cfg.model_copy(update={"autopilot": body.on, "voice_enabled": cfg.voice_enabled or body.on})
+    a.update_config(new)
+    if body.on and c.speech.muted:
+        c.speech.unmute()
+    with c.db.session() as s:
+        s.add(AuditLog(admin_id=admin.id, action="autopilot_on" if body.on else "autopilot_off", resource="ai", detail=None))
+    status = a.status()
+    c.hub.send_dashboard({"type": "AI_STATUS", "ai": status})
+    return {"ai": status}

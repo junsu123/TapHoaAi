@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.0 — 2026-11-14 — Tự động hoàn toàn
+
+- Nút **🤖 Tự động hoàn toàn** trên trang Người trực: tự đọc bình luận và trả lời không chờ người trực — câu hỏi (câu trả lời an toàn đọc ngay), gọi tên sản phẩm (“Bạn … đang xem …, giá …”), lời chào (câu mẫu), bình luận thường (Claude, chỉ đọc khi có câu trả lời an toàn).
+- Hàng đợi giọng có ưu tiên (câu trả lời > câu hỏi > sản phẩm > lời chào), câu trả lời không bao giờ đọc trước câu hỏi của nó; LIVE đông thì bỏ lời chào/bình luận thường; giới hạn tần suất theo loại và theo khách.
+- Cài đặt: bật/tắt từng loại, câu chào, câu đọc sản phẩm, câu đọc bình luận, ngưỡng hàng chờ.
+- Sửa lỗi: mã sự kiện Demo lặp lại giữa các phiên → bình luận hiện trùng trên dashboard và câu hỏi mới có thể ghi đè câu cũ trong lịch sử hội thoại.
+- Sửa lỗi: ô nhiều dòng (từ cấm, câu chào) không xuống dòng được khi gõ.
+
 ## 0.8.0 — 2026-11-14 — Lưu hội thoại LIVE và tự trả lời câu đã học
 
 - Mọi câu hỏi trong LIVE được lưu theo phiên (câu hỏi, gợi ý, câu trả lời cuối, ai trả lời, đã đọc, chi phí); trang **Hội thoại & câu đã học** xem, tìm, tải CSV. Tên khách tự xóa sau số ngày lưu bình luận, nội dung giữ lại để học.

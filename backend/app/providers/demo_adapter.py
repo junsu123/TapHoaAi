@@ -6,12 +6,13 @@ from __future__ import annotations
 import itertools
 import random
 import re
+import secrets
 import time
 from typing import Any
 
 from app.providers.live_provider import Capability, LiveEventProvider, ProviderStatus
 
-_SHORTHAND = re.compile(r"^@(?P<user>[A-Za-z0-9_.]{1,32})\s*:\s*(?P<text>.+)$", re.S)
+_SHORTHAND = re.compile(r"^@(?P<user>[A-Za-z0-9_.]{1,32})\s*:\s*(?P<text>.+)$", re.DOTALL)
 
 DEMO_NAMES = [
     "Lan Anh", "Minh Tú", "Bảo Ngọc", "Quốc Huy", "Thu Trang", "Hoàng Nam", "Mai Chi",
@@ -25,6 +26,9 @@ class DemoProvider(LiveEventProvider):
     def __init__(self) -> None:
         super().__init__()
         self._counter = itertools.count(1)
+        # unique per Demo session: ids must never repeat across sessions (React keys, the
+        # conversation log and the assistant all key on event_id)
+        self._run = secrets.token_hex(3)
         self.room_id = "demo_room"
 
     async def start(self) -> None:
@@ -42,7 +46,7 @@ class DemoProvider(LiveEventProvider):
         return {"platform_user_id": f"demo_{uid.lower()}", "unique_id": uid, "nickname": nickname or uid}
 
     def next_event_id(self) -> str:
-        return f"demo_evt_{next(self._counter):06d}"
+        return f"demo_{self._run}_{next(self._counter):06d}"
 
     async def inject(self, spec: dict[str, Any]) -> list[str]:
         """Accepts {"type": "COMMENT", "unique_id", "nickname", "text"} or the shorthand
