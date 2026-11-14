@@ -12,6 +12,45 @@ export interface AudioLike {
   onerror: (() => void) | null;
 }
 
+/** The parts of window.speechSynthesis we use (injectable for tests). */
+export interface SynthLike {
+  speak(u: UtteranceLike): void;
+  cancel(): void;
+  pause(): void;
+  resume(): void;
+  getVoices(): VoiceLike[];
+}
+export interface VoiceLike {
+  name: string;
+  lang: string;
+  localService: boolean;
+}
+export interface UtteranceLike {
+  text: string;
+  voice: VoiceLike | null;
+  lang: string;
+  rate: number;
+  onstart: (() => void) | null;
+  onend: (() => void) | null;
+  onerror: ((e: { error?: string }) => void) | null;
+}
+
+const isVi = (v: VoiceLike) => (v.lang || "").toLowerCase().replace("_", "-").startsWith("vi");
+
+/** The computer's Vietnamese voice: the one named in the settings, else a natural one, else any. */
+export function pickVoice(voices: VoiceLike[], name: string | null | undefined): VoiceLike | null {
+  if (name) {
+    const v = voices.find((x) => x.name === name);
+    if (v) return v;
+  }
+  const vi = voices.filter(isVi);
+  return vi.find((v) => /natural/i.test(v.name)) ?? vi.find((v) => v.localService) ?? vi[0] ?? null;
+}
+
+export function vietnameseVoices(voices: VoiceLike[]): VoiceLike[] {
+  return voices.filter(isVi);
+}
+
 export interface SpeechView {
   clip: SpeechClip | null;
   held: boolean;
@@ -26,6 +65,8 @@ export class SpeechPlayer {
   private held = false;
   private blocked = false;
   private silentTimer: ReturnType<typeof setTimeout> | null = null;
+  private utter: UtteranceLike | null = null;
+  private watchdog: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private readonly opts: {
@@ -33,8 +74,15 @@ export class SpeechPlayer {
       emit: (m: ClientGameMessage) => void;
       onChange: (v: SpeechView) => void;
       makeAudio?: (url: string) => AudioLike;
+      synth?: SynthLike | null;
+      makeUtterance?: (text: string) => UtteranceLike;
     },
   ) {}
+
+  private synth(): SynthLike | null {
+    if (this.opts.synth !== undefined) return this.opts.synth;
+    return typeof window !== "undefined" && "speechSynthesis" in window ? (window.speechSynthesis as unknown as SynthLike) : null;
+  }
 
   view(): SpeechView {
     return { clip: this.clip, held: this.held, blocked: this.blocked };
@@ -51,6 +99,14 @@ export class SpeechPlayer {
   }
 
   private release() {
+    if (this.utter) {
+      this.utter.onstart = this.utter.onend = null;
+      this.utter.onerror = null;
+      this.utter = null;
+      this.synth()?.cancel();
+    }
+    if (this.watchdog) clearTimeout(this.watchdog);
+    this.watchdog = null;
     if (this.audio) {
       this.audio.onended = null;
       this.audio.onerror = null;
@@ -75,18 +131,9 @@ export class SpeechPlayer {
     this.clip = clip;
     this.blocked = false;
     this.changed();
+    if (this.opts.audible && !clip.url && clip.fallback && this.speakLocal(clip)) return;
     if (!this.opts.audible || !clip.url) {
-      // preview page, or no voice (Vbee not set up / failing): show the caption about as long as
-      // it would take to say it; the OBS page still reports start/end so the next line follows
-      if (this.opts.audible) this.opts.emit({ type: "SPEECH_STARTED", id: clip.id });
-      this.silentTimer = setTimeout(() => {
-        this.silentTimer = null;
-        if (this.opts.audible) this.finish(true);
-        else {
-          this.clip = null;
-          this.changed();
-        }
-      }, 1500 + clip.text.length * 70);
+      this.showSilently(clip);
       return;
     }
     const a = (this.opts.makeAudio ?? ((url: string) => new Audio(url) as AudioLike))(clip.url);
@@ -94,6 +141,75 @@ export class SpeechPlayer {
     a.onended = () => this.finish(true);
     a.onerror = () => this.finish(false, "audio_error");
     if (!this.held) this.tryPlay();
+  }
+
+  /** Preview page, or no voice at all: show the caption about as long as it would take to say it;
+   * the OBS page still reports start/end so the next line follows. */
+  private showSilently(clip: SpeechClip, started = false) {
+    if (this.opts.audible && !started) this.opts.emit({ type: "SPEECH_STARTED", id: clip.id });
+    this.silentTimer = setTimeout(() => {
+      this.silentTimer = null;
+      if (this.opts.audible) this.finish(true);
+      else {
+        this.clip = null;
+        this.changed();
+      }
+    }, 1500 + clip.text.length * 70);
+  }
+
+  /** No Vbee audio: read the line with the computer's own Vietnamese voice. False = no such voice. */
+  private speakLocal(clip: SpeechClip): boolean {
+    const synth = this.synth();
+    if (!synth || !clip.fallback) return false;
+    const voice = pickVoice(synth.getVoices(), clip.fallback.name);
+    if (!voice) return false;
+    const u = this.opts.makeUtterance
+      ? this.opts.makeUtterance(clip.text)
+      : (new SpeechSynthesisUtterance(clip.text) as unknown as UtteranceLike);
+    u.voice = voice;
+    u.lang = voice.lang || clip.fallback.lang;
+    u.rate = clip.fallback.rate || 1;
+    let started = false;
+    u.onstart = () => {
+      if (started || this.utter !== u) return;
+      started = true;
+      if (this.watchdog) clearTimeout(this.watchdog);
+      this.watchdog = null;
+      if (this.blocked) {
+        this.blocked = false;
+        this.changed();
+      }
+      this.opts.emit({ type: "SPEECH_STARTED", id: clip.id });
+    };
+    u.onend = () => {
+      if (this.utter === u) this.finish(true);
+    };
+    u.onerror = (e) => {
+      if (this.utter !== u) return;
+      if (e?.error === "not-allowed") {
+        // a normal browser tab without a click yet (OBS never blocks): ask for one, keep the caption
+        this.blocked = true;
+        this.changed();
+        return;
+      }
+      if (e?.error === "interrupted" || e?.error === "canceled") return;
+      this.utter = null;
+      this.showSilently(clip, started);
+    };
+    this.utter = u;
+    synth.cancel();
+    synth.speak(u);
+    if (this.held) synth.pause();
+    // some machines accept the line but never start it: fall back to the caption
+    this.watchdog = setTimeout(() => {
+      this.watchdog = null;
+      if (this.utter === u && !started && !this.held && !this.blocked) {
+        this.utter = null;
+        synth.cancel();
+        this.showSilently(clip);
+      }
+    }, 5000);
+    return true;
   }
 
   private tryPlay() {
@@ -119,11 +235,22 @@ export class SpeechPlayer {
 
   /** User gesture on a normal browser tab (OBS does not need it). */
   unlock(): void {
-    if (this.blocked) this.tryPlay();
+    if (!this.blocked) return;
+    if (this.utter) {
+      const synth = this.synth();
+      synth?.cancel();
+      synth?.speak(this.utter);
+    } else this.tryPlay();
   }
 
   hold(on: boolean): void {
+    const was = this.held;
     this.held = on;
+    if (this.utter) {
+      const synth = this.synth();
+      if (on) synth?.pause();
+      else if (was) synth?.resume();
+    }
     if (this.audio) {
       if (on) this.audio.pause();
       else this.tryPlay();

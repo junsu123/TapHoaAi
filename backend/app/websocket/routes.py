@@ -43,6 +43,8 @@ async def ws_game(ws: WebSocket) -> None:
             elif mtype in ("SPEECH_STARTED", "SPEECH_ENDED", "SPEECH_FAILED"):
                 if c.hub.game.role_of(ws) == "primary":  # only the OBS page plays the voice
                     c.speech.on_client_message(msg)
+            elif mtype == "PLAYER_INFO" and c.hub.game.role_of(ws) == "primary":
+                c.speech.set_player_info(msg)
             elif mtype == "FPS_REPORT" and c.hub.game.role_of(ws) == "primary":
                 c.fps_reports.append({"fps": msg.get("fps"), "quality": msg.get("quality"),
                                       "avatars": msg.get("avatars")})

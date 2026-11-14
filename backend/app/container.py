@@ -193,6 +193,7 @@ class AppContainer:
             "live": self.live.status_dict(), "comments": list(self.orchestrator.recent_comments)[-50:],
             "host_attention": list(self.orchestrator.host_attention)[-30:], "ai_paused": self.ai_paused,
             "speech": self.speech.state(), "ai": self.assistant.status(),
+            "voice_trace": list(self.assistant.trace)[-30:],
             "logs": self.errors.stats(self.error_seen_id()),
         }
 
@@ -290,6 +291,10 @@ class AppContainer:
             await asyncio.sleep(2.0)
             if self.hub.dashboard.clients:
                 self.hub.send_dashboard({"type": "METRICS", "metrics": self.metrics()})
+                try:
+                    self.assistant.refresh_checks()
+                except Exception:
+                    log.exception("Lỗi khi kiểm tra giọng đọc")
 
     def retention_once(self, now: datetime | None = None) -> None:
         cutoff = (now or datetime.now(UTC)) - timedelta(days=self.settings.event_retention_days)

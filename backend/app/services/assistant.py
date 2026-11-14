@@ -14,6 +14,7 @@ import contextlib
 import json
 import logging
 import time
+from collections import deque
 from typing import TYPE_CHECKING, Any
 
 from app.models import AiMessage, ConversationTurn
@@ -133,6 +134,9 @@ class Assistant:
         self._sem = asyncio.Semaphore(2)
         self._tasks: set[asyncio.Task] = set()
         self.last_error: str | None = None
+        # why each join / comment was or was not put on the LIVE (shown on the host page)
+        self.trace: deque[dict[str, Any]] = deque(maxlen=40)
+        self._checks_sent: str = ""
 
     # ------------------------------------------------------------------ configuration
     @property
@@ -149,11 +153,20 @@ class Assistant:
     def api_key(self) -> str | None:
         return "fake-key" if self.fake else self.c.get_setting(SECRET_CLAUDE_KEY)
 
+    def _trace(self, kind: str, who: str | None, text: str | None, ok: bool, reason: str) -> None:
+        entry = {"at": time.time(), "kind": kind, "who": (who or "")[:60], "text": (text or "")[:120],
+                 "ok": ok, "reason": reason}
+        self.trace.append(entry)
+        self.c.hub.send_dashboard({"type": "VOICE_TRACE", "entry": entry})
+
     def apply_voice(self) -> None:
         sq = self.c.speech
         cfg = self.config
         sq.voice, sq.speed = cfg.voice_code, cfg.voice_speed
         sq.tts_ok = self.tts_ok
+        sq.fallback = ({"name": cfg.browser_voice_name or None, "rate": cfg.browser_voice_rate, "lang": "vi-VN"}
+                       if cfg.browser_voice else None)
+        sq.on_player_info = self.publish_status
         if self.fake:
             sq.provider = FakeTts()
         else:
@@ -187,6 +200,61 @@ class Assistant:
     def tts_ok(self, chars: int) -> bool:
         return not self.c.settings.tts_locked and self.budget.tts_allows(chars, self.config.voice_month_chars)
 
+    def checks(self) -> list[dict[str, Any]]:
+        """Everything that must be right for viewers to be greeted and comments read, with how to fix it."""
+        cfg = self.config
+        sq = self.c.speech
+        info = sq.player_info if self.c.hub.has_primary() else {}
+        player = self.c.hub.has_primary()
+        vbee = sq.provider is not None and time.monotonic() >= sq.tts_down_until and not self.c.settings.tts_locked
+        vi = [v["name"] for v in info.get("voices", []) if str(v.get("lang", "")).lower().startswith("vi")]
+        if vbee:
+            audio_ok, audio = True, "Có tiếng: giọng Vbee."
+        elif cfg.browser_voice and info.get("fallback_voice"):
+            audio_ok, audio = True, f"Có tiếng: giọng có sẵn của máy — {info['fallback_voice']}."
+        elif cfg.browser_voice and player and info.get("speech_api") and not vi:
+            audio_ok, audio = False, ("Không có tiếng: máy phát LIVE chưa có giọng đọc tiếng Việt và chưa có Vbee — "
+                                      "chỉ hiện phụ đề. Windows: Cài đặt → Thời gian & ngôn ngữ → Giọng nói → "
+                                      "Thêm giọng nói → Tiếng Việt, rồi mở lại OBS; hoặc nhập Vbee.")
+        elif cfg.browser_voice and player and info and not info.get("speech_api"):
+            audio_ok, audio = False, ("Không có tiếng: trình duyệt của OBS không hỗ trợ giọng có sẵn và chưa có Vbee — "
+                                      "chỉ hiện phụ đề. Hãy nhập Vbee (Trợ lý AI & giọng đọc).")
+        elif not cfg.browser_voice:
+            audio_ok, audio = False, ("Không có tiếng: chưa có Vbee và đã tắt “giọng có sẵn của máy” — chỉ hiện phụ đề.")
+        else:
+            audio_ok, audio = False, "Chưa biết: mở trang game (OBS) để kiểm tra giọng đọc của máy."
+        if sq.tts_down_reason and time.monotonic() < sq.tts_down_until:
+            audio += f" (Vbee đang lỗi: {sq.tts_down_reason})"
+        return [
+            {"id": "voice", "ok": cfg.voice_enabled and cfg.voice_policy_confirmed,
+             "label": "Bật phát trên LIVE",
+             "fix": "Trang Trợ lý AI & giọng đọc → đánh dấu 4 ô chính sách → bật “Bật phát trên LIVE” → Lưu."},
+            {"id": "paused", "ok": not self.c.ai_paused, "label": "AI không tạm dừng",
+             "fix": "Bấm “▶ Chạy lại AI” (Ctrl+Shift+P)."},
+            {"id": "muted", "ok": not sq.muted, "label": "Giọng không bị tắt khẩn cấp", "fix": "Bấm “🔊 Bật lại giọng”."},
+            {"id": "player", "ok": player, "label": "Trang game (OBS) đang mở",
+             "fix": "Mở /game/live trong OBS (Browser Source) hoặc một tab trình duyệt trên máy phát LIVE. "
+                    "Lời chào/bình luận chỉ được đọc trên trang này."},
+            {"id": "blocked", "ok": not info.get("blocked"), "label": "Trang game được phép phát tiếng",
+             "fix": "Trang game mở bằng trình duyệt thường đang chặn âm thanh: bấm “🔈 Bấm để bật âm thanh” trên trang đó "
+                    "(OBS không cần)."},
+            {"id": "greet", "ok": cfg.greet_joins, "label": "Chào người vào xem",
+             "fix": "Trang Trợ lý AI & giọng đọc → thẻ 👋 → bật “Chào người vào xem”."},
+            {"id": "read", "ok": cfg.read_comments, "label": "Đọc bình luận",
+             "fix": "Trang Trợ lý AI & giọng đọc → thẻ 👋 → bật “Đọc bình luận”."},
+            {"id": "audio", "ok": audio_ok, "label": "Âm thanh", "detail": audio, "fix": ""},
+        ]
+
+    def publish_status(self) -> None:
+        self.c.hub.send_dashboard({"type": "AI_STATUS", "ai": self.status()})
+
+    def refresh_checks(self) -> None:
+        """Called every few seconds: push the checklist when it changes (OBS page opened/closed…)."""
+        key = json.dumps(self.checks(), sort_keys=True)
+        if key != self._checks_sent:
+            self._checks_sent = key
+            self.publish_status()
+
     def status(self) -> dict[str, Any]:
         cfg = self.config
         ok, why = self.voice_ready()
@@ -194,7 +262,7 @@ class Assistant:
                 "budget": self.budget.status(cfg.budget_day_usd, cfg.budget_month_usd, cfg.voice_month_chars),
                 "voice_ready": ok, "voice_reason": why, "answer_mode": cfg.answer_mode, "autopilot": cfg.autopilot,
                 "audio_note": self.audio_note() if ok else None, "greet_joins": cfg.greet_joins,
-                "read_comments": cfg.read_comments,
+                "read_comments": cfg.read_comments, "checks": self.checks(),
                 "last_error": self.last_error, "fake": self.fake}
 
     def _alert(self, code: str, info: dict[str, Any]) -> None:
@@ -300,20 +368,31 @@ class Assistant:
         """Read a viewer's comment aloud ("Bạn Lan hỏi: …" / "Bạn Lan nói: …"). Questions are always
         kept; other comments wait at most 30 s and are skipped when many lines are already waiting."""
         cfg = self.config
-        ok, _ = self.voice_ready()
-        if not ok or not (cfg.read_questions if as_question else cfg.read_comments):
+        who = item.get("nickname") or item.get("unique_id")
+        kind = "question" if as_question else "comment"
+
+        def no(reason: str) -> bool:
+            self._trace(kind, who, item.get("text"), False, reason)
             return False
+
+        ok, why = self.voice_ready()
+        if not ok:
+            return no(why)
+        if not (cfg.read_questions if as_question else cfg.read_comments):
+            return no("Đã tắt “Đọc câu hỏi”." if as_question else "Đã tắt “Đọc bình luận”.")
         safe = sanitize_comment(item["text"], cfg.banned_words)
         if safe is None:
             item["review_reasons"] = [*item.get("review_reasons", []), "Không đọc to: có từ cấm hoặc toàn liên kết/số"]
-            return False
+            return no("Có từ cấm, hoặc chỉ toàn liên kết/số điện thoại/biểu tượng.")
         if as_question:
             if viewer_key and now - self._viewer_read.get(viewer_key, -1e9) < VIEWER_READ_GAP_S:
-                return False
+                return no("Người này vừa được đọc câu hỏi (cách nhau ít nhất 20 giây).")
         elif viewer_key:  # one viewer's chat: not more than one line per 8 s, never the same text twice
             last = self._comment_last.get(viewer_key)
-            if last and (now - last[0] < COMMENT_VIEWER_GAP_S or (last[1] == fold(safe) and now - last[0] < 60)):
-                return False
+            if last and last[1] == fold(safe) and now - last[0] < 60:
+                return no("Trùng bình luận vừa đọc.")
+            if last and now - last[0] < COMMENT_VIEWER_GAP_S:
+                return no("Người này vừa được đọc (cách nhau ít nhất 8 giây).")
         name = speakable_name(item.get("nickname") or item.get("unique_id"), cfg.banned_words)
         tpl = cfg.question_template if as_question else cfg.chat_template
         text = self._fill(tpl, ten=name, cau_hoi=safe, binh_luan=safe)
@@ -321,7 +400,8 @@ class Assistant:
                                      droppable=not as_question, busy_limit=cfg.busy_limit * 3,
                                      ttl=90.0 if as_question else COMMENT_TTL_S)
         if clip is None:
-            return False
+            return no("Đang có quá nhiều câu chờ đọc — bỏ qua bình luận thường.")
+        self._trace(kind, who, item.get("text"), True, "Đã xếp hàng đọc trên LIVE.")
         if as_question:
             if viewer_key:
                 self._viewer_read[viewer_key] = now
@@ -343,16 +423,23 @@ class Assistant:
     def on_join(self, name: str | None, viewer_key: str | None) -> bool:
         """A viewer joined (or said hello): greet them by name — everyone, never twice in 10 minutes."""
         cfg = self.config
-        if not cfg.greet_joins or not self.voice_ready()[0]:
+        if not cfg.greet_joins:
+            self._trace("join", name, None, False, "Đã tắt “Chào người vào xem”.")
+            return False
+        ok, why = self.voice_ready()
+        if not ok:
+            self._trace("join", name, None, False, why)
             return False
         now = time.monotonic()
         key = viewer_key or f"name:{name}"
         if now - self._welcomed.get(key, -1e9) < WELCOME_AGAIN_S:
+            self._trace("join", name, None, False, "Đã chào người này trong 10 phút qua.")
             return False
         self._welcomed[key] = now
         if len(self._welcomed) > 5000:
             self._welcomed = {k: t for k, t in self._welcomed.items() if now - t < WELCOME_AGAIN_S}
         self._welcome_pending.append((speakable_name(name, cfg.banned_words), key, now))
+        self._trace("join", name, None, True, "Chờ gộp vào lời chào.")
         return True
 
     async def _welcome_loop(self) -> None:
@@ -384,7 +471,9 @@ class Assistant:
         wc = self._welcome_clip
         if wc is not None and (wc in sq.queue or sq.current is wc):
             return
-        if not self.voice_ready()[0]:
+        ok, why = self.voice_ready()
+        if not ok:
+            self._trace("welcome", ", ".join(n for n, _, _ in self._welcome_pending[:8]), None, False, why)
             self._welcome_pending.clear()
             return
         now = time.monotonic() if now is None else now
@@ -404,6 +493,9 @@ class Assistant:
             text = self._fill(cfg.welcome_many_template, danh_sach=self._name_list(names, len(folded)),
                               shop=cfg.shop_name)
         self._welcome_clip = sq.enqueue("welcome", text, ttl=180.0)
+        self._trace("welcome", ", ".join(names[:8]) + (f" +{len(folded)}" if folded else ""), text,
+                    self._welcome_clip is not None,
+                    "Đã xếp lời chào lên LIVE." if self._welcome_clip is not None else "Hàng chờ đầy — không xếp được.")
 
     # ------------------------------------------------------------------ drafting
     def _prompt(self, item: dict[str, Any], intent: Intent, cfg: AiConfig) -> tuple[str, str, list[str]]:
@@ -577,19 +669,27 @@ class Assistant:
         cfg = self.config
         now = time.monotonic()
         name = speakable_name(record.get("nickname") or record.get("unique_id"), cfg.banned_words)
+        who = record.get("nickname") or record.get("unique_id")
         if contains_banned(record["text"], cfg.banned_words):
+            self._trace("comment", who, record["text"], False, "Có từ cấm — không đọc.")
             return
         text: str | None = None
         kind = ""
         if intent.kind == IntentKind.SPAM:
+            self._trace("comment", who, record["text"], False, "Bị xem là spam — không đọc.")
             return
+        greeted_before = False
         if intent.kind == IntentKind.GREETING and cfg.greet_joins:
             if self.on_join(record.get("nickname") or record.get("unique_id"), viewer_key):
                 self._persist({**record, "status": ST_SIMPLE, "final_answer": "(được chào trong lời chào người xem)",
                                "answered_by": "auto", "spoken": True})
-            return
-        if intent.kind != IntentKind.GREETING and not (intent.kind == IntentKind.PRODUCT and cfg.autopilot
-                                                       and cfg.auto_product and intent.product_id):
+                return
+            if not self.voice_ready()[0]:
+                return
+            greeted_before = True  # already welcomed a moment ago: read their hello like any comment
+        if greeted_before or (intent.kind != IntentKind.GREETING
+                              and not (intent.kind == IntentKind.PRODUCT and cfg.autopilot
+                                       and cfg.auto_product and intent.product_id)):
             if self.read_comment(dict(record), viewer_key, now, as_question=False):  # "Bạn Lan nói: …"
                 self._persist({**record, "status": "Đã đọc to", "spoken": True})
             return

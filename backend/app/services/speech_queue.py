@@ -51,11 +51,12 @@ class Clip:
     started: float | None = None
     ready: bool = False  # audio made, or given up on (then the clip is shown as a caption only)
     ttl: float = STALE_SECONDS  # dropped if still waiting after this long
+    fallback: dict[str, Any] | None = None  # no Vbee audio: the OBS page reads it with the computer's own voice
     task: asyncio.Task | None = field(default=None, repr=False, compare=False)
 
     def wire(self) -> dict[str, Any]:
         return {"id": self.id, "kind": self.kind, "label": LABELS[self.kind], "text": self.text, "url": self.url,
-                "caption_only": self.url is None}
+                "caption_only": self.url is None, "fallback": self.fallback if self.url is None else None}
 
     def summary(self) -> dict[str, Any]:
         return {**self.wire(), "ref": self.ref, "status": self.status, "error": self.error}
@@ -81,6 +82,11 @@ class SpeechQueue:
         self.tts_ok: Callable[[int], bool] = lambda n: True  # budget / lock: may audio be made?
         self.tts_down_until = 0.0
         self.tts_down_reason: str | None = None
+        # the computer's own voice on the OBS page (Web Speech) when there is no Vbee audio
+        self.fallback: dict[str, Any] | None = None
+        # what the OBS page reported: Vietnamese voices it has, whether the browser blocks sound
+        self.player_info: dict[str, Any] = {}
+        self.on_player_info: Callable[[], None] = lambda: None
 
     # ------------------------------------------------------------------ lifecycle
     def start(self) -> None:
@@ -104,6 +110,7 @@ class SpeechQueue:
     def state(self) -> dict[str, Any]:
         down = time.monotonic() < self.tts_down_until
         return {"muted": self.muted, "hold": self.hold, "player": self.hub.has_primary(),
+                "player_info": self.player_info if self.hub.has_primary() else {},
                 "caption_only": None if self.provider and not down else
                 (self.tts_down_reason if down else "Chưa cài giọng đọc Vbee — chỉ hiện phụ đề"),
                 "current": self.current.summary() if self.current else None,
@@ -193,6 +200,8 @@ class SpeechQueue:
             except Exception as exc:
                 reason = str(exc)[:120]
                 log.exception("Lỗi tạo giọng đọc")
+        if clip.url is None:
+            clip.fallback = self.fallback
         clip.ready = True
         if clip in self.queue:
             clip.status = "chờ phát" if clip.url else "chờ hiện phụ đề"
@@ -237,6 +246,19 @@ class SpeechQueue:
         self._wake.set()
 
     # ------------------------------------------------------------------ player feedback
+    def set_player_info(self, msg: dict[str, Any]) -> None:
+        voices = msg.get("voices") if isinstance(msg.get("voices"), list) else []
+        clean = [{"name": str(v.get("name", ""))[:120], "lang": str(v.get("lang", ""))[:20],
+                  "local": bool(v.get("local"))} for v in voices[:60] if isinstance(v, dict)]
+        info = {"speech_api": bool(msg.get("speech_api")), "voices": clean,
+                "voice_count": int(msg.get("voice_count") or 0), "blocked": bool(msg.get("blocked")),
+                "fallback_voice": str(msg.get("fallback_voice") or "")[:120] or None,
+                "user_agent": str(msg.get("user_agent") or "")[:200]}
+        if info != self.player_info:
+            self.player_info = info
+            self._publish()
+            self.on_player_info()
+
     def on_client_message(self, msg: dict[str, Any]) -> None:
         cid = msg.get("id")
         cur = self.current

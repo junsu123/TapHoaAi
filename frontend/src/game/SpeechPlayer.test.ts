@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ClientGameMessage, SpeechClip } from "../types/protocol";
-import { SpeechPlayer, type AudioLike } from "./SpeechPlayer";
+import { pickVoice, SpeechPlayer, type AudioLike, type UtteranceLike, type VoiceLike } from "./SpeechPlayer";
 
 class FakeAudio implements AudioLike {
   src: string;
@@ -111,6 +111,79 @@ describe("SpeechPlayer", () => {
     expect(p.view().clip).toBeNull();
     expect(sent.at(-1)).toEqual({ type: "SPEECH_ENDED", id: "w1" });
     expect(audios).toHaveLength(0);
+    vi.useRealTimers();
+  });
+});
+
+describe("SpeechPlayer — the computer's own voice when there is no Vbee audio", () => {
+  class FakeSynth {
+    spoken: UtteranceLike[] = [];
+    paused = false;
+    constructor(public voices: VoiceLike[]) {}
+    speak(u: UtteranceLike) {
+      this.spoken.push(u);
+    }
+    cancel() {}
+    pause() {
+      this.paused = true;
+    }
+    resume() {
+      this.paused = false;
+    }
+    getVoices() {
+      return this.voices;
+    }
+  }
+  const mkU = (text: string): UtteranceLike => ({ text, voice: null, lang: "", rate: 1, onstart: null, onend: null, onerror: null });
+  const noAudio = (id: string): SpeechClip => ({ id, kind: "welcome", label: "Trợ lý AI", text: "Chào Lan ạ", url: null, caption_only: true, fallback: { name: null, rate: 1.1, lang: "vi-VN" } });
+  const AN: VoiceLike = { name: "Microsoft An - Vietnamese (Vietnam)", lang: "vi-VN", localService: true };
+  const DAVID: VoiceLike = { name: "Microsoft David", lang: "en-US", localService: true };
+
+  it("picks a Vietnamese voice, the named one first", () => {
+    const hoai: VoiceLike = { name: "Microsoft HoaiMy Online (Natural) - Vietnamese (Vietnam)", lang: "vi-VN", localService: false };
+    expect(pickVoice([DAVID, AN], null)?.name).toBe(AN.name);
+    expect(pickVoice([DAVID, AN, hoai], null)?.name).toBe(hoai.name);
+    expect(pickVoice([DAVID, AN, hoai], AN.name)?.name).toBe(AN.name);
+    expect(pickVoice([DAVID], null)).toBeNull();
+  });
+
+  it("reads the line aloud and reports start/end", () => {
+    const synth = new FakeSynth([DAVID, AN]);
+    const sent: ClientGameMessage[] = [];
+    const p = new SpeechPlayer({ audible: true, emit: (m) => sent.push(m), onChange: () => undefined, synth, makeUtterance: mkU });
+    p.handle({ type: "SPEECH", clip: noAudio("s1") });
+    expect(synth.spoken).toHaveLength(1);
+    const u = synth.spoken[0];
+    expect(u.voice?.name).toBe(AN.name);
+    expect(u.rate).toBe(1.1);
+    expect(sent).toEqual([]);
+    u.onstart!();
+    expect(sent).toEqual([{ type: "SPEECH_STARTED", id: "s1" }]);
+    p.hold(true);
+    expect(synth.paused).toBe(true);
+    p.hold(false);
+    expect(synth.paused).toBe(false);
+    u.onend!();
+    expect(sent.at(-1)).toEqual({ type: "SPEECH_ENDED", id: "s1" });
+  });
+
+  it("no Vietnamese voice on this computer: caption only; blocked tab asks for a click", () => {
+    vi.useFakeTimers();
+    const synth = new FakeSynth([DAVID]);
+    const sent: ClientGameMessage[] = [];
+    const p = new SpeechPlayer({ audible: true, emit: (m) => sent.push(m), onChange: () => undefined, synth, makeUtterance: mkU });
+    p.handle({ type: "SPEECH", clip: noAudio("s1") });
+    expect(synth.spoken).toHaveLength(0);
+    expect(sent).toEqual([{ type: "SPEECH_STARTED", id: "s1" }]);
+    vi.advanceTimersByTime(5000);
+    expect(sent.at(-1)).toEqual({ type: "SPEECH_ENDED", id: "s1" });
+
+    synth.voices = [AN];
+    p.handle({ type: "SPEECH", clip: noAudio("s2") });
+    synth.spoken[0].onerror!({ error: "not-allowed" });
+    expect(p.view().blocked).toBe(true);
+    p.unlock();
+    expect(synth.spoken).toHaveLength(2);
     vi.useRealTimers();
   });
 });

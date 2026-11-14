@@ -18,6 +18,9 @@ export interface AiConfig {
   answer_mode: "approve" | "auto";
   voice_code: string;
   voice_speed: number;
+  browser_voice: boolean;
+  browser_voice_name: string;
+  browser_voice_rate: number;
   voice_month_chars: number;
   question_template: string;
   answer_prefix: string;
@@ -51,6 +54,7 @@ export interface AiStatus {
   audio_note: string | null;
   greet_joins: boolean;
   read_comments: boolean;
+  checks?: import("./VoiceCheck").VoiceCheckItem[];
   last_error: string | null;
   fake: boolean;
 }
@@ -131,6 +135,7 @@ export function AiSettingsPage() {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [voices, setVoices] = useState<VoiceOption[] | null>(null);
   const [demoUrl, setDemoUrl] = useState<string | null>(null);
+  const [pcVoices, setPcVoices] = useState<{ name: string; lang: string }[] | null>(null);
   const [diag, setDiag] = useState<{ steps: { name: string; ok: boolean; detail: string; voice?: string; status?: number }[]; working_voice: string | null } | null>(null);
 
   const load = () =>
@@ -141,6 +146,10 @@ export function AiSettingsPage() {
     });
   useEffect(() => {
     load().catch((x) => setErr(String(x)));
+    api
+      .get<{ speech: { player: boolean; player_info?: { voices?: { name: string; lang: string }[] } } }>("/voice/state")
+      .then((r) => setPcVoices(r.speech.player ? (r.speech.player_info?.voices ?? []) : null))
+      .catch(() => undefined);
   }, []);
   if (!data || !cfg) return <p className="muted">Đang tải…</p>;
 
@@ -411,6 +420,39 @@ export function AiSettingsPage() {
                   <b>Đọc to bình luận của khách</b> — mọi bình luận, trừ spam, từ cấm, số điện thoại, liên kết. Câu hỏi luôn được đọc trước; bình luận thường chờ quá 30 giây thì bỏ qua để không trễ so với LIVE.
                 </span>
               </label>
+              <label className="check">
+                <input type="checkbox" checked={cfg.browser_voice} onChange={(e) => set("browser_voice", e.target.checked)} aria-label="Giọng có sẵn của máy" />
+                <span>
+                  <b>Chưa có Vbee hoặc Vbee lỗi: đọc bằng giọng tiếng Việt có sẵn của máy phát LIVE</b> (miễn phí). Windows: Cài đặt → Thời gian & ngôn ngữ → Giọng nói → Thêm giọng nói → Tiếng Việt, rồi mở lại OBS. Không có giọng tiếng Việt thì chỉ hiện phụ đề.
+                </span>
+              </label>
+              {cfg.browser_voice && (
+                <div className="row wrap">
+                  <Field
+                    label="Giọng của máy"
+                    hint={
+                      pcVoices === null
+                        ? "Mở trang game (OBS) để thấy danh sách giọng của máy phát LIVE."
+                        : pcVoices.length === 0
+                          ? "Máy phát LIVE chưa có giọng tiếng Việt nào."
+                          : `Máy phát LIVE có ${pcVoices.length} giọng tiếng Việt.`
+                    }
+                  >
+                    <select value={cfg.browser_voice_name} onChange={(e) => set("browser_voice_name", e.target.value)} aria-label="Giọng của máy">
+                      <option value="">Tự chọn giọng tiếng Việt</option>
+                      {(pcVoices ?? []).map((v) => (
+                        <option key={v.name} value={v.name}>
+                          {v.name}
+                        </option>
+                      ))}
+                      {cfg.browser_voice_name && !(pcVoices ?? []).some((v) => v.name === cfg.browser_voice_name) && <option value={cfg.browser_voice_name}>{cfg.browser_voice_name}</option>}
+                    </select>
+                  </Field>
+                  <Field label={`Tốc độ giọng máy: ${cfg.browser_voice_rate.toFixed(1)}×`}>
+                    <input type="range" min={0.5} max={1.8} step={0.1} value={cfg.browser_voice_rate} onChange={(e) => set("browser_voice_rate", Number(e.target.value))} aria-label="Tốc độ giọng máy" />
+                  </Field>
+                </div>
+              )}
               <Field label="Câu chào nhiều người" hint="{danh_sach} = các tên, ví dụ “Lan, Minh và Hoa”; {shop} = tên shop. Một người thì dùng câu chào ở mục Tự động hoàn toàn.">
                 <input value={cfg.welcome_many_template} onChange={(e) => set("welcome_many_template", e.target.value)} aria-label="Câu chào nhiều người" />
               </Field>

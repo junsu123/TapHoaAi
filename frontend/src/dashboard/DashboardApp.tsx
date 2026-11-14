@@ -11,6 +11,7 @@ import { LogsPage } from "./LogsPage";
 import { BOX_FACE_LABEL, PdfFacePicker, type RenderedFaces } from "./PdfFacePicker";
 import { SceneSettings } from "./SceneSettings";
 import { ShelfEditor } from "./ShelfEditor";
+import { VoiceCheck, type VoiceTraceEntry } from "./VoiceCheck";
 import { useDashboardFeed, type CommentRecord, type HostItem, type LiveStatus, type Metrics, type SpeechState } from "./useDashboardFeed";
 
 interface Me {
@@ -326,6 +327,7 @@ function HostPage({
   setAiPaused,
   speech,
   ai,
+  voiceTrace,
 }: {
   comments: CommentRecord[];
   host: HostItem[];
@@ -333,6 +335,7 @@ function HostPage({
   setAiPaused: (b: boolean) => void;
   speech: SpeechState | null;
   ai: AiStatus | null;
+  voiceTrace: VoiceTraceEntry[];
 }) {
   const [raw, setRaw] = useState("@lananh88: trà cà gai leo");
   const [err, setErr] = useState<string | null>(null);
@@ -363,6 +366,9 @@ function HostPage({
       <div className="stack">
         <Card title="Giọng đọc trên LIVE">
           <VoiceBar speech={speech} ai={ai} />
+        </Card>
+        <Card title="🩺 Chào người vào & đọc bình luận — kiểm tra">
+          <VoiceCheck ai={ai} trace={voiceTrace} />
         </Card>
         <Card title="Câu hỏi cần trả lời">
           <div className="row">
@@ -1033,7 +1039,7 @@ export function DashboardApp() {
         <Routes>
           <Route index element={<Overview live={feed.live} metrics={feed.metrics} />} />
           <Route path="connect" element={<ConnectPage live={feed.live} />} />
-          <Route path="host" element={<HostPage comments={feed.comments} host={feed.host} aiPaused={feed.aiPaused} setAiPaused={feed.setAiPaused} speech={feed.speech} ai={feed.ai} />} />
+          <Route path="host" element={<HostPage comments={feed.comments} host={feed.host} aiPaused={feed.aiPaused} setAiPaused={feed.setAiPaused} speech={feed.speech} ai={feed.ai} voiceTrace={feed.voiceTrace} />} />
           <Route path="ai" element={<AiSettingsPage />} />
           <Route path="knowledge" element={<KnowledgePage />} />
           <Route path="logs" element={<LogsPage live={feed.liveLogs} stats={feed.logStats} onSeen={feed.setLogStats} />} />

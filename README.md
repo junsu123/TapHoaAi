@@ -157,6 +157,16 @@ Luôn chạy khi **Bật phát trên LIVE** đang bật (không cần bật “T
 - **Không có tiếng vẫn có chữ.** Nếu Vbee chưa nhập, hết ký tự hoặc đang lỗi, câu vẫn hiện thành **phụ đề** trên trang game (OBS) và phần mềm thử lại Vbee sau 60 giây; lỗi được ghi trong **Nhật ký lỗi**.
 - Bật/tắt và câu chào nhiều người trong thẻ **👋 Chào người xem & đọc bình luận** (trang Trợ lý AI & giọng đọc).
 
+### 🩺 Không thấy chào / không đọc bình luận?
+
+Trang **Người trực & Demo** có thẻ **🩺 Chào người vào & đọc bình luận — kiểm tra**:
+
+- Danh sách điều kiện, mỗi dòng ✅/❌ kèm cách sửa: *Bật phát trên LIVE* (đánh dấu 4 ô chính sách rồi bật, ở trang Trợ lý AI & giọng đọc), AI không tạm dừng, giọng không bị tắt khẩn cấp (F9), **trang game (OBS) đang mở** (lời chào/bình luận chỉ được đọc trên trang này), trang game được phép phát tiếng, chào người vào / đọc bình luận đang bật, và **âm thanh** (Vbee, giọng có sẵn của máy, hay chỉ phụ đề).
+- Nhật ký từng người vào và từng bình luận: đã xếp hàng đọc hay chưa, và vì sao (ví dụ “Phát trên LIVE đang tắt”, “đã chào trong 10 phút qua”, “có từ cấm”, “hàng chờ quá đông”).
+- Nút **📣 Đọc thử một câu trên trang LIVE**: đi đúng đường của lời chào, cho biết đọc bằng Vbee, giọng máy hay chỉ phụ đề.
+
+**Không có Vbee vẫn có tiếng:** trang game đọc bằng giọng tiếng Việt có sẵn của máy phát LIVE (miễn phí). Trên Windows: *Cài đặt → Thời gian & ngôn ngữ → Giọng nói → Thêm giọng nói → Tiếng Việt*, rồi mở lại OBS. Chọn giọng và tốc độ trong thẻ 👋 ở trang Trợ lý AI & giọng đọc. Máy không có giọng tiếng Việt thì chỉ hiện phụ đề.
+
 ### Hội thoại & câu đã học
 
 - Mọi câu hỏi trong LIVE được lưu: lúc nào, khách nào, câu hỏi (đã bỏ số điện thoại/liên kết), gợi ý, câu trả lời cuối, ai trả lời (Claude / người trực / câu đã học / câu mẫu), đã đọc chưa, chi phí. Xem và tải CSV (mở bằng Excel) ở **Hội thoại & câu đã học → Lịch sử hội thoại LIVE**. Tên khách tự xóa sau `CHIBI_EVENT_RETENTION_DAYS` ngày (mặc định 7), câu hỏi/câu trả lời giữ lại để học.

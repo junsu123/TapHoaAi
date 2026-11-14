@@ -7,7 +7,7 @@ import { SequencedSocket, wsUrl } from "../lib/ws";
 import type { ClientGameMessage, GameSnapshot, ServerGameMessage } from "../types/protocol";
 import { GameEngine } from "./GameEngine";
 import { LiveOverlay, type SafeArea } from "./LiveOverlay";
-import { SpeechPlayer, type SpeechView } from "./SpeechPlayer";
+import { pickVoice, SpeechPlayer, vietnameseVoices, type SpeechView, type VoiceLike } from "./SpeechPlayer";
 import { World, type Quality } from "./World";
 
 const ORDER: Quality[] = ["low", "medium", "high"];
@@ -69,6 +69,33 @@ export function GamePage() {
       player.stop();
     };
   }, [engine, player, role, debug, params]);
+
+  // tell the server which Vietnamese voices this computer has and whether the browser blocks sound,
+  // so the host page can say exactly why greetings are (not) heard
+  useEffect(() => {
+    if (role !== "primary" || !socketUp) return;
+    const synth = typeof window !== "undefined" && "speechSynthesis" in window ? window.speechSynthesis : null;
+    const report = () => {
+      const all = (synth?.getVoices() ?? []) as unknown as VoiceLike[];
+      const vi = vietnameseVoices(all);
+      socketRef.current?.send({
+        type: "PLAYER_INFO",
+        speech_api: !!synth,
+        voice_count: all.length,
+        voices: vi.map((v) => ({ name: v.name, lang: v.lang, local: v.localService })),
+        fallback_voice: pickVoice(all, null)?.name ?? null,
+        blocked: speech.blocked,
+        user_agent: navigator.userAgent,
+      });
+    };
+    report();
+    synth?.addEventListener?.("voiceschanged", report);
+    const late = setTimeout(report, 1500); // voices often load a moment after the page
+    return () => {
+      clearTimeout(late);
+      synth?.removeEventListener?.("voiceschanged", report);
+    };
+  }, [role, socketUp, speech.blocked]);
 
   // FPS telemetry + automatic quality step-down (NFR-02)
   const onFps = (fps: number) => {
