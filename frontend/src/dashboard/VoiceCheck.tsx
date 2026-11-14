@@ -23,10 +23,10 @@ export interface VoiceTraceEntry {
 }
 
 const KIND: Record<VoiceTraceEntry["kind"], string> = {
-  join: "👋 Vào LIVE",
-  welcome: "🔊 Lời chào",
-  comment: "💬 Bình luận",
-  question: "❓ Câu hỏi",
+  join: "Vào LIVE",
+  welcome: "Lời chào",
+  comment: "Bình luận",
+  question: "Câu hỏi",
 };
 
 const HOW: Record<string, string> = {
@@ -46,13 +46,15 @@ export function VoiceCheck({ ai, trace }: { ai: AiStatus | null; trace: VoiceTra
         {checks.length === 0
           ? "Đang kiểm tra…"
           : bad.length
-            ? `⚠ ${bad.length} điều cần sửa để trợ lý chào người vào và đọc bình luận:`
-            : "✅ Mọi thứ sẵn sàng — người vào LIVE được chào, bình luận được đọc."}
+            ? `${bad.length} điều cần sửa để trợ lý chào người vào và đọc bình luận.`
+            : "Mọi thứ sẵn sàng: người vào LIVE được chào, bình luận được đọc."}
       </p>
       <ul className="vc-list">
         {checks.map((c) => (
           <li key={c.id} className={c.ok ? "ok" : "bad"} data-testid={`check-${c.id}`} data-ok={c.ok ? "1" : "0"}>
-            <span className="vc-icon">{c.ok ? "✅" : "❌"}</span>
+            <span className="rd-icon" aria-hidden>
+              {c.ok ? "✓" : "!"}
+            </span>
             <span>
               <b>{c.label}</b>
               {c.detail && <span className="vc-detail"> — {c.detail}</span>}
@@ -78,7 +80,7 @@ export function VoiceCheck({ ai, trace }: { ai: AiStatus | null; trace: VoiceTra
           }}
           data-testid="voice-test-live"
         >
-          📣 Đọc thử một câu trên trang LIVE
+          Đọc thử một câu trên trang LIVE
         </button>
         {msg && (
           <span className="muted" data-testid="voice-test-live-msg">
@@ -96,7 +98,7 @@ export function VoiceCheck({ ai, trace }: { ai: AiStatus | null; trace: VoiceTra
             <span className="vc-who">{t.who || "—"}</span>
             {t.text && <span className="vc-text">“{t.text}”</span>}
             <span className="vc-reason">
-              {t.ok ? "✔" : "✖"} {t.reason}
+              {t.reason}
             </span>
           </li>
         ))}

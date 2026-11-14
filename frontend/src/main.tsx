@@ -5,6 +5,10 @@ import { DashboardApp } from "./dashboard/DashboardApp";
 import { GamePage } from "./game/GamePage";
 import { ErrorBoundary } from "./lib/ErrorBoundary";
 import { installErrorReporter } from "./lib/errorReporter";
+import "@fontsource/be-vietnam-pro/400.css";
+import "@fontsource/be-vietnam-pro/500.css";
+import "@fontsource/be-vietnam-pro/600.css";
+import "@fontsource/be-vietnam-pro/700.css";
 import "./styles.css";
 
 installErrorReporter(location.pathname.startsWith("/game") ? "game" : "dashboard");

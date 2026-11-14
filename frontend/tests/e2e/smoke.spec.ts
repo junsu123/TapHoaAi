@@ -178,7 +178,7 @@ test("Dashboard: login, overview, host page shows comments (Vietnamese UI)", asy
   await page.getByLabel("Tên đăng nhập").fill("chu_shop");
   await page.getByLabel(/Mật khẩu/).fill("mat-khau-demo-123");
   await page.getByRole("button", { name: "Đăng nhập" }).click();
-  await expect(page.getByTestId("live-status")).toBeVisible();
+  await expect(page.getByTestId("onair")).toBeVisible();
   await page.setViewportSize({ width: 1280, height: 860 });
   await page.getByRole("link", { name: "Người trực & Demo" }).click();
   await page.getByRole("button", { name: "@khachle: trà (mơ hồ)" }).click();
@@ -186,7 +186,8 @@ test("Dashboard: login, overview, host page shows comments (Vietnamese UI)", asy
   await expect(page.getByTestId("comment-row").first()).toBeVisible();
   await page.screenshot({ path: `${SHOTS}/dashboard-host.png`, fullPage: true });
   await page.getByRole("link", { name: "Tổng quan" }).click();
-  await expect(page.getByText("Chưa kết nối Shop (mốc M6).")).toBeVisible(); // T19
+  await expect(page.getByText("Chưa kết nối TikTok Shop.")).toBeVisible(); // T19
+  await expect(page.getByTestId("readiness")).toBeVisible();
   await page.screenshot({ path: `${SHOTS}/dashboard-overview.png`, fullPage: true });
   await page.getByRole("link", { name: "Kết nối TikTok" }).click();
   await page.getByLabel("Link TikTok LIVE").fill("https://evil.example/");
@@ -467,7 +468,7 @@ test("Learning: an answer the host confirmed is reused for a similar question wi
   await expect(first).toHaveAttribute("data-status", /Cần người trực xem|AI đề xuất/, { timeout: 15_000 });
   await first.getByRole("button", { name: /Sửa rồi đọc|Viết câu trả lời/ }).click();
   await first.getByLabel("Sửa câu trả lời").fill("Dạ shop có giao COD toàn quốc, bạn nhận hàng rồi thanh toán ạ.");
-  await first.getByRole("button", { name: "🔊 Đọc câu đã sửa" }).click();
+  await first.getByRole("button", { name: "Đọc câu đã sửa" }).click();
   await expect(first).toHaveAttribute("data-status", "Người trực đã xác nhận");
 
   // a different viewer, different words, same question → answered at once, no Claude
@@ -511,9 +512,9 @@ test("Autopilot: one switch reads comments and answers them without the host", a
   await page.setViewportSize({ width: 1360, height: 1000 });
   await page.goto("/dashboard/host");
   const toggle = page.getByTestId("autopilot-toggle");
-  await expect(toggle).toContainText("TẮT");
+  await expect(toggle).toContainText("đang tắt");
   await toggle.click();
-  await expect(toggle).toContainText("BẬT");
+  await expect(toggle).toContainText("đang bật");
 
   await inject(page, csrf, `@chao${RUN}: chào shop nha`);
   await expect(caption).toContainText(`chao${RUN}`, { timeout: 20_000 });
@@ -534,7 +535,7 @@ test("Autopilot: one switch reads comments and answers them without the host", a
   expect(new Set(rows).size).toBe(rows.length);
 
   await toggle.click();
-  await expect(toggle).toContainText("TẮT");
+  await expect(toggle).toContainText("đang tắt");
   await page.request.put("/api/v1/settings/ai", { data: { config: { ...cfg, voice_enabled: false } }, headers: { "X-CSRF-Token": csrf } });
   await game.close();
 });

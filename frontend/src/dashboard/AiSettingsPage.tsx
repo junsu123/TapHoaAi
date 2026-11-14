@@ -406,7 +406,7 @@ export function AiSettingsPage() {
           </div>
 
           <div className="card">
-            <h2>👋 Chào người xem & đọc bình luận</h2>
+            <h2>Chào người xem & đọc bình luận</h2>
             <div className="stack">
               <label className="check">
                 <input type="checkbox" checked={cfg.greet_joins} onChange={(e) => set("greet_joins", e.target.checked)} aria-label="Chào người vào LIVE" />
@@ -463,7 +463,7 @@ export function AiSettingsPage() {
           </div>
 
           <div className="card">
-            <h2>🤖 Tự động hoàn toàn</h2>
+            <h2>Tự động hoàn toàn</h2>
             <div className="stack">
               <label className="check big">
                 <input type="checkbox" checked={cfg.autopilot} disabled={!allPolicy} onChange={(e) => set("autopilot", e.target.checked)} aria-label="Tự động hoàn toàn" />

@@ -68,7 +68,7 @@ export function SceneSettings() {
         <input value={cfg.tagline} maxLength={48} onChange={(e) => set({ tagline: e.target.value })} placeholder="VD: Trà sạch · Thảo mộc Việt" />
       </label>
 
-      <h3>🖼 Banner ảnh sản phẩm</h3>
+      <h3>Banner ảnh sản phẩm</h3>
       <label className="check">
         <input type="checkbox" checked={cfg.banner_enabled} onChange={(e) => set({ banner_enabled: e.target.checked })} />
         Hiện banner ảnh sản phẩm to ở đầu màn hình LIVE

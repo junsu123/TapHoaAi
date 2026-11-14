@@ -2,7 +2,8 @@
 // later milestones are labelled as such instead of being faked.
 
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { NavLink, Navigate, Route, Routes } from "react-router-dom";
+import { Link, Navigate, Route, Routes } from "react-router-dom";
+import { Plus } from "lucide-react";
 import { api, ApiError, formatVnd, setCsrf } from "../lib/api";
 import { AiSettingsPage, type AiStatus } from "./AiSettingsPage";
 import { QuestionCard, VoiceBar } from "./HostDesk";
@@ -10,6 +11,7 @@ import { KnowledgePage } from "./KnowledgePage";
 import { LogsPage } from "./LogsPage";
 import { BOX_FACE_LABEL, PdfFacePicker, type RenderedFaces } from "./PdfFacePicker";
 import { SceneSettings } from "./SceneSettings";
+import { Brand, OnAirTile, PageHeader, SideNav, UserFoot } from "./Shell";
 import { ShelfEditor } from "./ShelfEditor";
 import { VoiceCheck, type VoiceTraceEntry } from "./VoiceCheck";
 import { useDashboardFeed, type CommentRecord, type HostItem, type LiveStatus, type Metrics, type SpeechState } from "./useDashboardFeed";
@@ -70,9 +72,13 @@ function Login({ onLogin }: { onLogin: (me: Me) => void }) {
   };
   return (
     <div className="login">
-      <form className="card" onSubmit={submit}>
-        <h1>Chibi Live Shop</h1>
-        <p className="muted">{setup ? "Tạo tài khoản quản trị đầu tiên (chỉ trên máy chạy phần mềm)." : "Đăng nhập trang quản trị"}</p>
+      <div className="login-side" aria-hidden>
+        <Brand />
+        <p className="login-quote">Một người trực, một cửa hàng 3D, và khách được chào bằng tên ngay khi vào LIVE.</p>
+      </div>
+      <form className="login-form" onSubmit={submit}>
+        <h1>{setup ? "Tạo tài khoản quản trị" : "Đăng nhập"}</h1>
+        <p className="muted">{setup ? "Tài khoản đầu tiên, chỉ tạo được trên máy chạy phần mềm." : "Vào bảng điều khiển của cửa hàng."}</p>
         <label>
           Tên đăng nhập
           <input value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" required />
@@ -91,51 +97,100 @@ function Login({ onLogin }: { onLogin: (me: Me) => void }) {
 }
 
 // ------------------------------------------------------------------ pages
-function Card({ title, children }: { title: string; children: ReactNode }) {
+function Card({ title, desc, actions, children }: { title: string; desc?: ReactNode; actions?: ReactNode; children: ReactNode }) {
   return (
     <section className="card">
-      <h2>{title}</h2>
+      <div className="card-head">
+        <div>
+          <h2>{title}</h2>
+          {desc && <p className="card-desc">{desc}</p>}
+        </div>
+        {actions && <div className="card-actions">{actions}</div>}
+      </div>
       {children}
     </section>
   );
 }
 
-function Overview({ live, metrics }: { live: LiveStatus | null; metrics: Metrics | null }) {
+function Overview({ live, metrics, ai }: { live: LiveStatus | null; metrics: Metrics | null; ai: AiStatus | null }) {
   const lat = metrics?.actions?.latency;
+  const checks = ai?.checks ?? [];
+  const tiktokOk = live?.status === "Đã kết nối";
+  const ready = [
+    { id: "tiktok", ok: tiktokOk, label: tiktokOk ? (live?.is_demo ? "Đang chạy Demo" : "Đã nối với buổi LIVE") : "Chưa nối với buổi LIVE", to: "connect" },
+    ...checks.map((c) => ({ id: c.id, ok: c.ok, label: c.detail ? `${c.label}: ${c.detail}` : c.label, to: c.id === "player" || c.id === "blocked" ? "game" : c.id === "paused" || c.id === "muted" ? "host" : "ai" })),
+  ];
+  const bad = ready.filter((r) => !r.ok).length;
+  const b = ai?.budget;
   return (
-    <div className="grid">
-      <Card title="Trạng thái LIVE">
-        <StatusPill status={live?.status ?? "Chưa kết nối"} />
-        {live?.is_demo && <p className="muted">Đang chạy chế độ Demo (sự kiện mô phỏng).</p>}
-      </Card>
-      <Card title="Chibi">
-        <p className="big">{metrics?.avatars?.visible ?? 0}</p>
-        <p className="muted">đang hiển thị · {metrics?.avatars?.overflow ?? 0} chờ vào</p>
-      </Card>
-      <Card title="Bình luận">
-        <p className="big">{metrics?.events?.COMMENT ?? 0}</p>
-        <p className="muted">{metrics?.comments_per_s ?? 0} bình luận/giây (60 s gần nhất)</p>
-      </Card>
-      <Card title="Độ trễ lệnh game">
-        <p className="big">{lat?.p50_ms != null ? `${lat.p50_ms} ms` : "—"}</p>
-        <p className="muted">p95: {lat?.p95_ms != null ? `${lat.p95_ms} ms` : "—"} · {lat?.samples ?? 0} mẫu</p>
-      </Card>
-      <Card title="Game 3D">
-        <p className="big">{metrics?.game_fps?.last ? `${metrics.game_fps.last} FPS` : "—"}</p>
-        <p className="muted">{metrics?.game_clients?.primary ? "Cửa sổ game chính đang mở" : "Chưa mở cửa sổ game /game/live"}</p>
-      </Card>
-      <Card title="Số người xem">
-        <p className="big">{metrics?.viewer_count ?? "—"}</p>
-        <p className="muted">{metrics?.viewer_count == null ? "Nguồn hiện tại không cung cấp" : "Theo nguồn sự kiện"}</p>
-      </Card>
-      <Card title="Claude AI">
-        <p>Chưa cấu hình — mốc M4.</p>
-        <p className="muted">Bình luận sản phẩm vẫn được xử lý bằng bộ luật, không tốn chi phí API.</p>
-      </Card>
-      <Card title="Đơn hàng TikTok Shop">
-        <p>Chưa kết nối Shop (mốc M6).</p>
-        <p className="muted">Không suy ra đơn hàng từ bình luận hay quà tặng.</p>
-      </Card>
+    <div className="stack">
+      <section className="statband" aria-label="Số liệu buổi LIVE">
+        <div>
+          <span className="stat-label">Người xem</span>
+          <span className="stat-value">{metrics?.viewer_count ?? "–"}</span>
+          <span className="stat-note">{metrics?.viewer_count == null ? "Nguồn hiện tại không báo số người xem" : "Theo TikTok"}</span>
+        </div>
+        <div>
+          <span className="stat-label">Bình luận</span>
+          <span className="stat-value">{metrics?.events?.COMMENT ?? 0}</span>
+          <span className="stat-note">{metrics?.comments_per_s ?? 0} bình luận/giây, 60 giây gần nhất</span>
+        </div>
+        <div>
+          <span className="stat-label">Chibi trên màn hình</span>
+          <span className="stat-value">{metrics?.avatars?.visible ?? 0}</span>
+          <span className="stat-note">{metrics?.avatars?.overflow ?? 0} người đang chờ vào cửa hàng</span>
+        </div>
+        <div>
+          <span className="stat-label">Game 3D</span>
+          <span className="stat-value">{metrics?.game_fps?.last ? `${metrics.game_fps.last} FPS` : "–"}</span>
+          <span className="stat-note">{metrics?.game_clients?.primary ? "Màn hình LIVE đang mở" : "Chưa mở màn hình LIVE"}</span>
+        </div>
+        <div>
+          <span className="stat-label">Độ trễ lệnh game</span>
+          <span className="stat-value">{lat?.p50_ms != null ? `${lat.p50_ms} ms` : "–"}</span>
+          <span className="stat-note">{lat?.p95_ms != null ? `95% lệnh dưới ${lat.p95_ms} ms` : "Chưa có lệnh nào"}</span>
+        </div>
+      </section>
+      <div className="two-col">
+        <Card title="Sẵn sàng lên sóng" desc={bad ? `${bad} việc cần làm trước khi LIVE.` : "Mọi thứ đã sẵn sàng."}>
+          <ul className="readiness" data-testid="readiness">
+            {ready.map((r) => (
+              <li key={r.id} className={r.ok ? "ok" : "bad"}>
+                <span className="rd-icon" aria-hidden>
+                  {r.ok ? "✓" : "!"}
+                </span>
+                <span className="rd-label">{r.label}</span>
+                {!r.ok && (
+                  <Link className="rd-fix" to={`/dashboard/${r.to}`}>
+                    Sửa
+                  </Link>
+                )}
+              </li>
+            ))}
+          </ul>
+        </Card>
+        <div className="stack">
+          <Card title="Trợ lý AI" desc={ai?.configured ? `Mô hình ${ai.model}` : "Chưa nhập khóa Claude — bình luận sản phẩm vẫn được xử lý bằng bộ luật, không tốn phí."} actions={<Link to="/dashboard/ai">Cài đặt</Link>}>
+            <dl className="kv">
+              <dt>Trạng thái</dt>
+              <dd>{ai ? (ai.paused ? "Đang tạm dừng" : ai.configured ? "Đang chạy" : "Chưa cấu hình") : "–"}</dd>
+              <dt>Trả lời</dt>
+              <dd>{ai ? (ai.autopilot ? "Tự động hoàn toàn" : ai.answer_mode === "auto" ? "Tự đọc câu trả lời an toàn" : "Người trực duyệt trước khi đọc") : "–"}</dd>
+              <dt>Chi phí hôm nay</dt>
+              <dd>{b ? `${b.day_usd.toFixed(3)} / ${b.day_cap} USD` : "–"}</dd>
+              <dt>Tháng này</dt>
+              <dd>{b ? `${b.month_usd.toFixed(2)} / ${b.month_cap} USD` : "–"}</dd>
+              <dt>Giọng đọc</dt>
+              <dd>{ai ? (ai.voice_ready ? ai.audio_note ?? "Sẵn sàng" : ai.voice_reason) : "–"}</dd>
+            </dl>
+          </Card>
+          <Card title="Đơn hàng TikTok Shop" desc="Phần mềm không tự suy ra đơn hàng từ bình luận hay quà tặng.">
+            <p className="muted" style={{ margin: 0 }}>
+              Chưa kết nối TikTok Shop.
+            </p>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }
@@ -185,7 +240,7 @@ function ConnectPage({ live }: { live: LiveStatus | null }) {
   };
   return (
     <div className="stack">
-      <Card title="Kết nối TikTok LIVE">
+      <Card title="Buổi LIVE cần kết nối" desc="Dán link LIVE hoặc tên tài khoản TikTok của shop.">
         {settings && !settings.library_installed && (
           <p className="error" role="alert">
             Chưa cài thư viện kết nối TikTok. Chạy <code>pip install -e "backend[tiktok]"</code> rồi khởi động lại phần mềm.
@@ -367,7 +422,7 @@ function HostPage({
         <Card title="Giọng đọc trên LIVE">
           <VoiceBar speech={speech} ai={ai} />
         </Card>
-        <Card title="🩺 Chào người vào & đọc bình luận — kiểm tra">
+        <Card title="Chào người vào & đọc bình luận" desc="Kiểm tra từng điều kiện và xem vì sao một người chưa được chào, một bình luận chưa được đọc.">
           <VoiceCheck ai={ai} trace={voiceTrace} />
         </Card>
         <Card title="Câu hỏi cần trả lời">
@@ -411,7 +466,8 @@ function HostPage({
           <ErrorText err={err} />
         </Card>
       </div>
-      <Card title="Bình luận realtime">
+      <Card title="Bình luận trực tiếp" desc={comments.length ? `${comments.length} bình luận gần nhất, mới nhất ở trên.` : undefined}>
+        {comments.length === 0 && <p className="empty">Chưa có bình luận. Kết nối TikTok hoặc bật Demo để thấy bình luận ở đây.</p>}
         <ul className="comment-list">
           {comments.map((c) => (
             <CommentRow key={c.event_id} c={c} />
@@ -666,10 +722,15 @@ function ProductsPage() {
   }, []);
   return (
     <div className="stack">
-      <Card title="Sản phẩm">
-        <button className="primary" onClick={() => setEditing("new")}>
-          + Thêm sản phẩm
-        </button>
+      <Card
+        title="Danh sách sản phẩm"
+        desc={`${items.length} sản phẩm. Giá chỉ hiện trên LIVE khi đã được duyệt.`}
+        actions={
+          <button className="primary" onClick={() => setEditing("new")}>
+            <Plus size={16} aria-hidden /> Thêm sản phẩm
+          </button>
+        }
+      >
         <table>
           <thead>
             <tr>
@@ -854,7 +915,7 @@ function GameSetupPage() {
         </div>
       </Card>
       <div className="stack">
-        <Card title="🍵 Không gian cửa hàng & banner sản phẩm">
+        <Card title="Không gian cửa hàng & banner sản phẩm">
           <SceneSettings />
         </Card>
         <Card title="Mở màn hình LIVE 9:16">
@@ -989,55 +1050,34 @@ export function DashboardApp() {
         }}
       />
     );
-  const nav = [
-    ["", "Tổng quan"],
-    ["connect", "Kết nối TikTok"],
-    ["host", "Người trực & Demo"],
-    ["ai", "Trợ lý AI & giọng đọc"],
-    ["knowledge", "Hội thoại & câu đã học"],
-    ["products", "Sản phẩm"],
-    ["shelves", "Bản đồ kệ"],
-    ["game", "Game 3D & OBS"],
-    ["settings", "Cài đặt & sao lưu"],
-    ["logs", "Nhật ký lỗi"],
-  ];
+  const logout = async () => {
+    await api.post("/auth/logout");
+    setMe(null);
+  };
   return (
     <div className="dash">
       <aside>
-        <div className="brand">Chibi Live Shop</div>
-        <nav>
-          {nav.map(([to, label]) => (
-            <NavLink key={to} to={`/dashboard/${to}`} end={to === ""}>
-              {label}
-              {to === "logs" && feed.logStats && feed.logStats.unseen > 0 && (
-                <span className="nav-badge" data-testid="log-badge">
-                  {feed.logStats.unseen > 99 ? "99+" : feed.logStats.unseen}
-                </span>
-              )}
-            </NavLink>
-          ))}
-        </nav>
-        <div className="muted small">
-          {me.username} · {feed.connected ? "realtime ✓" : "đang kết nối…"}
-        </div>
-        <button
-          onClick={async () => {
-            await api.post("/auth/logout");
-            setMe(null);
-          }}
-        >
-          Đăng xuất
-        </button>
+        <Brand />
+        <OnAirTile live={feed.live} metrics={feed.metrics} connected={feed.connected} />
+        <SideNav logBadge={feed.logStats?.unseen ?? 0} />
+        <UserFoot name={me.username} onLogout={logout} />
       </aside>
       <main>
-        {feed.live && feed.live.status === "Mất kết nối" && <div className="banner">⚠ Mất kết nối TikTok — đang thử lại. Không có sự kiện giả nào được tạo.</div>}
+        <PageHeader
+          right={
+            <span className={`sync ${feed.connected ? "on" : "off"}`} title="Kết nối thời gian thực với máy chủ">
+              {feed.connected ? "Đang cập nhật trực tiếp" : "Đang nối lại…"}
+            </span>
+          }
+        />
+        {feed.live && feed.live.status === "Mất kết nối" && <div className="banner banner-warn">Mất kết nối TikTok, đang thử lại. Không có sự kiện giả nào được tạo trong lúc này.</div>}
         {feed.alerts.slice(0, 1).map((a) => (
-          <div className="banner" key={a.at} data-testid="ai-alert">
-            ⚠ {a.message}
+          <div className="banner banner-warn" key={a.at} data-testid="ai-alert">
+            {a.message}
           </div>
         ))}
         <Routes>
-          <Route index element={<Overview live={feed.live} metrics={feed.metrics} />} />
+          <Route index element={<Overview live={feed.live} metrics={feed.metrics} ai={feed.ai} />} />
           <Route path="connect" element={<ConnectPage live={feed.live} />} />
           <Route path="host" element={<HostPage comments={feed.comments} host={feed.host} aiPaused={feed.aiPaused} setAiPaused={feed.setAiPaused} speech={feed.speech} ai={feed.ai} voiceTrace={feed.voiceTrace} />} />
           <Route path="ai" element={<AiSettingsPage />} />
