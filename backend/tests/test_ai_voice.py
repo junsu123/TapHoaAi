@@ -293,17 +293,25 @@ def test_voice_codes_of_any_vbee_shape_are_accepted(admin_client):
 
 
 @pytest.mark.anyio
-async def test_vbee_voice_list_follows_the_documented_api():
+async def test_vbee_voice_list_uses_the_form_vbee_accepts():
+    """Vbee answered 400 to ?language_code=…&limit=100 (the form in its parameter table);
+    its own example is ?voiceOwnership=VBEE&languageCode=vi-VN. Accept whichever form works."""
     from app.services.tts_vbee import list_voices
 
     calls = []
 
-    def handler(req: httpx.Request) -> httpx.Response:
-        calls.append((req.url.path, dict(req.url.params), req.headers.get("app-id")))
+    def strict_vbee(req: httpx.Request) -> httpx.Response:
         p = dict(req.url.params)
-        if p.get("voice_ownership") == "PERSONAL":
-            return httpx.Response(200, json={"status": 1, "result": {"pagination": {"has_next_page": False}, "voices": [
-                {"code": "clone:me/1", "name": "Giọng tôi", "gender": "female", "language_code": "vi-VN"}]}})
+        calls.append(p)
+        assert req.headers["app-id"] == "app-9" and req.headers["authorization"] == "Bearer tok"
+        if set(p) - {"voiceOwnership", "languageCode", "cursor"}:
+            return httpx.Response(400, json={"status": 0, "error_message": "Invalid query"})
+        own = p.get("voiceOwnership")
+        if own == "PERSONAL":
+            voices = [{"code": "clone:me/1", "name": "Giọng tôi", "gender": "female", "language_code": "vi-VN"}]
+            return httpx.Response(200, json={"status": 1, "result": {"pagination": {}, "voices": voices}})
+        if own == "COMMUNITY":
+            return httpx.Response(200, json={"status": 1, "result": {"pagination": {}, "voices": []}})
         if not p.get("cursor"):
             return httpx.Response(200, json={"status": 1, "result": {
                 "pagination": {"has_next_page": True, "next_cursor": "c2"},
@@ -312,11 +320,27 @@ async def test_vbee_voice_list_follows_the_documented_api():
         return httpx.Response(200, json={"status": 1, "result": {"pagination": {"has_next_page": False}, "voices": [
             {"code": "sg_male_minhhoang_full_48k-fhg", "name": "SG - Minh Hoàng", "gender": "male", "language_code": "vi-VN"}]}})
 
-    voices = await list_voices("app-9", "tok", "vi-VN", transport=httpx.MockTransport(handler))
+    voices = await list_voices("app-9", "tok", "vi-VN", transport=httpx.MockTransport(strict_vbee))
     assert [v.code for v in voices] == ["clone:me/1", "hn_female_ngochuyen_full_48k-fhg", "sg_male_minhhoang_full_48k-fhg"]
     assert voices[0].ownership == "PERSONAL" and voices[1].demo == "https://vbee.vn/demo.mp3"
-    assert calls[0][0] == "/api/public/v1/voices" and calls[0][1] == {"limit": "100", "language_code": "vi-VN"}
-    assert calls[1][1]["cursor"] == "c2" and all(a == "app-9" for *_, a in calls)
+    assert calls[0] == {"languageCode": "vi-VN"} and {"languageCode": "vi-VN", "cursor": "c2"} in calls
+
+    def snake_only(req: httpx.Request) -> httpx.Response:
+        p = dict(req.url.params)
+        if "languageCode" in p or "voiceOwnership" in p:
+            return httpx.Response(400, json={"status": 0, "message": "unknown field languageCode"})
+        return httpx.Response(200, json={"status": 1, "result": {"voices": [
+            {"code": "a", "name": "A", "language_code": "vi-VN"}, {"code": "b", "name": "B", "language_code": "en-US"}]}})
+
+    voices = await list_voices("app-9", "tok", "vi-VN", transport=httpx.MockTransport(snake_only))
+    assert [v.code for v in voices] == ["a"]  # other languages filtered out
+
+    def always_400(req: httpx.Request) -> httpx.Response:
+        return httpx.Response(400, json={"status": 0, "error_message": "App chưa được cấp quyền Voices"})
+
+    with pytest.raises(TtsError) as e:
+        await list_voices("app-9", "tok", transport=httpx.MockTransport(always_400))
+    assert "App chưa được cấp quyền Voices" in e.value.message  # Vbee's own words reach the dashboard
 
     def unauthorized(req: httpx.Request) -> httpx.Response:
         return httpx.Response(401, json={"status": 0})

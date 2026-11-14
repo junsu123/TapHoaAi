@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.2 — 2026-11-14
+
+- Sửa lỗi “Vbee lỗi 400 khi lấy danh sách giọng”: tài liệu Vbee ghi tham số kiểu `language_code` nhưng ví dụ chính thức dùng `languageCode`/`voiceOwnership`. Phần mềm thử dạng của ví dụ trước, rồi các dạng khác, giữ dạng Vbee chấp nhận; không gửi `limit` nữa. Lỗi hiện kèm lời nhắn gốc của Vbee.
+
 ## 0.9.1 — 2026-11-14 — Chọn giọng Vbee
 
 - Sửa lỗi không đổi được mã giọng Vbee: mã giọng trước đây bị giới hạn ở chữ không dấu, số, `_ - .` nên mã giọng tự tạo/cộng đồng bị từ chối với thông báo tiếng Anh khó hiểu. Giờ nhận mọi mã không có khoảng trắng/dấu nháy, báo lỗi bằng tiếng Việt.
