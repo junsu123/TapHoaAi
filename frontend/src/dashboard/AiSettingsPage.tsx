@@ -33,6 +33,10 @@ export interface AiConfig {
   greet_templates: string[];
   product_template: string;
   chat_template: string;
+  greet_joins: boolean;
+  welcome_many_template: string;
+  welcome_batch: number;
+  read_comments: boolean;
 }
 
 export interface AiStatus {
@@ -44,6 +48,9 @@ export interface AiStatus {
   voice_reason: string;
   answer_mode: "approve" | "auto";
   autopilot: boolean;
+  audio_note: string | null;
+  greet_joins: boolean;
+  read_comments: boolean;
   last_error: string | null;
   fake: boolean;
 }
@@ -223,7 +230,9 @@ export function AiSettingsPage() {
       <div className="card ai-status" data-testid="ai-status">
         <div className="row wrap">
           <span className={`chip ${st.configured ? "chip-ok" : "chip-warn"}`}>{st.configured ? "Claude: đã cài key" : "Claude: chưa cài key"}</span>
-          <span className={`chip ${st.voice_ready ? "chip-ok" : "chip-warn"}`}>{st.voice_ready ? "Giọng đọc: sẵn sàng" : `Giọng đọc: ${st.voice_reason}`}</span>
+          <span className={`chip ${st.voice_ready && !st.audio_note ? "chip-ok" : "chip-warn"}`}>
+            {st.voice_ready ? (st.audio_note ? `Phát trên LIVE: ${st.audio_note}` : "Giọng đọc: sẵn sàng") : `Giọng đọc: ${st.voice_reason}`}
+          </span>
           <span className="chip">
             Chi phí AI hôm nay {usd(st.budget.day_usd)} / {st.budget.day_cap} USD · tháng {usd(st.budget.month_usd)} / {st.budget.month_cap} USD
           </span>
@@ -388,6 +397,30 @@ export function AiSettingsPage() {
           </div>
 
           <div className="card">
+            <h2>👋 Chào người xem & đọc bình luận</h2>
+            <div className="stack">
+              <label className="check">
+                <input type="checkbox" checked={cfg.greet_joins} onChange={(e) => set("greet_joins", e.target.checked)} aria-label="Chào người vào LIVE" />
+                <span>
+                  <b>Chào mọi người vào LIVE</b> — chào từng người bằng tên; nhiều người vào cùng lúc thì gộp tên vào một câu (“Chào Lan, Minh và Hoa!”), không bỏ sót ai. Ai ra rồi vào lại trong 10 phút không bị chào lại.
+                </span>
+              </label>
+              <label className="check">
+                <input type="checkbox" checked={cfg.read_comments} onChange={(e) => set("read_comments", e.target.checked)} aria-label="Đọc bình luận" />
+                <span>
+                  <b>Đọc to bình luận của khách</b> — mọi bình luận, trừ spam, từ cấm, số điện thoại, liên kết. Câu hỏi luôn được đọc trước; bình luận thường chờ quá 30 giây thì bỏ qua để không trễ so với LIVE.
+                </span>
+              </label>
+              <Field label="Câu chào nhiều người" hint="{danh_sach} = các tên, ví dụ “Lan, Minh và Hoa”; {shop} = tên shop. Một người thì dùng câu chào ở mục Tự động hoàn toàn.">
+                <input value={cfg.welcome_many_template} onChange={(e) => set("welcome_many_template", e.target.value)} aria-label="Câu chào nhiều người" />
+              </Field>
+              <Field label={`Tối đa ${cfg.welcome_batch} tên mỗi câu chào`} hint="Đông người thì tự tăng gấp đôi; ai chờ quá 1 phút được chào chung “… và N bạn khác”.">
+                <input type="range" min={2} max={12} step={1} value={cfg.welcome_batch} onChange={(e) => set("welcome_batch", Number(e.target.value))} aria-label="Số tên mỗi câu chào" />
+              </Field>
+            </div>
+          </div>
+
+          <div className="card">
             <h2>🤖 Tự động hoàn toàn</h2>
             <div className="stack">
               <label className="check big">
@@ -464,7 +497,7 @@ export function AiSettingsPage() {
               ))}
               <label className="check big">
                 <input type="checkbox" checked={cfg.voice_enabled && allPolicy} disabled={!allPolicy} onChange={(e) => set("voice_enabled", e.target.checked)} aria-label="Bật giọng đọc trên LIVE" />
-                <b>Bật giọng đọc trên LIVE</b>
+                <b>Bật phát trên LIVE</b> (giọng đọc; chưa có giọng hoặc giọng lỗi thì hiện phụ đề)
               </label>
               <label className="check">
                 <input type="checkbox" checked={cfg.read_questions} onChange={(e) => set("read_questions", e.target.checked)} aria-label="Đọc to câu hỏi của khách" />

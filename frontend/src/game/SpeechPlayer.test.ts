@@ -100,4 +100,17 @@ describe("SpeechPlayer", () => {
     expect(sent).toEqual([]);
     vi.useRealTimers();
   });
+
+  it("without audio (no voice) the OBS page shows the caption and still reports start and end", () => {
+    vi.useFakeTimers();
+    const { p, sent, audios } = setup();
+    p.handle({ type: "SPEECH", clip: { ...clip("w1", "welcome"), url: null } });
+    expect(p.view().clip?.id).toBe("w1");
+    expect(sent).toEqual([{ type: "SPEECH_STARTED", id: "w1" }]);
+    vi.advanceTimersByTime(10_000);
+    expect(p.view().clip).toBeNull();
+    expect(sent.at(-1)).toEqual({ type: "SPEECH_ENDED", id: "w1" });
+    expect(audios).toHaveLength(0);
+    vi.useRealTimers();
+  });
 });

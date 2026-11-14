@@ -81,10 +81,11 @@ export interface GameSnapshot {
 
 export interface SpeechClip {
   id: string;
-  kind: "question" | "answer" | "test" | "comment" | "greeting" | "product";
+  kind: "question" | "answer" | "test" | "comment" | "greeting" | "product" | "welcome";
   label: string;
   text: string;
   url: string | null;
+  caption_only?: boolean;
 }
 
 export type ServerGameMessage =

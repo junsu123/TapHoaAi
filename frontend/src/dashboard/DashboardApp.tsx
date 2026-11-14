@@ -394,6 +394,8 @@ function HostPage({
             <button onClick={() => send({ raw: "@khachle: trà" })}>@khachle: trà (mơ hồ)</button>
             <button onClick={() => send({ raw: "@thuha: trà cà gai leo giá bao nhiêu vậy shop?" })}>@thuha: hỏi giá</button>
             <button onClick={() => send({ raw: "@namvo: shop có ship COD không" })}>@namvo: hỏi ship</button>
+            <button onClick={() => send({ type: "JOIN", unique_id: `khachmoi${Math.floor(Math.random() * 1000)}`, nickname: "Khách mới" })}>+1 người vào LIVE</button>
+            <button onClick={() => send({ raw: "@vy: hôm nay shop đẹp quá" })}>@vy: bình luận thường</button>
             <button onClick={() => send({ type: "SPAWN_RANDOM", count: 10 })}>+10 người xem giả</button>
             <button onClick={() => send({ type: "GIFT", unique_id: "lananh88", gift_name: "Hoa hồng", repeat_count: 5, repeat_end: true, streakable: true })}>
               Quà (kết thúc chuỗi ×5)

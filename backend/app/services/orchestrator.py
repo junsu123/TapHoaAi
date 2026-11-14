@@ -94,6 +94,8 @@ class Orchestrator:
             if av:
                 await asyncio.to_thread(self._upsert_viewer, ev)
                 self.c.hub.send_game({"type": "SOCIAL_EFFECT", "kind": "wave", "avatar_id": av.avatar_id})
+            if ev.user:  # greet everyone who joins, with or without a Chibi on screen
+                self.c.assistant.on_join(ev.user.nickname or ev.user.unique_id, ev.user.identity_key)
         elif ev.type == EventType.GIFT:
             n = self.c.gifts.settle(ev)
             if n:
@@ -163,7 +165,7 @@ class Orchestrator:
             self.host_attention.append(item)
             self.c.assistant.on_comment(item, intent, viewer_key)
             self.c.hub.send_dashboard({"type": "HOST_ATTENTION", "item": item})
-        elif intent.kind in (IntentKind.GREETING, IntentKind.PRODUCT):
+        else:  # greetings, product names, dance and ordinary chat: welcome / read aloud
             self.c.assistant.on_other(record, intent, viewer_key)
 
     @staticmethod

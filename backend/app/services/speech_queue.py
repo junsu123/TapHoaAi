@@ -30,11 +30,12 @@ log = logging.getLogger("chibi.voice")
 STALE_SECONDS = 90.0
 CHARS_PER_SECOND = 12.0  # Vietnamese TTS at speed 1.0, a little slow on purpose (timeout only)
 CACHE_KEEP_DAYS = 3
-Kind = Literal["question", "answer", "test", "comment", "greeting", "product"]
+Kind = Literal["question", "answer", "test", "comment", "greeting", "product", "welcome"]
 LABELS = {"question": "Câu hỏi của khách", "answer": "Trợ lý AI", "test": "Thử giọng", "comment": "Bình luận của khách",
-          "greeting": "Trợ lý AI", "product": "Trợ lý AI"}
+          "greeting": "Trợ lý AI", "product": "Trợ lý AI", "welcome": "Trợ lý AI"}
 # lower plays first; an answer still waits for the reading of its own question (same ref)
-PRIORITY = {"answer": 0, "test": 0, "question": 1, "comment": 1, "product": 2, "greeting": 3}
+PRIORITY = {"answer": 0, "test": 0, "question": 1, "welcome": 2, "product": 2, "comment": 3, "greeting": 3}
+TTS_COOLDOWN_S = 60.0  # after Vbee refuses (key, voice, credit, network): captions only for a minute
 
 
 @dataclass
@@ -48,10 +49,13 @@ class Clip:
     status: str = "đang tạo giọng"  # đang tạo giọng | chờ phát | đang phát | đã phát | đã dừng | bỏ (…)
     error: str | None = None
     started: float | None = None
+    ready: bool = False  # audio made, or given up on (then the clip is shown as a caption only)
+    ttl: float = STALE_SECONDS  # dropped if still waiting after this long
     task: asyncio.Task | None = field(default=None, repr=False, compare=False)
 
     def wire(self) -> dict[str, Any]:
-        return {"id": self.id, "kind": self.kind, "label": LABELS[self.kind], "text": self.text, "url": self.url}
+        return {"id": self.id, "kind": self.kind, "label": LABELS[self.kind], "text": self.text, "url": self.url,
+                "caption_only": self.url is None}
 
     def summary(self) -> dict[str, Any]:
         return {**self.wire(), "ref": self.ref, "status": self.status, "error": self.error}
@@ -74,6 +78,9 @@ class SpeechQueue:
         self._wake = asyncio.Event()
         self._task: asyncio.Task | None = None
         self.on_chars: Callable[[int], None] = lambda n: None
+        self.tts_ok: Callable[[int], bool] = lambda n: True  # budget / lock: may audio be made?
+        self.tts_down_until = 0.0
+        self.tts_down_reason: str | None = None
 
     # ------------------------------------------------------------------ lifecycle
     def start(self) -> None:
@@ -95,7 +102,10 @@ class SpeechQueue:
 
     # ------------------------------------------------------------------ state
     def state(self) -> dict[str, Any]:
+        down = time.monotonic() < self.tts_down_until
         return {"muted": self.muted, "hold": self.hold, "player": self.hub.has_primary(),
+                "caption_only": None if self.provider and not down else
+                (self.tts_down_reason if down else "Chưa cài giọng đọc Vbee — chỉ hiện phụ đề"),
                 "current": self.current.summary() if self.current else None,
                 "queue": [c.summary() for c in self.queue],
                 "history": [c.summary() for c in list(self.history)[::-1][:12]]}
@@ -130,7 +140,7 @@ class SpeechQueue:
         return len(self.queue) + (1 if self.current else 0)
 
     def enqueue(self, kind: Kind, text: str, ref: str | None = None, *, droppable: bool = False,
-                busy_limit: int = 3) -> Clip | None:
+                busy_limit: int = 3, ttl: float = STALE_SECONDS) -> Clip | None:
         """Queue a clip now and make its audio in the background. Higher-priority kinds go first,
         but a clip never jumps ahead of an earlier clip with the same ref (question → its answer).
         None when muted, or when `droppable` and `busy_limit` clips are already waiting (a busy
@@ -138,7 +148,7 @@ class SpeechQueue:
         audio is ready or failed."""
         if self.muted or (droppable and self.pending() >= busy_limit):
             return None
-        clip = Clip(id=f"s{next(self._ids)}", kind=kind, text=text, ref=ref)
+        clip = Clip(id=f"s{next(self._ids)}", kind=kind, text=text, ref=ref, ttl=ttl)
         prio = PRIORITY[kind]
         idx = len(self.queue)
         for i, other in enumerate(self.queue):
@@ -161,20 +171,32 @@ class SpeechQueue:
         return clip
 
     async def _render_clip(self, clip: Clip) -> None:
-        try:
-            clip.url = await self.render(clip.text)
-            if clip in self.queue:
-                clip.status = "chờ phát"
-        except TtsError as exc:
-            if clip in self.queue:
-                clip.status, clip.error = "bỏ (lỗi giọng đọc)", exc.message
-                self._drop(clip)
-            log.warning("Giọng đọc: %s", exc.message, extra={"ctx": {"mã": exc.code, "giọng": self.voice,
-                                                                     "HTTP": exc.status}})
-        except Exception as exc:
-            clip.status, clip.error = "bỏ (lỗi giọng đọc)", str(exc)[:120]
-            self._drop(clip)
-            log.exception("Lỗi tạo giọng đọc")
+        """Make the audio. If there is no voice (not set up, budget, Vbee refusing), the clip
+        still goes on the LIVE as a caption: a greeting on screen beats silence."""
+        reason: str | None = None
+        if self.provider is None:
+            reason = "chưa cài giọng đọc"
+        elif time.monotonic() < self.tts_down_until:
+            reason = self.tts_down_reason or "giọng đọc đang lỗi"
+        elif not self.tts_ok(len(clip.text)):
+            reason = "hết hạn mức ký tự hoặc giọng bị khóa"
+        else:
+            try:
+                clip.url = await self.render(clip.text)
+            except TtsError as exc:
+                reason = exc.message
+                if exc.code in ("auth", "voice", "credit", "network", "timeout", "not_configured", "api"):
+                    self.tts_down_until = time.monotonic() + TTS_COOLDOWN_S
+                    self.tts_down_reason = f"Giọng đọc lỗi — chỉ hiện phụ đề trong 1 phút: {exc.message}"
+                log.warning("Giọng đọc: %s", exc.message, extra={"ctx": {"mã": exc.code, "giọng": self.voice,
+                                                                         "HTTP": exc.status}})
+            except Exception as exc:
+                reason = str(exc)[:120]
+                log.exception("Lỗi tạo giọng đọc")
+        clip.ready = True
+        if clip in self.queue:
+            clip.status = "chờ phát" if clip.url else "chờ hiện phụ đề"
+            clip.error = None if clip.url else f"Chỉ phụ đề: {reason}"
         self._publish()
         self._wake.set()
 
@@ -235,11 +257,11 @@ class SpeechQueue:
     def _ready(self) -> Clip | None:
         now = time.monotonic()
         for clip in list(self.queue):
-            if now - clip.created > STALE_SECONDS:
+            if now - clip.created > clip.ttl:
                 clip.status = "bỏ (chờ quá lâu)"
                 self._drop(clip)
         for clip in self.queue:
-            if clip.url:
+            if clip.ready:
                 return clip
             break  # keep order: wait for the head to finish rendering
         return None

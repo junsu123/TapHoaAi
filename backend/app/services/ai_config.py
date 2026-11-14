@@ -71,6 +71,11 @@ class AiConfig(BaseModel):
         "Chào {ten}, chúc bạn xem LIVE vui vẻ ạ!",
     ], max_length=10)
     product_template: str = Field("Bạn {ten} đang xem {san_pham}, giá {gia} ạ.", max_length=160)
+    # --- welcome & reading comments (whenever the LIVE output is on, autopilot or not) ----------
+    greet_joins: bool = True  # every viewer who joins is greeted by name; many at once share a line
+    welcome_many_template: str = Field("Chào {danh_sach}! Cảm ơn các bạn đã vào LIVE của {shop} ạ!", max_length=160)
+    welcome_batch: int = Field(6, ge=1, le=15)  # names per line (doubled when many are waiting)
+    read_comments: bool = True  # read every comment aloud (not spam, banned words, links, phones)
     chat_template: str = Field("Bạn {ten} nói: {binh_luan}", max_length=120)
 
 
