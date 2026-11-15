@@ -80,6 +80,7 @@ def map_event(ev: Any) -> dict[str, Any] | None:
         return {**base, "type": "GIFT", "user": map_user(_get(ev, "user")), "payload": {
             "gift_id": str(_get(gift, "id") or _get(ev, "gift_id") or ""),
             "gift_name": _get(gift, "name") if gift is not None else None,
+            "diamonds": int(_get(gift, "diamond_count") or 0) if gift is not None else 0,  # coins per gift
             "repeat_count": int(_get(ev, "repeat_count") or 1),
             "repeat_end": not streaking, "streakable": streakable,
             "group_id": str(group) if (group and streakable) else None,

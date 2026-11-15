@@ -113,13 +113,24 @@ export function ChibiAvatar({ ctl, products, focusedId }: { ctl: AvatarControlle
     } else if (st === "wait") {
       headTilt = Math.sin(t * 1.5) * 0.1;
     }
-    body.current.position.y = bob;
+    // sitting on a cushion at the tea table: legs forward, hands on the table, a sip now and then
+    let sit = 0;
+    if (st === "sit") {
+      sit = 1;
+      const sip = (t % 5) < 1.4 ? Math.sin(((t % 5) / 1.4) * Math.PI) : 0;
+      rArm = -0.7 - sip * 1.2;
+      rArmSide = -0.15 - sip * 0.25;
+      lArm = -0.7;
+      bob = 0;
+      headTilt = sip * -0.08;
+    }
+    body.current.position.y = bob - sit * 0.12;
     body.current.rotation.x = lean;
     head.current.rotation.z = headTilt;
     armL.current.rotation.set(lArm, 0, lArmSide);
     armR.current.rotation.set(rArm, 0, rArmSide);
-    legL.current.rotation.x = legSwing;
-    legR.current.rotation.x = -legSwing;
+    legL.current.rotation.x = sit ? -1.45 : legSwing;
+    legR.current.rotation.x = sit ? -1.45 : -legSwing;
 
     // ---- held product: slot → right hand → slot (always the commanding avatar's own hand)
     const held = ctl.held;
@@ -237,7 +248,7 @@ export function ChibiAvatar({ ctl, products, focusedId }: { ctl: AvatarControlle
 }
 
 /** A body part with optional inverted-hull outline (cel-shaded look). */
-function Part({
+export function Part({
   geometry, material, position, rotation, scale, outlineScale = 1.07,
 }: {
   geometry: THREE.BufferGeometry;

@@ -116,6 +116,16 @@ Trang **Game 3D & OBS** → thẻ **🍵 Không gian cửa hàng & banner sản 
 
 Lưu là màn hình LIVE (và khung xem trước) đổi ngay, không cần tải lại OBS.
 
+## Chủ quán, tivi sản phẩm & bảng vàng
+
+Trên màn hình LIVE (đổi trong thẻ **Không gian cửa hàng & banner sản phẩm**, trang Game 3D & OBS):
+
+- **Tivi lớn treo tường:** banner sản phẩm có thể là một chiếc tivi treo tường (mặc định) hoặc bảng gỗ. Ảnh sản phẩm vẫn hiện nét như cũ, chạy liên tục hoặc lần lượt.
+- **Chibi chủ quán:** ngồi pha trà ở bàn trà giữa quán. Có người vào LIVE, chủ quán đứng dậy, cúi chào và hiện bong bóng “Xin chào quý khách {tên} đã vào quán!”. Nhiều người vào cùng lúc được gộp tên (3 tên một bong bóng, đông quá thì “… và N bạn khác”); mỗi người chỉ được chào một lần trong 10 phút. Bong bóng hiện cả khi chưa bật giọng đọc.
+- **Mời trà khách tặng quà:** Chibi của khách tặng quà đi tới ngồi đối diện chủ quán; chủ quán rót trà, mời nước (“Mời {tên} dùng trà ạ! Cảm ơn {tên} đã tặng {quà}!”), camera quay cận bàn trà vài giây. Khách ngồi khoảng 12 giây rồi đứng dậy đi tiếp; nhiều người tặng quà thì lần lượt từng người.
+- **Bảng vàng:** top người tặng quà (theo số xu, không rõ xu thì theo số quà) và top người mua hàng, hai bảng thay phiên nhau ở góc dưới màn hình. Tính theo từng buổi LIVE hoặc mọi buổi LIVE. Đơn mua hàng do người trực **ghi nhận** (thẻ Bảng vàng ở trang Người trực, hoặc nút “Ghi đơn” cạnh bình luận) — phần mềm không tự đoán đơn từ bình luận hay quà. Ghi đơn thì chủ quán cảm ơn khách trên LIVE.
+- Các câu của chủ quán sửa được, dùng `{ten}`, `{qua}`, `{san_pham}`.
+
 ## Trợ lý AI & giọng đọc (Claude + Vbee)
 
 Dashboard → **Trợ lý AI & giọng đọc**:

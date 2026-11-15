@@ -22,7 +22,7 @@ export class NavGrid {
   readonly blocked: Uint8Array;
   readonly obstacles: Rect[];
 
-  constructor(layout: StoreLayout) {
+  constructor(layout: StoreLayout, extra: Rect[] = []) {
     const w = layout.store.width;
     const d = layout.store.depth;
     this.minX = -w / 2;
@@ -40,6 +40,7 @@ export class NavGrid {
     });
     const c = layout.store.counter;
     this.obstacles.push({ minX: c.x - c.w / 2 - r, maxX: c.x + c.w / 2 + r, minZ: c.z - c.d / 2 - r, maxZ: c.z + c.d / 2 + r });
+    for (const o of extra) this.obstacles.push({ minX: o.minX - r, maxX: o.maxX + r, minZ: o.minZ - r, maxZ: o.maxZ + r });
     for (let row = 0; row < this.rows; row++) {
       for (let col = 0; col < this.cols; col++) {
         const { x, z } = this.cellCenter(col, row);

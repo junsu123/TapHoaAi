@@ -85,7 +85,7 @@ class DemoProvider(LiveEventProvider):
                 raise ValueError("Thiếu nội dung bình luận")
             payload = {"text": str(text)}
         elif etype == "GIFT":
-            payload = {k: spec[k] for k in ("gift_id", "gift_name", "repeat_count", "repeat_end", "streakable", "group_id") if k in spec}
+            payload = {k: spec[k] for k in ("gift_id", "gift_name", "diamonds", "repeat_count", "repeat_end", "streakable", "group_id") if k in spec}
         elif etype == "LIKE":
             payload = {"count": spec.get("count", 1)}
         return [await self._push(etype, user, payload, spec.get("event_id"))]

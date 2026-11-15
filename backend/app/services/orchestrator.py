@@ -96,14 +96,19 @@ class Orchestrator:
                 self.c.hub.send_game({"type": "SOCIAL_EFFECT", "kind": "wave", "avatar_id": av.avatar_id})
             if ev.user:  # greet everyone who joins, with or without a Chibi on screen
                 self.c.assistant.on_join(ev.user.nickname or ev.user.unique_id, ev.user.identity_key)
+                self.c.owner.on_join(ev.user.nickname or ev.user.unique_id, ev.user.identity_key)
         elif ev.type == EventType.GIFT:
             n = self.c.gifts.settle(ev)
             if n:
                 av = self.c.avatars.get_or_create(ev.user, is_demo)
+                name = (ev.user.nickname or ev.user.unique_id) if ev.user else None
                 if av:
                     self.c.hub.send_game({"type": "SOCIAL_EFFECT", "kind": "gift", "avatar_id": av.avatar_id,
                                           "count": n, "gift_name": ev.payload.get("gift_name")})
                     self.c.camera.request(av.avatar_id, None, PRIORITY_GIFT, max_seconds=3.0)
+                self.c.board.add_gift(ev.user.identity_key if ev.user else None, name, n,
+                                      int(ev.payload.get("diamonds") or 0), ev.session_id, is_demo)
+                self.c.owner.on_gift(av.avatar_id if av else None, name, ev.payload.get("gift_name"), n)
         elif ev.type in (EventType.LIKE, EventType.FOLLOW, EventType.SHARE):
             av = self.c.avatars.find(ev.user)  # like/follow never create avatars (LIVE-04)
             if av:

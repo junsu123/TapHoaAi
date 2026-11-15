@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.15.0 — 2026-11-15 — Chủ quán pha trà, tivi sản phẩm, bảng vàng
+
+- Banner sản phẩm thành **tivi lớn treo tường** (viền tivi, dây treo, đèn nguồn, màn hình tối); vẫn chọn được bảng gỗ.
+- **Chibi chủ quán** ngồi pha trà ở bàn trà giữa quán (ấm đất rót trà, hơi nước bốc lên). Người vào LIVE → đứng dậy, cúi chào, bong bóng “Xin chào quý khách {tên} đã vào quán!” (gộp tên khi nhiều người vào cùng lúc, không chào lặp trong 10 phút, hiện cả khi tắt giọng).
+- **Tặng quà → mời trà:** Chibi của khách đi tới ngồi đối diện chủ quán, chủ quán rót trà mời nước, camera quay cận bàn trà; khách tặng quà xếp hàng lần lượt.
+- **Bảng vàng** trên màn hình LIVE: top tặng quà (theo xu) và top mua hàng thay phiên; theo từng buổi hoặc mọi buổi LIVE. Người trực ghi nhận đơn mua (thẻ Bảng vàng, nút “Ghi đơn” cạnh bình luận), có xóa đơn ghi nhầm và làm mới bảng; chủ quán cảm ơn khách mua.
+- Sự kiện quà tặng TikTok giờ mang số xu của quà. API mới: `GET /api/v1/leaderboard`, `POST /api/v1/leaderboard/purchase`, `DELETE /api/v1/leaderboard/purchase/{id}`, `POST /api/v1/leaderboard/reset`; sự kiện game `OWNER_GREET`, `OWNER_TEA`, `OWNER_THANKS`, `LEADERBOARD`.
+
 ## 0.14.0 — 2026-11-15 — Giao diện quản trị mới
 
 - Giao diện quản trị làm lại theo tông tiệm trà: thanh bên xanh lá trà đậm, nền xám xanh nhạt, nút chính xanh ngọc, vàng cho việc cần làm, đỏ chỉ cho trạng thái đang LIVE và nút nguy hiểm; font Be Vietnam Pro (đóng gói sẵn, không cần mạng), biểu tượng nét mảnh thay cho emoji.

@@ -14,7 +14,8 @@ export type AnimState =
   | "checkout"
   | "exit"
   | "dance"
-  | "celebrate";
+  | "celebrate"
+  | "sit";
 
 /** Max seconds per state (Infinity = until the controller changes it). */
 export const MAX_DURATION: Record<AnimState, number> = {
@@ -31,6 +32,7 @@ export const MAX_DURATION: Record<AnimState, number> = {
   exit: 25,
   dance: 3,
   celebrate: 1.6,
+  sit: 60,
 };
 
 const ALLOWED: Record<AnimState, AnimState[]> = {
@@ -47,6 +49,7 @@ const ALLOWED: Record<AnimState, AnimState[]> = {
   exit: ["idle"],
   dance: ["idle", "walk"],
   celebrate: ["idle", "walk"],
+  sit: ["idle", "walk", "wave"],
 };
 
 export class AnimationFSM {

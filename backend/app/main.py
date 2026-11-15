@@ -21,6 +21,7 @@ from app.api.v1 import (
     logs,
     pdf_import,
     system,
+    teahouse,
 )
 from app.config import Settings, get_settings
 from app.container import AppContainer
@@ -94,7 +95,7 @@ def create_app(settings: Settings | None = None, container: AppContainer | None 
                                        "field": ".".join(str(x) for x in first.get("loc", []))}},
                             status_code=422)
 
-    for r in (auth.router, live.router, catalog.router, pdf_import.router, ai.router, conversations.router, logs.router, system.router, admin_ops.router):
+    for r in (auth.router, live.router, catalog.router, pdf_import.router, ai.router, conversations.router, logs.router, system.router, admin_ops.router, teahouse.router):
         app.include_router(r, prefix="/api/v1")
     app.include_router(ws_routes.router)
 

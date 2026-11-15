@@ -57,6 +57,7 @@ class DemoEventIn(BaseModel):
     count: int | None = Field(default=None, ge=1, le=100)
     gift_id: str | None = None
     gift_name: str | None = None
+    diamonds: int | None = Field(default=None, ge=0, le=100000)
     repeat_count: int | None = Field(default=None, ge=1, le=10000)
     repeat_end: bool | None = None
     streakable: bool | None = None
