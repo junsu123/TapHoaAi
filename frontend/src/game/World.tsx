@@ -6,6 +6,7 @@ import { ChibiAvatar } from "./ChibiAvatar";
 import type { GameEngine } from "./GameEngine";
 import { layoutLabels, type LabelBox } from "./labelLayout";
 import { LabelRegistryContext, RenderContext, type LabelEntry } from "./palette";
+import { LedWall, ledOn } from "./LedWall";
 import { StoreScene } from "./StoreScene";
 import { TeaCorner } from "./TeaCorner";
 import { themeOf } from "./themes";
@@ -25,8 +26,17 @@ const OVERVIEW_LOOK = new THREE.Vector3(0, 0, 0.2);
 // with the product banner across the top of the frame: tilt up a little so the shop sits below it
 const BANNER_POS = new THREE.Vector3(0, 18.6, 12.6);
 const BANNER_LOOK = new THREE.Vector3(0, 0, -1.6);
+// LED screen on the back wall: a lower, more frontal view so the wall screen is big and readable
+const LED_POS = new THREE.Vector3(0, 11.4, 14.6);
+const LED_LOOK = new THREE.Vector3(0, 1.1, -2.0);
+/** a frame (TV / board) is drawn over the top of the LIVE screen */
+const overlayBanner = (engine: GameEngine) => engine.scene.banner_enabled && engine.scene.banner_style !== "led";
 const overviewOf = (engine: GameEngine) =>
-  engine.scene.banner_enabled ? { pos: BANNER_POS, look: BANNER_LOOK } : { pos: OVERVIEW_POS, look: OVERVIEW_LOOK };
+  ledOn(engine.scene)
+    ? { pos: LED_POS, look: LED_LOOK }
+    : overlayBanner(engine)
+      ? { pos: BANNER_POS, look: BANNER_LOOK }
+      : { pos: OVERVIEW_POS, look: OVERVIEW_LOOK };
 
 /** GAME-07: overview → follow the Chibi → close-up on the box → back, all smoothed. */
 function CameraRig({ engine }: { engine: GameEngine }) {
@@ -53,12 +63,12 @@ function CameraRig({ engine }: { engine: GameEngine }) {
         const ease = t * t * (3 - 2 * t);
         const dist = 2.0 - 0.85 * ease;
         // with the banner on top, aim a bit higher so the Chibi and the box sit below it
-        const lift = engine.scene.banner_enabled ? 0.42 - 0.12 * ease : 0;
+        const lift = overlayBanner(engine) ? 0.42 - 0.12 * ease : 0;
         goalLook.set(fx, 0.5 - 0.1 * ease + lift, fz);
         goalPos.set(fx + Math.sin(a.yaw) * (dist + lift * 0.6), 0.85 - 0.25 * ease + lift * 0.5, fz + Math.cos(a.yaw) * (dist + lift * 0.6));
         shot = "closeup";
       } else {
-        const lift = engine.scene.banner_enabled ? 1.0 : 0;
+        const lift = overlayBanner(engine) ? 1.0 : 0;
         goalLook.set(a.pos.x, 0.55 + lift, a.pos.z - lift * 0.8);
         goalPos.set(a.pos.x * 0.7, 4.4 + lift * 0.4, a.pos.z + 6.4 + lift * 0.6);
         shot = "follow";
@@ -66,7 +76,7 @@ function CameraRig({ engine }: { engine: GameEngine }) {
     } else if (engine.spot && engine.tea.cameraOnTable()) {
       // tea is being served to a gift giver: frame the table
       const T = engine.spot.table;
-      const lift = engine.scene.banner_enabled ? 0.55 : 0;
+      const lift = overlayBanner(engine) ? 0.55 : 0;
       goalLook.set(T.x, 0.45 + lift, T.z);
       goalPos.set(T.x, 3.1 + lift * 0.6, T.z + 5.0);
       shot = "tea";
@@ -152,10 +162,18 @@ function Avatars({ engine }: { engine: GameEngine }) {
   });
   const products = engine.products;
   const focusedId = () => (engine.camera.mode === "follow" ? engine.camera.avatarId : null);
+  // tea being served: nobody standing between the camera and the tea table
+  const clearView = () => {
+    const shot = (window as unknown as { __chibiCamera?: { shot: string; position: number[] } }).__chibiCamera;
+    if (!engine.spot || shot?.shot !== "tea") return null;
+    const [x, y, z] = shot.position;
+    const T = engine.spot.table;
+    return { dist: Math.hypot(x - T.x, y - 0.5, z - T.z) - 1.3, keep: engine.tea.guest?.avatarId ?? null };
+  };
   return (
     <>
       {[...engine.avatars.values()].map((a) => (
-        <ChibiAvatar key={a.info.avatar_id} ctl={a} products={products} focusedId={focusedId} />
+        <ChibiAvatar key={a.info.avatar_id} ctl={a} products={products} focusedId={focusedId} clearView={clearView} />
       ))}
     </>
   );
@@ -179,7 +197,10 @@ function Scene({ engine }: { engine: GameEngine }) {
   const all = engine.layout ? engine.bannerProducts() : [];
   const posters = all.length > 2 ? [0, 1].map((k) => all[(turn * 2 + k) % all.length]) : all;
   return engine.layout ? (
-    <StoreScene key={`${layoutVersion}-${sceneVersion}`} layout={engine.layout} scene={engine.scene} posters={posters} />
+    <>
+      <StoreScene key={`${layoutVersion}-${sceneVersion}`} layout={engine.layout} scene={engine.scene} posters={posters} />
+      {ledOn(engine.scene) && <LedWall key={`led-${layoutVersion}-${sceneVersion}`} engine={engine} layout={engine.layout} />}
+    </>
   ) : null;
 }
 

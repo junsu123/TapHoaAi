@@ -274,7 +274,8 @@ export function LiveOverlay({
   }, [engine]);
 
   const price = st.product ? formatVnd(st.product.price) : null;
-  const banner = st.scene.banner_enabled && (!!st.product || st.bannerIds !== "");
+  // the LED style lives on the shop's back wall (3D), not over the frame
+  const banner = st.scene.banner_enabled && st.scene.banner_style !== "led" && (!!st.product || st.bannerIds !== "");
   return (
     <div
       className="overlay"

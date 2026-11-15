@@ -93,7 +93,7 @@ export interface SceneConfig {
   banner_show_price: boolean;
   banner_product_ids: string[]; // empty = every product with a photo
   wall_posters: boolean;
-  banner_style: "tv" | "board";
+  banner_style: "led" | "tv" | "board";
   owner_enabled: boolean;
   owner_name: string;
   owner_greet_template: string;
@@ -126,7 +126,7 @@ export const DEFAULT_SCENE: SceneConfig = {
   banner_show_price: true,
   banner_product_ids: [],
   wall_posters: true,
-  banner_style: "tv",
+  banner_style: "led",
   owner_enabled: true,
   owner_name: "Chủ quán",
   owner_greet_template: "Xin chào quý khách {ten} đã vào quán!",

@@ -87,12 +87,11 @@ test("T03 + T14: comment → walk to KE_02 → pick TRA_CA_GAI_LEO → close-up 
   expect(s.camera.avatarId).toBe(showing.id);
   await page.waitForTimeout(1500); // let the camera settle
   expect(await cameraShot(page)).toBe("closeup");
-  // the banner at the top switches to the product the Chibi is holding
-  const banner = page.getByTestId("product-banner");
-  await expect(banner).toHaveAttribute("data-product-id", "TRA_CA_GAI_LEO");
-  await expect(banner).toHaveAttribute("data-showcase", "1");
-  await expect(banner).toContainText("Trà cà gai leo");
-  await expect(banner).toContainText(`${nick} đang xem`);
+  // the LED screen on the back wall switches to the product the Chibi is holding,
+  // and the product card names the viewer
+  await page.waitForFunction(() => (window as any).__chibiDebug.state().led.productId === "TRA_CA_GAI_LEO");
+  await expect(page.getByTestId("product-card")).toHaveAttribute("data-product-id", "TRA_CA_GAI_LEO");
+  await expect(page.getByTestId("product-card")).toContainText("Trà cà gai leo");
   await expect(page.getByTestId("demo-badge")).toBeVisible();
   await page.screenshot({ path: `${SHOTS}/T03-2-closeup-holding-box.png` });
 
@@ -104,7 +103,8 @@ test("T03 + T14: comment → walk to KE_02 → pick TRA_CA_GAI_LEO → close-up 
   expect(sent[0]).toBe("ACK");
   expect(sent).toContain("ACTION_STARTED");
   expect(sent[sent.length - 1]).toBe("ACTION_COMPLETED");
-  await expect(page.getByTestId("product-banner")).toHaveAttribute("data-showcase", "0");
+  await expect(page.getByTestId("product-card")).toHaveCount(0);
+  await page.waitForFunction(() => (window as any).__chibiDebug.state().led.mode !== "focus");
 
   // backend recorded COMPLETED only after the client confirmed
   const actions = await (await page.request.get("/api/v1/actions")).json();
@@ -649,7 +649,7 @@ test("Herbal-tea shop look and product banner: rotates, follows the Chibi, setti
     const r = await page.request.put("/api/v1/settings/scene", { data: { ...cur, ...patch }, headers: { "X-CSRF-Token": csrf } });
     expect(r.ok()).toBeTruthy();
   };
-  await put({ theme: "herbal", banner_enabled: true, banner_mode: "scroll", banner_seconds: 4, banner_product_ids: [], wall_posters: true });
+  await put({ theme: "herbal", banner_enabled: true, banner_style: "tv", banner_mode: "scroll", banner_seconds: 4, banner_product_ids: [], wall_posters: true });
   const game = await context.newPage();
   await game.setViewportSize({ width: 540, height: 960 });
   await game.goto("/game/live?debug=1&quality=medium");
@@ -691,7 +691,12 @@ test("Herbal-tea shop look and product banner: rotates, follows the Chibi, setti
   await game.waitForFunction(() => (window as any).__chibiDebug.state().scene.theme === "kawaii");
   await game.waitForTimeout(1500);
   await game.screenshot({ path: `${SHOTS}/SCENE-kawaii-banner.png` });
-  await put({ theme: "herbal", banner_enabled: true, banner_mode: "scroll", banner_seconds: 6 });
+  // default: an LED screen fixed on the back wall (in the 3D shop), nothing over the frame
+  await put({ theme: "herbal", banner_enabled: true, banner_style: "led", banner_mode: "scroll", banner_seconds: 6 });
+  await expect(banner).toHaveCount(0);
+  await game.waitForFunction(() => (window as any).__chibiDebug.state().led.mode === "scroll", null, { timeout: 40_000 });
+  await game.waitForTimeout(2500);
+  await game.screenshot({ path: `${SHOTS}/SCENE-led-wall.png` });
 
   // dashboard settings card
   await page.setViewportSize({ width: 1360, height: 1100 });
@@ -756,13 +761,14 @@ test("Tea house: TV banner, owner greets joins with a bubble, gift giver is serv
   const csrf = await login(page.request);
   const H = { "X-CSRF-Token": csrf };
   const cur = (await (await page.request.get("/api/v1/settings/scene")).json()).config;
-  await page.request.put("/api/v1/settings/scene", { data: { ...cur, theme: "herbal", banner_enabled: true, banner_style: "tv", owner_enabled: true, board_enabled: true, board_position: "left" }, headers: H });
+  await page.request.put("/api/v1/settings/scene", { data: { ...cur, theme: "herbal", banner_enabled: true, banner_style: "led", owner_enabled: true, board_enabled: true, board_position: "left" }, headers: H });
   await page.request.post("/api/v1/leaderboard/reset", { headers: H });
   const game = await context.newPage();
   await game.setViewportSize({ width: 540, height: 960 });
   await game.goto("/game/live?debug=1&quality=medium");
   await game.waitForFunction(() => (window as any).__chibiDebug?.state().tea?.spot);
-  await expect(game.getByTestId("product-banner")).toHaveAttribute("data-style", "tv", { timeout: 40_000 });
+  await game.waitForFunction(() => ["scroll", "slide", "focus"].includes((window as any).__chibiDebug.state().led.mode), null, { timeout: 40_000 });
+  await expect(game.getByTestId("product-banner")).toHaveCount(0);
   await expect(game.getByTestId("honour-board")).toBeVisible();
 
   // joins → the owner stands, bows and greets them by name in one bubble
