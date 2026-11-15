@@ -45,3 +45,16 @@ def test_scene_validation(admin_client):
     assert admin_client.put("/api/v1/settings/scene", json={**base, "theme": "neon"}).status_code == 422
     assert admin_client.put("/api/v1/settings/scene", json={**base, "banner_seconds": 1}).status_code == 422
     assert admin_client.put("/api/v1/settings/scene", json={**base, "sign_text": "x" * 60}).status_code == 422
+
+
+def test_board_can_be_placed_anywhere_and_reset(admin_client):
+    c = admin_client.app.state.container
+    base = c.scene.model_dump()
+    r = admin_client.put("/api/v1/settings/scene", json={**base, "board_x": 0.4, "board_y": 0.62, "board_scale": 1.3})
+    assert r.status_code == 200, r.text
+    out = r.json()["config"]
+    assert (out["board_x"], out["board_y"], out["board_scale"]) == (0.4, 0.62, 1.3)
+    assert admin_client.put("/api/v1/settings/scene", json={**out, "board_x": 1.5}).status_code == 422
+    assert admin_client.put("/api/v1/settings/scene", json={**out, "board_scale": 3}).status_code == 422
+    r = admin_client.put("/api/v1/settings/scene", json={**out, "board_x": None, "board_y": None})
+    assert r.json()["config"]["board_x"] is None

@@ -587,3 +587,10 @@ label.check.big { font-size: 15px; }
 .order-btn { order: 99; margin-left: auto; min-height: 24px; padding: 1px 8px; font-size: 12px; color: var(--jade-600); border-color: #c7e0d2; background: var(--jade-50); opacity: 0; }
 .comment:hover .order-btn, .order-btn:focus-visible { opacity: 1; }
 @media (hover: none) { .order-btn { opacity: 1; } }
+.honour-board.editable { pointer-events: auto; cursor: grab; outline: .3vh dashed #f6d98a; outline-offset: .6vh; touch-action: none; user-select: none; }
+.honour-board.editable:active { cursor: grabbing; }
+.hb-edit-hint { display: block; margin-top: .6vh; font-size: clamp(8px, 1.1vh, 20px); color: #f6d98a; opacity: .85; }
+.hb-resize { position: absolute; right: -1vh; bottom: -1vh; width: 2.6vh; height: 2.6vh; border-radius: 50%; background: #f6d98a; border: .3vh solid #3b2a1a; cursor: nwse-resize; touch-action: none; }
+.board-placer { display: grid; gap: 8px; }
+.board-placer-frame { display: grid; gap: 6px; justify-items: start; }
+.board-placer-frame iframe { width: 338px; height: 600px; border: 1px solid var(--line-strong); border-radius: var(--r); background: #1b2a23; }
