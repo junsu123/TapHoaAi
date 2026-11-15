@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.15.1 — 2026-11-15 — Màn hình LED gắn trên tường
+
+- Kiểu mặc định của ảnh sản phẩm là **màn hình LED gắn phẳng trên tường sau quầy**, nằm trong cảnh 3D: viền nhôm mỏng, lưới điểm ảnh LED, ảnh sản phẩm kèm tên và giá chạy liên tục (hoặc lần lượt); Chibi cầm sản phẩm thì LED hiện riêng sản phẩm đó kèm tên khách. Tường sau cao hơn, biển hiệu gắn trên LED, đèn lồng dời ra hai bên.
+- Góc nhìn tổng quan thấp và chính diện hơn để LED to, đọc được; chủ quán và bàn trà cũng to hơn.
+- Khi quay cận bàn trà, Chibi đứng chắn giữa camera và bàn được ẩn tạm.
+- Kiểu tivi / bảng gỗ phủ phía trên màn hình LIVE vẫn chọn được.
+
 ## 0.15.0 — 2026-11-15 — Chủ quán pha trà, tivi sản phẩm, bảng vàng
 
 - Banner sản phẩm thành **tivi lớn treo tường** (viền tivi, dây treo, đèn nguồn, màn hình tối); vẫn chọn được bảng gỗ.

@@ -33,7 +33,9 @@ class SceneConfig(BaseModel):
     banner_show_price: bool = True
     banner_product_ids: list[str] = Field(default_factory=list, max_length=200)  # empty = every product with a photo
     wall_posters: bool = True
-    banner_style: Literal["tv", "board"] = "tv"  # big TV on the wall, or the plain wooden frame
+    # led = a big LED screen fixed flat on the back wall (in the 3D shop); tv / board = a frame
+    # drawn over the top of the LIVE screen
+    banner_style: Literal["led", "tv", "board"] = "led"
     # the shop-owner Chibi: brews tea, stands and bows to greet, serves tea to gift givers
     owner_enabled: bool = True
     owner_name: str = Field("Chủ quán", max_length=24)

@@ -17,7 +17,18 @@ const ease = (t: number) => t * t * (3 - 2 * t);
 const LABEL_Y = 1.42;
 const OUTLINE_LOD_DISTANCE = 12;
 
-export function ChibiAvatar({ ctl, products, focusedId }: { ctl: AvatarController; products: Map<string, ProductInfo>; focusedId: () => string | null }) {
+export function ChibiAvatar({
+  ctl,
+  products,
+  focusedId,
+  clearView,
+}: {
+  ctl: AvatarController;
+  products: Map<string, ProductInfo>;
+  focusedId: () => string | null;
+  /** a shot that must not be blocked: Chibis closer to the lens than `dist` are hidden */
+  clearView?: () => { dist: number; keep: string | null } | null;
+}) {
   const root = useRef<THREE.Group>(null!);
   const body = useRef<THREE.Group>(null!);
   const head = useRef<THREE.Group>(null!);
@@ -160,7 +171,8 @@ export function ChibiAvatar({ ctl, products, focusedId }: { ctl: AvatarControlle
     // close-up hygiene: other Chibis right in front of the lens are hidden, and the focused
     // Chibi's own label is dropped (the product card already names the viewer)
     const focused = focusedId() === ctl.info.avatar_id;
-    root.current.visible = focused || dist > 1.7;
+    const cv = clearView?.();
+    root.current.visible = focused || (dist > 1.7 && !(cv && cv.keep !== ctl.info.avatar_id && dist < cv.dist));
     // outline LOD: far-away Chibis are a few pixels tall — skip their outline draw calls
     const wantOutlines = dist < OUTLINE_LOD_DISTANCE;
     if (wantOutlines !== outlinesOn.current) {

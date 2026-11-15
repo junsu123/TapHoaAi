@@ -2,6 +2,7 @@ import { useContext, useMemo } from "react";
 import * as THREE from "three";
 import type { ProductInfo, SceneConfig, ShelfLayout, StoreLayout } from "../types/protocol";
 import { EDGE_MAT, RenderContext, toon } from "./palette";
+import { LED_WALL_HEIGHT, ledOn } from "./LedWall";
 import { themeOf, type ShopTheme } from "./themes";
 import { ProductBoxMesh } from "./ProductBox";
 
@@ -434,7 +435,9 @@ export function StoreScene({ layout, scene, posters }: { layout: StoreLayout; sc
   const W = layout.store.width;
   const D = layout.store.depth;
   const { shadows } = useContext(RenderContext);
-  const wallH = theme.wallHeight;
+  const led = ledOn(scene);
+  // the LED screen needs a taller back wall; the sign goes on the wall above it
+  const wallH = led ? Math.max(theme.wallHeight, LED_WALL_HEIGHT) : theme.wallHeight;
   const floorTex = useMemo(() => {
     const t = floorTexture(theme);
     t.repeat.set(W / 3, D / 3);
@@ -456,8 +459,8 @@ export function StoreScene({ layout, scene, posters }: { layout: StoreLayout; sc
   );
   const products = useMemo(() => new Map(layout.products.map((p) => [p.id, p])), [layout.products]);
   const c = layout.store.counter;
-  const sideH = herbal ? wallH * 0.42 : wallH / 2;
-  const shown = scene.wall_posters ? posters.slice(0, 2) : [];
+  const sideH = led ? (herbal ? 1.3 : 1.4) : herbal ? wallH * 0.42 : wallH / 2;
+  const shown = scene.wall_posters && !led ? posters.slice(0, 2) : [];
   const posterSize = 1.15;
   return (
     <group>
@@ -498,13 +501,13 @@ export function StoreScene({ layout, scene, posters }: { layout: StoreLayout; sc
         <OutlinedBox key={s} args={[0.08, 0.14, D]} position={[(s * W) / 2 - s * 0.03, sideH - 0.07, 0]} color={theme.wallTrim} />
       ))}
       {herbal ? (
-        <Lanterns xs={[-W / 2 + 1.1, -2.6, 2.6, W / 2 - 1.1]} z={-D / 2 + 0.45} y={wallH - 0.6} />
+        <Lanterns xs={led ? [-W / 2 + 0.75, W / 2 - 0.75] : [-W / 2 + 1.1, -2.6, 2.6, W / 2 - 1.1]} z={-D / 2 + 0.45} y={led ? 3.4 : wallH - 0.6} />
       ) : (
         <Bunting width={W} z={-D / 2 + 0.2} y={wallH - 0.25} colors={theme.jars} />
       )}
       {/* sign board */}
-      <mesh position={[0, wallH + 0.62, -D / 2 + 0.12]}>
-        <planeGeometry args={[herbal ? 5.6 : 4.8, herbal ? 1.4 : 1.2]} />
+      <mesh position={led ? [0, wallH - 0.42, -D / 2 + 0.1] : [0, wallH + 0.62, -D / 2 + 0.12]}>
+        <planeGeometry args={led ? [2.6, 0.65] : [herbal ? 5.6 : 4.8, herbal ? 1.4 : 1.2]} />
         <meshBasicMaterial map={sign} transparent toneMapped={false} />
       </mesh>
       {/* product posters on the back wall, behind the counter */}

@@ -53,6 +53,8 @@ export class GameEngine {
   board: LeaderboardView | null = null;
   /** owner's head on screen (0..1), written by the renderer, read by the speech bubble */
   ownerScreen: { x: number; y: number; visible: boolean } = { x: 0.5, y: 0.4, visible: false };
+  /** what the LED wall shows (written by the renderer; tests read it) */
+  led: { mode: string; productId: string | null } = { mode: "", productId: null };
   boardVersion = 0;
   /** bumps when the shop look changes (re-builds the 3D scene) */
   sceneVersion = 0;
@@ -284,6 +286,7 @@ export class GameEngine {
         spot: this.spot ? { x: this.spot.table.x, z: this.spot.table.z } : null,
         history: this.tea.history.slice(-10),
       },
+      led: this.led,
       board: this.board ? { gifts: this.board.gifts.length, buyers: this.board.buyers.length } : null,
       camera: { ...this.camera, phase: this.focused()?.phase ?? null },
       avatars: [...this.avatars.values()].map((a) => ({
