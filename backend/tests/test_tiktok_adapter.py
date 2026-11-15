@@ -36,10 +36,10 @@ def test_comment_maps_to_f1_raw_event():
 
 
 def test_gift_streak_mapping():
-    rose = Gift(id=5655, name="Rose", type=1)
+    rose = Gift(id=5655, name="Rose", type=1, diamond_count=1)
     mid = map_event(GiftEvent(common=CommonMessageData(msg_id=1), user=LAN, gift=rose, repeat_count=3, repeat_end=0, group_id=42))
     end = map_event(GiftEvent(common=CommonMessageData(msg_id=2), user=LAN, gift=rose, repeat_count=5, repeat_end=1, group_id=42))
-    assert mid["payload"] == {"gift_id": "5655", "gift_name": "Rose", "repeat_count": 3, "repeat_end": False,
+    assert mid["payload"] == {"gift_id": "5655", "gift_name": "Rose", "diamonds": 1, "repeat_count": 3, "repeat_end": False,
                               "streakable": True, "group_id": "42"}
     assert end["payload"]["repeat_end"] is True and end["payload"]["repeat_count"] == 5
     one_off = map_event(GiftEvent(common=CommonMessageData(msg_id=3), user=LAN, gift=Gift(id=9, name="Lion", type=2), repeat_count=1))

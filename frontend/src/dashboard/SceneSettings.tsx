@@ -73,6 +73,13 @@ export function SceneSettings() {
         <input type="checkbox" checked={cfg.banner_enabled} onChange={(e) => set({ banner_enabled: e.target.checked })} />
         Hiện banner ảnh sản phẩm to ở đầu màn hình LIVE
       </label>
+      <label>
+        Kiểu khung
+        <select value={cfg.banner_style} onChange={(e) => set({ banner_style: e.target.value as SceneConfig["banner_style"] })} aria-label="Kiểu khung banner">
+          <option value="tv">Tivi lớn treo tường</option>
+          <option value="board">Bảng gỗ</option>
+        </select>
+      </label>
       <fieldset className="banner-mode">
         <legend>Cách chạy</legend>
         <label className="check">
@@ -127,6 +134,69 @@ export function SceneSettings() {
         <input type="checkbox" checked={cfg.wall_posters} onChange={(e) => set({ wall_posters: e.target.checked })} />
         Treo ảnh sản phẩm trong khung trên tường cửa hàng 3D
       </label>
+
+      <h3>Chibi chủ quán</h3>
+      <label className="check">
+        <input type="checkbox" checked={cfg.owner_enabled} onChange={(e) => set({ owner_enabled: e.target.checked })} aria-label="Chibi chủ quán" />
+        Có Chibi chủ quán ngồi pha trà ở bàn trà giữa quán
+      </label>
+      <p className="muted small">
+        Có người vào LIVE: chủ quán đứng dậy cúi chào, hiện bong bóng lời chào (nhiều người vào cùng lúc thì gộp tên). Có người tặng quà: Chibi của khách tới ngồi đối diện, chủ quán rót trà mời. Ghi đơn mua hàng: chủ quán cảm ơn.
+      </p>
+      {cfg.owner_enabled && (
+        <>
+          <label>
+            Tên trên đầu chủ quán
+            <input value={cfg.owner_name} maxLength={24} onChange={(e) => set({ owner_name: e.target.value })} aria-label="Tên chủ quán" />
+          </label>
+          <label>
+            Lời chào khách vào ({"{ten}"} = tên khách)
+            <input value={cfg.owner_greet_template} maxLength={120} onChange={(e) => set({ owner_greet_template: e.target.value })} aria-label="Lời chào của chủ quán" />
+          </label>
+          <label>
+            Lời mời trà khách tặng quà ({"{ten}"}, {"{qua}"} = quà)
+            <input value={cfg.owner_tea_template} maxLength={140} onChange={(e) => set({ owner_tea_template: e.target.value })} aria-label="Lời mời trà" />
+          </label>
+          <label>
+            Lời cảm ơn khách mua ({"{ten}"}, {"{san_pham}"})
+            <input value={cfg.owner_buy_template} maxLength={120} onChange={(e) => set({ owner_buy_template: e.target.value })} aria-label="Lời cảm ơn khách mua" />
+          </label>
+        </>
+      )}
+
+      <h3>Bảng vàng</h3>
+      <label className="check">
+        <input type="checkbox" checked={cfg.board_enabled} onChange={(e) => set({ board_enabled: e.target.checked })} aria-label="Bảng vàng" />
+        Hiện bảng vàng top tặng quà & mua hàng trên màn hình LIVE
+      </label>
+      {cfg.board_enabled && (
+        <div className="row wrap">
+          <label>
+            Vị trí
+            <select value={cfg.board_position} onChange={(e) => set({ board_position: e.target.value as SceneConfig["board_position"] })} aria-label="Vị trí bảng vàng">
+              <option value="left">Góc dưới bên trái</option>
+              <option value="right">Góc dưới bên phải</option>
+            </select>
+          </label>
+          <label>
+            Số người mỗi bảng
+            <select value={cfg.board_size} onChange={(e) => set({ board_size: Number(e.target.value) })} aria-label="Số người mỗi bảng">
+              {[3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                <option key={n} value={n}>
+                  Top {n}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Tính từ
+            <select value={cfg.board_scope} onChange={(e) => set({ board_scope: e.target.value as SceneConfig["board_scope"] })} aria-label="Phạm vi bảng vàng">
+              <option value="session">Từng buổi LIVE (tự làm mới)</option>
+              <option value="all">Mọi buổi LIVE (tới khi làm mới)</option>
+            </select>
+          </label>
+        </div>
+      )}
       <div className="row">
         <button className="primary" disabled={busy}>
           Lưu không gian & banner

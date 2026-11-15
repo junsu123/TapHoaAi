@@ -33,8 +33,21 @@ class SceneConfig(BaseModel):
     banner_show_price: bool = True
     banner_product_ids: list[str] = Field(default_factory=list, max_length=200)  # empty = every product with a photo
     wall_posters: bool = True
+    banner_style: Literal["tv", "board"] = "tv"  # big TV on the wall, or the plain wooden frame
+    # the shop-owner Chibi: brews tea, stands and bows to greet, serves tea to gift givers
+    owner_enabled: bool = True
+    owner_name: str = Field("Chủ quán", max_length=24)
+    owner_greet_template: str = Field("Xin chào quý khách {ten} đã vào quán!", max_length=120)
+    owner_tea_template: str = Field("Mời {ten} dùng trà ạ! Cảm ơn {ten} đã tặng {qua}!", max_length=140)
+    owner_buy_template: str = Field("Cảm ơn {ten} đã mua {san_pham} ạ!", max_length=120)
+    # honour board: top gift givers and buyers
+    board_enabled: bool = True
+    board_position: Literal["left", "right"] = "left"
+    board_scope: Literal["session", "all"] = "session"  # reset for each LIVE, or keep until reset
+    board_size: int = Field(5, ge=3, le=10)
 
-    @field_validator("sign_text", "tagline")
+    @field_validator("sign_text", "tagline", "owner_name", "owner_greet_template", "owner_tea_template",
+                     "owner_buy_template")
     @classmethod
     def _clean(cls, v: str) -> str:
         return " ".join(v.split())
@@ -54,3 +67,6 @@ def save_scene(c: AppContainer, cfg: SceneConfig) -> None:
     c.set_setting(CONFIG_KEY, cfg.model_dump_json(), secret=False)
     c.scene = cfg
     c.hub.send_game({"type": "SCENE_UPDATED", "scene": cfg.model_dump()})
+    board = getattr(c, "board", None)
+    if board is not None:  # board size / scope may have changed
+        board._publish()

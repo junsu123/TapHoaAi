@@ -60,6 +60,7 @@ def normalize(raw: dict[str, Any], *, session_id: str, provider: str, simulated:
         payload = {
             "gift_id": _clip(p.get("gift_id"), 64),
             "gift_name": _clip(p.get("gift_name"), 64),
+            "diamonds": min(100_000, max(0, int(p.get("diamonds", 0) or 0))),
             "repeat_count": max(1, int(p.get("repeat_count", 1) or 1)),
             "repeat_end": bool(p.get("repeat_end", True)),
             "streakable": bool(p.get("streakable", False)),

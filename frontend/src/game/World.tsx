@@ -7,6 +7,7 @@ import type { GameEngine } from "./GameEngine";
 import { layoutLabels, type LabelBox } from "./labelLayout";
 import { LabelRegistryContext, RenderContext, type LabelEntry } from "./palette";
 import { StoreScene } from "./StoreScene";
+import { TeaCorner } from "./TeaCorner";
 import { themeOf } from "./themes";
 
 export type Quality = "low" | "medium" | "high";
@@ -62,6 +63,13 @@ function CameraRig({ engine }: { engine: GameEngine }) {
         goalPos.set(a.pos.x * 0.7, 4.4 + lift * 0.4, a.pos.z + 6.4 + lift * 0.6);
         shot = "follow";
       }
+    } else if (engine.spot && engine.tea.cameraOnTable()) {
+      // tea is being served to a gift giver: frame the table
+      const T = engine.spot.table;
+      const lift = engine.scene.banner_enabled ? 0.55 : 0;
+      goalLook.set(T.x, 0.45 + lift, T.z);
+      goalPos.set(T.x, 3.1 + lift * 0.6, T.z + 5.0);
+      shot = "tea";
     } else {
       const o = overviewOf(engine);
       goalLook.copy(o.look);
@@ -175,6 +183,16 @@ function Scene({ engine }: { engine: GameEngine }) {
   ) : null;
 }
 
+/** Tea corner with the shop owner (rebuilt when the layout or the shop look changes). */
+function Tea({ engine }: { engine: GameEngine }) {
+  const [v, setV] = useState(-1);
+  useFrame(() => {
+    const k = engine.sceneVersion * 100000 + (engine.layout?.version ?? 0) * 100 + (engine.layoutVersion % 100);
+    if (k !== v) setV(k);
+  });
+  return engine.spot ? <TeaCorner key={v} engine={engine} spot={engine.spot} /> : null;
+}
+
 /** Lights and sky follow the shop theme. */
 function Lights({ engine, q }: { engine: GameEngine; q: (typeof QUALITY)[Quality] }) {
   const [v, setV] = useState(-1);
@@ -232,6 +250,7 @@ export function World({ engine, quality, onFps }: { engine: GameEngine; quality:
         <Scene engine={engine} />
         <LabelRegistryContext.Provider value={labelRegistry}>
           <Avatars engine={engine} />
+          <Tea engine={engine} />
           <LabelLayoutSystem registry={labelRegistry} />
         </LabelRegistryContext.Provider>
         <CameraRig engine={engine} />

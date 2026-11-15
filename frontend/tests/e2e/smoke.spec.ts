@@ -750,3 +750,62 @@ test("Voice checklist: says why nobody is greeted, then shows greetings and comm
   await page.request.put("/api/v1/settings/ai", { data: { config: { ...off } }, headers: { "X-CSRF-Token": csrf } });
   await game.close();
 });
+
+test("Tea house: TV banner, owner greets joins with a bubble, gift giver is served tea, honour board", async ({ page, context }) => {
+  test.setTimeout(180_000);
+  const csrf = await login(page.request);
+  const H = { "X-CSRF-Token": csrf };
+  const cur = (await (await page.request.get("/api/v1/settings/scene")).json()).config;
+  await page.request.put("/api/v1/settings/scene", { data: { ...cur, theme: "herbal", banner_enabled: true, banner_style: "tv", owner_enabled: true, board_enabled: true, board_position: "left" }, headers: H });
+  await page.request.post("/api/v1/leaderboard/reset", { headers: H });
+  const game = await context.newPage();
+  await game.setViewportSize({ width: 540, height: 960 });
+  await game.goto("/game/live?debug=1&quality=medium");
+  await game.waitForFunction(() => (window as any).__chibiDebug?.state().tea?.spot);
+  await expect(game.getByTestId("product-banner")).toHaveAttribute("data-style", "tv", { timeout: 40_000 });
+  await expect(game.getByTestId("honour-board")).toBeVisible();
+
+  // joins → the owner stands, bows and greets them by name in one bubble
+  const tag = RUN.slice(-3);
+  for (const n of ["Thu", "Bảo", "Ngân"]) {
+    await page.request.post("/api/v1/demo/events", { data: { type: "JOIN", unique_id: `${n}${tag}`.normalize("NFD").replace(/[^a-zA-Z0-9]/g, "").toLowerCase(), nickname: `${n} ${tag}` }, headers: H });
+  }
+  const bubble = game.getByTestId("owner-bubble");
+  await expect(bubble).toContainText(`Xin chào quý khách Thu ${tag}, Bảo ${tag} và Ngân ${tag} đã vào quán!`, { timeout: 15_000 });
+  await game.waitForFunction(() => ["rise", "bow", "stand"].includes((window as any).__chibiDebug.state().tea.pose), null, { timeout: 5_000 });
+  await game.waitForTimeout(900);
+  await game.screenshot({ path: `${SHOTS}/TEA-1-greeting.png` });
+
+  // the host records a purchase → the owner thanks the buyer; the buyer is on the board
+  await page.setViewportSize({ width: 1360, height: 1200 });
+  await page.goto("/dashboard/host");
+  const card = page.getByTestId("board-card");
+  await card.getByLabel("Tên khách").fill("Minh Tú");
+  await card.getByLabel("Sản phẩm đã mua").selectOption("TRA_CA_GAI_LEO");
+  await card.getByLabel("Số lượng").fill("2");
+  await card.getByRole("button", { name: "Ghi đơn" }).click();
+  await expect(card.getByTestId("purchase-msg")).toContainText("Minh Tú");
+  await expect(bubble).toContainText("Cảm ơn Minh Tú đã mua 2 Trà cà gai leo ạ!", { timeout: 15_000 });
+  await expect(game.getByTestId("honour-board")).toContainText("Minh Tú", { timeout: 20_000 });
+
+  // a gift → the giver's Chibi walks to the tea table, sits opposite the owner and is served
+  await page.getByRole("button", { name: "Quà (kết thúc chuỗi ×5)" }).click();
+  await game.waitForFunction(() => (window as any).__chibiDebug.state().tea.guest?.seated === true, null, { timeout: 40_000 });
+  await expect(bubble).toContainText("Mời Lan Anh dùng trà ạ! Cảm ơn Lan Anh đã tặng 5 Hoa hồng!");
+  await game.waitForFunction(() => (window as any).__chibiDebug.state().tea.cupFull === true, null, { timeout: 10_000 });
+  await game.waitForTimeout(1200);
+  // the camera frames the table (unless another viewer's product close-up has priority)
+  const cam = (await game.evaluate(() => (window as any).__chibiCamera)).shot;
+  expect(["tea", "closeup"]).toContain(cam);
+  expect(await game.evaluate(() => (window as any).__chibiDebug.state().tea.teaShot)).toBe(true);
+  await game.screenshot({ path: `${SHOTS}/TEA-2-serving.png` });
+  await expect(card).toContainText("Lan Anh");
+  await card.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${SHOTS}/TEA-3-host-board.png`, fullPage: true });
+  // back to the overview with the board showing both lists
+  await game.waitForFunction(() => !(window as any).__chibiDebug.state().tea.teaShot, null, { timeout: 20_000 });
+  await game.waitForTimeout(2500);
+  await game.screenshot({ path: `${SHOTS}/TEA-4-overview-board.png` });
+  await page.request.post("/api/v1/leaderboard/reset", { headers: H });
+  await game.close();
+});

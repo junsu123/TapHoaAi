@@ -78,6 +78,7 @@ export interface GameSnapshot {
   camera: { mode: "overview" | "follow"; avatar_id?: string; command_id?: string | null };
   settings: { show_seconds: number };
   scene?: SceneConfig;
+  board?: LeaderboardView;
 }
 
 export interface SceneConfig {
@@ -92,6 +93,25 @@ export interface SceneConfig {
   banner_show_price: boolean;
   banner_product_ids: string[]; // empty = every product with a photo
   wall_posters: boolean;
+  banner_style: "tv" | "board";
+  owner_enabled: boolean;
+  owner_name: string;
+  owner_greet_template: string;
+  owner_tea_template: string;
+  owner_buy_template: string;
+  board_enabled: boolean;
+  board_position: "left" | "right";
+  board_scope: "session" | "all";
+  board_size: number;
+}
+
+export interface LeaderboardView {
+  gifts: { name: string; gifts: number; coins: number }[];
+  buyers: { name: string; items: number; amount: number; orders: number }[];
+  recent_purchases: { id: string; name: string; product: string; qty: number; amount: number; at: number }[];
+  scope: "session" | "all";
+  total_gifts: number;
+  total_orders: number;
 }
 
 export const DEFAULT_SCENE: SceneConfig = {
@@ -106,6 +126,16 @@ export const DEFAULT_SCENE: SceneConfig = {
   banner_show_price: true,
   banner_product_ids: [],
   wall_posters: true,
+  banner_style: "tv",
+  owner_enabled: true,
+  owner_name: "Chủ quán",
+  owner_greet_template: "Xin chào quý khách {ten} đã vào quán!",
+  owner_tea_template: "Mời {ten} dùng trà ạ! Cảm ơn {ten} đã tặng {qua}!",
+  owner_buy_template: "Cảm ơn {ten} đã mua {san_pham} ạ!",
+  board_enabled: true,
+  board_position: "left",
+  board_scope: "session",
+  board_size: 5,
 };
 
 export interface SpeechClip {
@@ -132,6 +162,10 @@ export type ServerGameMessage =
   | { type: "SOCIAL_EFFECT"; sequence: number; kind: string; avatar_id: string | null; count?: number }
   | { type: "LAYOUT_UPDATED"; sequence: number; layout: StoreLayout }
   | { type: "SCENE_UPDATED"; sequence: number; scene: SceneConfig }
+  | { type: "OWNER_GREET"; sequence: number; text: string; names: string[]; more: number }
+  | { type: "OWNER_TEA"; sequence: number; avatar_id: string | null; name: string; text: string }
+  | { type: "OWNER_THANKS"; sequence: number; text: string }
+  | { type: "LEADERBOARD"; sequence: number; board: LeaderboardView }
   | { type: "LIVE_STATUS"; sequence: number; status: string; is_demo: boolean }
   | { type: "SESSION"; sequence: number; session_id: string | null; is_demo: boolean }
   | { type: "SPEECH"; sequence: number; clip: SpeechClip }

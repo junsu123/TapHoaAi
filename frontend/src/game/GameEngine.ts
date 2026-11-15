@@ -13,7 +13,8 @@ import type {
   ShelfLayout,
   StoreLayout,
 } from "../types/protocol";
-import { DEFAULT_SCENE } from "../types/protocol";
+import { DEFAULT_SCENE, type LeaderboardView } from "../types/protocol";
+import { TeaHouse, teaSpot, type TeaSpot } from "./teahouse";
 import { AvatarController, type Vec3, type WorldQuery } from "./AvatarController";
 import { NavGrid } from "./Navigation";
 
@@ -46,6 +47,13 @@ export class GameEngine {
   sessionId: string | null = null;
   layoutVersion = 0;
   scene: SceneConfig = DEFAULT_SCENE;
+  /** tea corner: shop owner, guest cushion (null when the owner is switched off) */
+  spot: TeaSpot | null = null;
+  tea = new TeaHouse((id) => this.avatars.get(id));
+  board: LeaderboardView | null = null;
+  /** owner's head on screen (0..1), written by the renderer, read by the speech bubble */
+  ownerScreen: { x: number; y: number; visible: boolean } = { x: 0.5, y: 0.4, visible: false };
+  boardVersion = 0;
   /** bumps when the shop look changes (re-builds the 3D scene) */
   sceneVersion = 0;
   /** bumps whenever the set of avatars or the layout changes (React re-render trigger) */
@@ -78,8 +86,7 @@ export class GameEngine {
   setLayout(layout: StoreLayout): void {
     this.layout = layout;
     this.layoutVersion = layout.version;
-    this.nav = new NavGrid(layout);
-    this.world.nav = this.nav;
+    this.rebuildNav();
     this.world.door = { x: layout.store.door.x, z: Math.min(layout.store.door.z, layout.store.depth / 2 - 0.6) };
     this.products = new Map(layout.products.map((p) => [p.id, p]));
     this.shelves = new Map(layout.shelves.map((s) => [s.code, s]));
@@ -87,9 +94,19 @@ export class GameEngine {
   }
 
   setScene(scene: SceneConfig): void {
+    const ownerWas = this.scene.owner_enabled;
     this.scene = { ...DEFAULT_SCENE, ...scene };
+    if (this.layout && ownerWas !== this.scene.owner_enabled) this.rebuildNav();
     this.sceneVersion++;
     this.version++;
+  }
+
+  /** Walkable map: shelves and counter, plus the tea table when the shop owner is on. */
+  private rebuildNav(): void {
+    if (!this.layout) return;
+    this.spot = this.scene.owner_enabled ? teaSpot(this.layout) : null;
+    this.nav = new NavGrid(this.layout, this.spot ? [this.spot.obstacle] : []);
+    this.world.nav = this.nav;
   }
 
   /** Products shown on the banner/posters: the chosen ones, else every product with a photo. */
@@ -137,6 +154,10 @@ export class GameEngine {
     this.liveStatus = s.live_status;
     this.setLayout(s.layout);
     if (s.scene) this.setScene(s.scene);
+    if (s.board) {
+      this.board = s.board;
+      this.boardVersion++;
+    }
     const keep = new Set(s.avatars.map((a) => a.avatar_id));
     for (const id of [...this.avatars.keys()]) if (!keep.has(id)) this.avatars.delete(id);
     for (const a of s.avatars) this.addAvatar(a, true);
@@ -192,6 +213,19 @@ export class GameEngine {
       case "SCENE_UPDATED":
         this.setScene(m.scene);
         break;
+      case "OWNER_GREET":
+        if (this.scene.owner_enabled) this.tea.greet(m.text);
+        break;
+      case "OWNER_TEA":
+        if (this.scene.owner_enabled) this.tea.invite(m.avatar_id, m.name, m.text);
+        break;
+      case "OWNER_THANKS":
+        if (this.scene.owner_enabled) this.tea.thanks(m.text);
+        break;
+      case "LEADERBOARD":
+        this.board = m.board;
+        this.boardVersion++;
+        break;
       case "LIVE_STATUS":
         this.liveStatus = m.status;
         this.isDemo = m.is_demo;
@@ -217,6 +251,7 @@ export class GameEngine {
         this.version++;
       }
     }
+    this.tea.update(clamped, this.spot);
   }
 
   focused(): AvatarController | null {
@@ -239,6 +274,17 @@ export class GameEngine {
       liveStatus: this.liveStatus,
       layoutVersion: this.layoutVersion,
       scene: { theme: this.scene.theme, banner: this.scene.banner_enabled, sceneVersion: this.sceneVersion },
+      tea: {
+        pose: this.tea.pose,
+        bubble: this.tea.bubble?.text ?? null,
+        guest: this.tea.guest ? { avatarId: this.tea.guest.avatarId, seated: this.tea.guest.seatedAt !== null, served: this.tea.guest.served } : null,
+        queue: this.tea.queue.length,
+        cupFull: this.tea.guestCupFull,
+        teaShot: this.tea.cameraOnTable(),
+        spot: this.spot ? { x: this.spot.table.x, z: this.spot.table.z } : null,
+        history: this.tea.history.slice(-10),
+      },
+      board: this.board ? { gifts: this.board.gifts.length, buyers: this.board.buyers.length } : null,
       camera: { ...this.camera, phase: this.focused()?.phase ?? null },
       avatars: [...this.avatars.values()].map((a) => ({
         id: a.info.avatar_id,

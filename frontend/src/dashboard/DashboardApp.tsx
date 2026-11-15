@@ -11,6 +11,8 @@ import { KnowledgePage } from "./KnowledgePage";
 import { LogsPage } from "./LogsPage";
 import { BOX_FACE_LABEL, PdfFacePicker, type RenderedFaces } from "./PdfFacePicker";
 import { SceneSettings } from "./SceneSettings";
+import { BoardCard, type PurchasePrefill } from "./BoardCard";
+import type { LeaderboardView } from "../types/protocol";
 import { Brand, OnAirTile, PageHeader, SideNav, UserFoot } from "./Shell";
 import { ShelfEditor } from "./ShelfEditor";
 import { VoiceCheck, type VoiceTraceEntry } from "./VoiceCheck";
@@ -363,9 +365,14 @@ function ConnectPage({ live }: { live: LiveStatus | null }) {
   );
 }
 
-function CommentRow({ c }: { c: CommentRecord }) {
+function CommentRow({ c, onOrder }: { c: CommentRecord; onOrder?: (c: CommentRecord) => void }) {
   return (
     <li className="comment" data-testid="comment-row">
+      {onOrder && (
+        <button className="order-btn" onClick={() => onOrder(c)} title="Ghi nhận khách này đã mua hàng">
+          Ghi đơn
+        </button>
+      )}
       <span className={`chip chip-${c.intent.toLowerCase()}`}>{INTENT_LABEL[c.intent] ?? c.intent}</span>
       <b>{c.nickname ?? c.unique_id ?? "?"}</b>
       {c.is_demo && <span className="chip">DEMO</span>}: {c.text}
@@ -383,7 +390,9 @@ function HostPage({
   speech,
   ai,
   voiceTrace,
+  board,
 }: {
+  board: LeaderboardView | null;
   comments: CommentRecord[];
   host: HostItem[];
   aiPaused: boolean;
@@ -393,6 +402,7 @@ function HostPage({
   voiceTrace: VoiceTraceEntry[];
 }) {
   const [raw, setRaw] = useState("@lananh88: trà cà gai leo");
+  const [prefill, setPrefill] = useState<PurchasePrefill | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const send = async (body: object) => {
     setErr(null);
@@ -439,6 +449,9 @@ function HostPage({
             ))}
           </ul>
         </Card>
+        <Card title="Bảng vàng" desc="Top khách tặng quà và mua hàng — hiện trên màn hình LIVE.">
+          <BoardCard board={board} prefill={prefill} />
+        </Card>
         <Card title="Gửi sự kiện Demo">
           <form
             className="row"
@@ -459,7 +472,7 @@ function HostPage({
             <button onClick={() => send({ type: "JOIN", unique_id: `khachmoi${Math.floor(Math.random() * 1000)}`, nickname: "Khách mới" })}>+1 người vào LIVE</button>
             <button onClick={() => send({ raw: "@vy: hôm nay shop đẹp quá" })}>@vy: bình luận thường</button>
             <button onClick={() => send({ type: "SPAWN_RANDOM", count: 10 })}>+10 người xem giả</button>
-            <button onClick={() => send({ type: "GIFT", unique_id: "lananh88", gift_name: "Hoa hồng", repeat_count: 5, repeat_end: true, streakable: true })}>
+            <button onClick={() => send({ type: "GIFT", unique_id: "lananh88", nickname: "Lan Anh", gift_name: "Hoa hồng", diamonds: 1, repeat_count: 5, repeat_end: true, streakable: true })}>
               Quà (kết thúc chuỗi ×5)
             </button>
           </div>
@@ -470,7 +483,13 @@ function HostPage({
         {comments.length === 0 && <p className="empty">Chưa có bình luận. Kết nối TikTok hoặc bật Demo để thấy bình luận ở đây.</p>}
         <ul className="comment-list">
           {comments.map((c) => (
-            <CommentRow key={c.event_id} c={c} />
+            <CommentRow
+              key={c.event_id}
+              c={c}
+              onOrder={(x) =>
+                setPrefill({ name: x.nickname ?? x.unique_id ?? "", key: x.unique_id ? `uid:${x.unique_id.toLowerCase()}` : null, productId: x.product_id, nonce: Date.now() })
+              }
+            />
           ))}
         </ul>
       </Card>
@@ -1079,7 +1098,7 @@ export function DashboardApp() {
         <Routes>
           <Route index element={<Overview live={feed.live} metrics={feed.metrics} ai={feed.ai} />} />
           <Route path="connect" element={<ConnectPage live={feed.live} />} />
-          <Route path="host" element={<HostPage comments={feed.comments} host={feed.host} aiPaused={feed.aiPaused} setAiPaused={feed.setAiPaused} speech={feed.speech} ai={feed.ai} voiceTrace={feed.voiceTrace} />} />
+          <Route path="host" element={<HostPage comments={feed.comments} host={feed.host} aiPaused={feed.aiPaused} setAiPaused={feed.setAiPaused} speech={feed.speech} ai={feed.ai} voiceTrace={feed.voiceTrace} board={feed.board} />} />
           <Route path="ai" element={<AiSettingsPage />} />
           <Route path="knowledge" element={<KnowledgePage />} />
           <Route path="logs" element={<LogsPage live={feed.liveLogs} stats={feed.logStats} onSeen={feed.setLogStats} />} />

@@ -32,6 +32,7 @@ from app.services.live_session import LiveSessionService
 from app.services.orchestrator import Orchestrator
 from app.services.product_matcher import ProductMatcher
 from app.services.scene_config import load_scene
+from app.services.teahouse import Leaderboard, OwnerHost
 from app.services.speech_queue import SpeechQueue
 from app.websocket.hub import Hub
 
@@ -80,6 +81,8 @@ class AppContainer:
         self.speech.on_chars = self.assistant.budget.record_tts
         self.assistant.apply_voice()
         self.scene = load_scene(self)
+        self.owner = OwnerHost(self)
+        self.board = Leaderboard(self)
         self.assistant.memory.load(self.catalog)
         self.fps_reports: deque[dict[str, Any]] = deque(maxlen=120)
         self.started_at = time.time()
@@ -185,6 +188,7 @@ class AppContainer:
             "camera": self.camera.snapshot(),
             "settings": {"show_seconds": self.settings.show_seconds},
             "scene": self.scene.model_dump(),
+            "board": self.board.view(),
         }
 
     def dashboard_snapshot(self) -> dict[str, Any]:
@@ -194,6 +198,7 @@ class AppContainer:
             "host_attention": list(self.orchestrator.host_attention)[-30:], "ai_paused": self.ai_paused,
             "speech": self.speech.state(), "ai": self.assistant.status(),
             "voice_trace": list(self.assistant.trace)[-30:],
+            "board": self.board.view(),
             "logs": self.errors.stats(self.error_seen_id()),
         }
 
@@ -250,6 +255,7 @@ class AppContainer:
         self.hub.start()
         self.speech.start()
         self.assistant.start()
+        self.owner.start()
         self._tasks = [
             asyncio.create_task(self.orchestrator.run(), name="orchestrator"),
             asyncio.create_task(self._ticker(), name="ticker"),
@@ -262,6 +268,7 @@ class AppContainer:
         await self.live.stop()
         await self.speech.stop()
         await self.assistant.stop()
+        await self.owner.stop()
         for t in self._tasks:
             t.cancel()
         for t in self._tasks:

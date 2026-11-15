@@ -5,6 +5,7 @@
 import type { AvatarInfo, CharacterAction, ClientGameMessage, Point2, ShelfLayout } from "../types/protocol";
 import { AnimationFSM, type AnimState } from "./AnimationFSM";
 import type { NavGrid } from "./Navigation";
+import type { TeaSpot } from "./teahouse";
 
 export const WALK_SPEED = 1.5; // m/s
 const ARRIVE_EPS = 0.06;
@@ -45,7 +46,11 @@ export type Phase =
   | "to_wait"
   | "waiting"
   | "goodbye"
-  | "exiting";
+  | "exiting"
+  | "to_tea"
+  | "tea_step"
+  | "tea_sit"
+  | "tea_up";
 
 export interface HeldItem {
   productId: string;
@@ -81,6 +86,9 @@ export class AvatarController {
   private progressT = 0;
   private walkGoal: Point2 | null = null;
   private seen = new Set<string>();
+  private teaSeat: Point2 | null = null;
+  private teaYaw = 0;
+  private teaApproach: Point2 | null = null;
 
   constructor(info: AvatarInfo, spawn: Point2, private world: WorldQuery, private emit: (m: ClientGameMessage) => void) {
     this.info = info;
@@ -140,8 +148,46 @@ export class AvatarController {
     this.wanderIn = 2;
   }
 
+  // ------------------------------------------------------------------ tea table (gift givers)
+  /** Walk to the guest cushion at the tea table and sit opposite the shop owner. */
+  visitTea(spot: TeaSpot): boolean {
+    if (this.cmd || this.phase === "goodbye" || this.phase === "exiting") return false;
+    this.teaSeat = { ...spot.guest };
+    this.teaYaw = spot.guestYaw;
+    this.teaApproach = { ...spot.guestApproach };
+    if (!this.walkTo(spot.guestApproach)) return false;
+    this.phase = "to_tea";
+    return true;
+  }
+
+  /** Stand up from the tea table and go back to browsing. */
+  leaveTea(): void {
+    if (this.phase !== "tea_sit" && this.phase !== "tea_step" && this.phase !== "to_tea") return;
+    this.phase = "tea_up";
+    this.fsm.force("walk");
+  }
+
+  get atTea(): boolean {
+    return this.phase === "to_tea" || this.phase === "tea_step" || this.phase === "tea_sit" || this.phase === "tea_up";
+  }
+
+  /** Straight-line step (the last metre to/from the cushion is inside the table's footprint). */
+  private moveDirect(target: Point2, dt: number): boolean {
+    const dx = target.x - this.pos.x;
+    const dz = target.z - this.pos.z;
+    const d = Math.hypot(dx, dz);
+    if (d < ARRIVE_EPS) {
+      this.pos = { ...target };
+      return true;
+    }
+    const step = Math.min(d, WALK_SPEED * 0.7 * dt);
+    this.pos = { x: this.pos.x + (dx / d) * step, z: this.pos.z + (dz / d) * step };
+    this.targetYaw = Math.atan2(dx, dz);
+    return false;
+  }
+
   effect(kind: string): void {
-    if (this.cmd || this.phase === "exiting") return;
+    if (this.cmd || this.phase === "exiting" || this.atTea) return;
     const map: Record<string, AnimState> = { wave: "wave", dance: "dance", gift: "celebrate", follow: "wave", like: "celebrate" };
     const st = map[kind];
     if (!st) return;
@@ -396,6 +442,37 @@ export class AvatarController {
         break;
       case "exiting":
         if (this.move(dt) || expired) this.removed = true;
+        break;
+      case "to_tea":
+        if (expired || this.checkStuck(dt)) {
+          this.phase = "none";
+          this.fsm.force("idle");
+        } else if (this.move(dt)) {
+          this.phase = "tea_step";
+          this.fsm.force("walk");
+        }
+        break;
+      case "tea_step":
+        if (!this.teaSeat || expired) {
+          this.phase = "none";
+          this.fsm.force("idle");
+        } else if (this.moveDirect(this.teaSeat, dt)) {
+          this.targetYaw = this.teaYaw;
+          this.phase = "tea_sit";
+          this.fsm.force("sit");
+        }
+        break;
+      case "tea_sit":
+        this.targetYaw = this.teaYaw;
+        if (expired) this.leaveTea();
+        break;
+      case "tea_up":
+        if (!this.teaApproach || this.moveDirect(this.teaApproach, dt) || expired) {
+          this.phase = "none";
+          this.targetYaw = 0;
+          this.fsm.force("wave");
+          this.wanderIn = 2;
+        }
         break;
       case "none": {
         const st = this.fsm.state;
