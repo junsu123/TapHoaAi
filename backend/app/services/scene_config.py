@@ -47,6 +47,11 @@ class SceneConfig(BaseModel):
     board_position: Literal["left", "right"] = "left"
     board_scope: Literal["session", "all"] = "session"  # reset for each LIVE, or keep until reset
     board_size: int = Field(5, ge=3, le=10)
+    # dragged to a spot of the host's choosing: top-left corner as a fraction of the 9:16 frame
+    # (None = the corner chosen in board_position), and its size
+    board_x: float | None = Field(None, ge=0.0, le=0.95)
+    board_y: float | None = Field(None, ge=0.0, le=0.95)
+    board_scale: float = Field(1.0, ge=0.6, le=1.8)
 
     @field_validator("sign_text", "tagline", "owner_name", "owner_greet_template", "owner_tea_template",
                      "owner_buy_template")

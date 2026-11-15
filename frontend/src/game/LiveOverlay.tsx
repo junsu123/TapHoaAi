@@ -1,7 +1,7 @@
 // 2D overlay inside the 9:16 frame: product card, DEMO label, connection banner.
 // Everything sits inside configurable safe areas so TikTok's own UI never covers it (H4).
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
 import type { SpeechView } from "./SpeechPlayer";
 import { formatVnd } from "../lib/api";
 import type { LeaderboardView, ProductInfo, SceneConfig } from "../types/protocol";
@@ -184,19 +184,81 @@ function OwnerBubble({ engine }: { engine: GameEngine }) {
 
 const MEDAL = ["gold", "silver", "bronze"];
 
-/** "Bảng vàng": top gift givers and top buyers, taking turns. */
-function HonourBoard({ board, scene, hidden }: { board: LeaderboardView | null; scene: SceneConfig; hidden: boolean }) {
+/** "Bảng vàng": top gift givers and top buyers, taking turns. Placed in a corner, or wherever
+ * the host dragged it (edit mode: the dashboard's layout preview loads the page with edit=board). */
+function HonourBoard({ board, scene, hidden, editable }: { board: LeaderboardView | null; scene: SceneConfig; hidden: boolean; editable: boolean }) {
   const [tab, setTab] = useState<"gifts" | "buyers">("gifts");
+  const ref = useRef<HTMLDivElement>(null);
+  const [drag, setDrag] = useState<{ x: number; y: number; scale: number } | null>(null);
+  const gesture = useRef<{ kind: "move" | "size"; px: number; py: number; x: number; y: number; scale: number; w: number; h: number; sw: number; sh: number } | null>(null);
   useEffect(() => {
     const id = setInterval(() => setTab((t) => (t === "gifts" ? "buyers" : "gifts")), 8000);
     return () => clearInterval(id);
   }, []);
+  // the saved position arrived: drop the local drag state
+  useEffect(() => setDrag(null), [scene.board_x, scene.board_y, scene.board_scale]);
   const rows =
     tab === "gifts"
       ? (board?.gifts ?? []).map((g) => ({ name: g.name, value: g.coins > 0 ? `${g.coins.toLocaleString("vi-VN")} xu` : `${g.gifts} quà` }))
       : (board?.buyers ?? []).map((b) => ({ name: b.name, value: b.amount > 0 ? (formatVnd(b.amount) ?? "") : `${b.items} sản phẩm` }));
+  const placed = drag ?? (scene.board_x != null && scene.board_y != null ? { x: scene.board_x, y: scene.board_y, scale: scene.board_scale } : null);
+  const scale = drag?.scale ?? scene.board_scale ?? 1;
+  const style: CSSProperties = placed
+    ? { left: `${placed.x * 100}%`, top: `${placed.y * 100}%`, right: "auto", bottom: "auto", transform: `scale(${scale})`, transformOrigin: "top left" }
+    : { transform: `scale(${scale})`, transformOrigin: scene.board_position === "right" ? "bottom right" : "bottom left" };
+
+  const begin = (kind: "move" | "size") => (e: PointerEvent) => {
+    if (!editable || !ref.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const stage = (ref.current.offsetParent as HTMLElement).getBoundingClientRect();
+    const r = ref.current.getBoundingClientRect();
+    gesture.current = {
+      kind,
+      px: e.clientX,
+      py: e.clientY,
+      x: (r.left - stage.left) / stage.width,
+      y: (r.top - stage.top) / stage.height,
+      scale,
+      w: r.width,
+      h: r.height,
+      sw: stage.width,
+      sh: stage.height,
+    };
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  };
+  const move = (e: PointerEvent) => {
+    const g = gesture.current;
+    if (!g) return;
+    if (g.kind === "move") {
+      const x = Math.min(Math.max(0, g.x + (e.clientX - g.px) / g.sw), Math.max(0, 1 - g.w / g.sw));
+      const y = Math.min(Math.max(0, g.y + (e.clientY - g.py) / g.sh), Math.max(0, 1 - g.h / g.sh));
+      setDrag({ x, y, scale: g.scale });
+    } else {
+      const k = Math.min(1.8, Math.max(0.6, g.scale * (1 + (e.clientX - g.px) / (g.w / 1))));
+      setDrag({ x: g.x, y: g.y, scale: Math.round(k * 100) / 100 });
+    }
+  };
+  const end = () => {
+    const g = gesture.current;
+    gesture.current = null;
+    if (!g || !drag) return;
+    const msg = { type: "chibi-board", x: Math.round(drag.x * 1000) / 1000, y: Math.round(drag.y * 1000) / 1000, scale: drag.scale };
+    if (window.parent !== window) window.parent.postMessage(msg, location.origin);
+  };
+
   return (
-    <div className={`honour-board ${scene.board_position}${hidden ? " away" : ""}`} data-testid="honour-board" data-tab={tab}>
+    <div
+      ref={ref}
+      className={`honour-board ${scene.board_position}${hidden && !editable ? " away" : ""}${editable ? " editable" : ""}`}
+      style={style}
+      data-testid="honour-board"
+      data-tab={tab}
+      onPointerDown={begin("move")}
+      onPointerMove={move}
+      onPointerUp={end}
+      onPointerCancel={end}
+    >
       <div className="hb-head">
         <span className="hb-crown" aria-hidden>
           👑
@@ -217,6 +279,12 @@ function HonourBoard({ board, scene, hidden }: { board: LeaderboardView | null; 
           </li>
         ))}
       </ol>
+      {editable && (
+        <>
+          <span className="hb-edit-hint">Kéo để di chuyển, kéo góc để đổi cỡ</span>
+          <span className="hb-resize" data-testid="board-resize" onPointerDown={begin("size")} onPointerMove={move} onPointerUp={end} onPointerCancel={end} aria-label="Đổi cỡ bảng vàng" />
+        </>
+      )}
     </div>
   );
 }
@@ -234,6 +302,8 @@ export function LiveOverlay({
   speech?: SpeechView;
   onUnlockAudio?: () => void;
 }) {
+  // the dashboard's layout preview: the honour board can be dragged and resized
+  const editBoard = useMemo(() => new URLSearchParams(location.search).get("edit") === "board", []);
   const [st, setSt] = useState<OverlayState>({
     product: null,
     nickname: null,
@@ -299,7 +369,7 @@ export function LiveOverlay({
         )}
       </div>
       {banner && <ProductBanner engine={engine} scene={st.scene} showcase={st.product} nickname={st.nickname} />}
-      {st.scene.board_enabled && <HonourBoard board={st.board} scene={st.scene} hidden={st.teaShot} />}
+      {(st.scene.board_enabled || editBoard) && <HonourBoard board={st.board} scene={st.scene} hidden={st.teaShot} editable={editBoard} />}
       <OwnerBubble engine={engine} />
       <div className="overlay-bottom">
         {speech?.blocked && (

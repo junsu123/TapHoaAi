@@ -815,3 +815,58 @@ test("Tea house: TV banner, owner greets joins with a bubble, gift giver is serv
   await page.request.post("/api/v1/leaderboard/reset", { headers: H });
   await game.close();
 });
+
+test("Honour board: drag it anywhere on the LIVE screen and resize it from the dashboard", async ({ page, context }) => {
+  test.setTimeout(150_000);
+  const csrf = await login(page.request);
+  const cur = (await (await page.request.get("/api/v1/settings/scene")).json()).config;
+  await page.request.put("/api/v1/settings/scene", { data: { ...cur, board_enabled: true, board_x: null, board_y: null, board_scale: 1 }, headers: { "X-CSRF-Token": csrf } });
+  const game = await context.newPage();
+  await game.setViewportSize({ width: 540, height: 960 });
+  await game.goto("/game/live?debug=1&quality=low");
+  await game.waitForFunction(() => (window as any).__chibiDebug?.state().layoutVersion > 0);
+
+  await page.setViewportSize({ width: 1360, height: 1300 });
+  await page.goto("/dashboard/game");
+  await page.getByRole("button", { name: "Kéo thả bảng vàng tới chỗ muốn đặt" }).click();
+  const frame = page.frameLocator('[data-testid="board-placer-frame"]');
+  const board = frame.getByTestId("honour-board");
+  await expect(board).toBeVisible({ timeout: 20_000 });
+  const iframeBox = (await page.getByTestId("board-placer-frame").boundingBox())!;
+  const b = (await board.boundingBox())!;
+  // drag the board up and to the right
+  await page.mouse.move(b.x + 30, b.y + 15);
+  await page.mouse.down();
+  await page.mouse.move(b.x + 80, b.y - 120, { steps: 8 });
+  await page.mouse.move(b.x + 110, b.y - 200, { steps: 8 });
+  await page.mouse.up();
+  await expect(page.getByTestId("board-place-note")).toContainText("Đã lưu vị trí bảng vàng", { timeout: 10_000 });
+  const saved = (await (await page.request.get("/api/v1/settings/scene")).json()).config;
+  const expX = (b.x + 80 - iframeBox.x - 1) / iframeBox.width; // pointer moved 80 px right
+  expect(saved.board_x).toBeGreaterThan(expX - 0.08);
+  expect(saved.board_x).toBeLessThan(expX + 0.08);
+  expect(saved.board_y).toBeLessThan((b.y - iframeBox.y) / iframeBox.height - 0.2); // 215 px up
+
+  // resize from the corner handle
+  const h = (await frame.getByTestId("board-resize").boundingBox())!;
+  await page.mouse.move(h.x + h.width / 2, h.y + h.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(h.x + 60, h.y + 20, { steps: 10 });
+  await page.mouse.up();
+  await expect(page.getByTestId("board-place-note")).toContainText(/cỡ 1[1-8]\d%/, { timeout: 10_000 });
+  const sized = (await (await page.request.get("/api/v1/settings/scene")).json()).config;
+  expect(sized.board_scale).toBeGreaterThan(1.1);
+  await page.screenshot({ path: `${SHOTS}/BOARD-drag-dashboard.png`, fullPage: true });
+
+  // the OBS page moved the board right away
+  const gb = game.getByTestId("honour-board");
+  await expect.poll(async () => (await gb.evaluate((el) => (el as HTMLElement).style.left))).toBe(`${sized.board_x * 100}%`);
+  await game.waitForTimeout(800);
+  await game.screenshot({ path: `${SHOTS}/BOARD-moved-live.png` });
+
+  // back to the corner
+  await page.getByRole("button", { name: "Về góc mặc định" }).click();
+  await expect(page.getByTestId("board-place-note")).toContainText("góc mặc định");
+  await expect.poll(async () => (await gb.evaluate((el) => (el as HTMLElement).style.left))).toBe("");
+  await game.close();
+});

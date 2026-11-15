@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.15.2 — 2026-11-15 — Kéo thả bảng vàng
+
+- Bảng vàng **kéo thả tới bất kỳ chỗ nào** trên màn hình LIVE và **đổi cỡ** (60–180%) bằng chấm ở góc, ngay trong khung xem trước ở trang Game 3D & OBS; thả tay là lưu, OBS đổi ngay. Nút **Về góc mặc định**.
+- Cài đặt mới `board_x`, `board_y`, `board_scale`.
+
 ## 0.15.1 — 2026-11-15 — Màn hình LED gắn trên tường
 
 - Kiểu mặc định của ảnh sản phẩm là **màn hình LED gắn phẳng trên tường sau quầy**, nằm trong cảnh 3D: viền nhôm mỏng, lưới điểm ảnh LED, ảnh sản phẩm kèm tên và giá chạy liên tục (hoặc lần lượt); Chibi cầm sản phẩm thì LED hiện riêng sản phẩm đó kèm tên khách. Tường sau cao hơn, biển hiệu gắn trên LED, đèn lồng dời ra hai bên.

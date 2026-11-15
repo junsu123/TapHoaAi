@@ -125,6 +125,7 @@ Trên màn hình LIVE (đổi trong thẻ **Không gian cửa hàng & banner s�
 - **Mời trà khách tặng quà:** Chibi của khách tặng quà đi tới ngồi đối diện chủ quán; chủ quán rót trà, mời nước (“Mời {tên} dùng trà ạ! Cảm ơn {tên} đã tặng {quà}!”), camera quay cận bàn trà vài giây. Khách ngồi khoảng 12 giây rồi đứng dậy đi tiếp; nhiều người tặng quà thì lần lượt từng người.
 - **Bảng vàng:** top người tặng quà (theo số xu, không rõ xu thì theo số quà) và top người mua hàng, hai bảng thay phiên nhau ở góc dưới màn hình. Tính theo từng buổi LIVE hoặc mọi buổi LIVE. Đơn mua hàng do người trực **ghi nhận** (thẻ Bảng vàng ở trang Người trực, hoặc nút “Ghi đơn” cạnh bình luận) — phần mềm không tự đoán đơn từ bình luận hay quà. Ghi đơn thì chủ quán cảm ơn khách trên LIVE.
 - Các câu của chủ quán sửa được, dùng `{ten}`, `{qua}`, `{san_pham}`.
+- **Đặt bảng vàng ở đâu cũng được:** trong phần Bảng vàng, bấm **Kéo thả bảng vàng tới chỗ muốn đặt** — một khung xem trước màn hình LIVE mở ra; kéo bảng vàng tới chỗ muốn đặt, kéo chấm vàng ở góc để phóng to/thu nhỏ (60–180%). Thả tay là lưu, màn hình OBS đổi ngay. **Về góc mặc định** đưa bảng về góc đã chọn.
 
 ## Trợ lý AI & giọng đọc (Claude + Vbee)
 

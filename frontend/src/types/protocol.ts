@@ -103,6 +103,9 @@ export interface SceneConfig {
   board_position: "left" | "right";
   board_scope: "session" | "all";
   board_size: number;
+  board_x: number | null; // dragged position: top-left corner, fraction of the frame
+  board_y: number | null;
+  board_scale: number;
 }
 
 export interface LeaderboardView {
@@ -136,6 +139,9 @@ export const DEFAULT_SCENE: SceneConfig = {
   board_position: "left",
   board_scope: "session",
   board_size: 5,
+  board_x: null,
+  board_y: null,
+  board_scale: 1,
 };
 
 export interface SpeechClip {
