@@ -15,7 +15,7 @@ import { themeOf } from "./themes";
 import { LOD, lodPolicy } from "./lod";
 import type { PerfReport } from "../types/protocol";
 
-export type Quality = "low" | "medium" | "high";
+export type Quality = "low" | "medium" | "high" | "ultra";
 
 /** Render at the screen's real pixel density (never below 1×) — the old 1×/0.6× made it blurry. */
 const deviceDpr = () => Math.max(1, typeof window === "undefined" ? 1 : window.devicePixelRatio || 1);
@@ -23,7 +23,31 @@ export const QUALITY: Record<Quality, { dpr: number; shadows: boolean; shadowMap
   low: { dpr: 1, shadows: false, shadowMap: 512, outlines: false },
   medium: { dpr: Math.min(deviceDpr(), 1.5), shadows: true, shadowMap: 1024, outlines: true },
   high: { dpr: Math.min(deviceDpr(), 2), shadows: true, shadowMap: 2048, outlines: true },
+  // "Nét nhất": draws the picture at twice the window's pixels (up to 3840 px tall) and lets the
+  // browser scale it down — sharp edges, names and signs even after the LIVE app re-encodes it
+  ultra: { dpr: 2, shadows: true, shadowMap: 4096, outlines: true },
 };
+
+/** Pixel ratio for "Nét nhất": 2× the window (never below the screen's own), at most 3840 px on the long side. */
+export function ultraDpr(cssW: number, cssH: number, device = deviceDpr()): number {
+  const long = Math.max(1, cssW, cssH);
+  return +Math.max(device, Math.min(2 * device, 3840 / long)).toFixed(3);
+}
+
+function useWindowSize(): [number, number] {
+  const get = (): [number, number] => (typeof window === "undefined" ? [1080, 1920] : [window.innerWidth, window.innerHeight]);
+  const [v, setV] = useState(get);
+  useEffect(() => {
+    let t: number | undefined;
+    const on = () => {
+      clearTimeout(t);
+      t = window.setTimeout(() => setV(get()), 250);
+    };
+    window.addEventListener("resize", on);
+    return () => window.removeEventListener("resize", on);
+  }, []);
+  return v;
+}
 
 const OVERVIEW_POS = new THREE.Vector3(0, 17.5, 12.2);
 const OVERVIEW_LOOK = new THREE.Vector3(0, 0, 0.2);
@@ -206,6 +230,25 @@ const p95 = (xs: number[]) => {
 const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
 
 /** Every 5 s: FPS, slow frames, Chibi logic time, draw calls, memory, graphics card (T16). */
+/** How sharp the picture really is (pixels drawn), for the dashboard and tests. */
+function RenderInfo({ quality }: { quality: Quality }) {
+  const { gl } = useThree();
+  const last = useRef(0);
+  useFrame((st) => {
+    if (st.clock.elapsedTime - last.current < 1) return;
+    last.current = st.clock.elapsedTime;
+    (window as unknown as { __chibiRender?: object }).__chibiRender = {
+      quality,
+      dpr: gl.getPixelRatio(),
+      width: gl.domElement.width,
+      height: gl.domElement.height,
+      cssWidth: gl.domElement.clientWidth,
+      cssHeight: gl.domElement.clientHeight,
+    };
+  });
+  return null;
+}
+
 function PerfMeter({ engine, quality, onPerf }: { engine: GameEngine; quality: Quality; onPerf?: (r: PerfReport) => void }) {
   const { gl } = useThree();
   const t = useRef(0);
@@ -235,6 +278,9 @@ function PerfMeter({ engine, quality, onPerf }: { engine: GameEngine; quality: Q
       quality,
       avatars: engine.avatars.size,
       lod: { ...engine.lod },
+      // what a window capture gets (the window's own pixels) and what is drawn inside it
+      window_px: [Math.round(gl.domElement.clientWidth * deviceDpr()), Math.round(gl.domElement.clientHeight * deviceDpr())],
+      render_px: [gl.domElement.width, gl.domElement.height],
     });
   }, -3);
   return null;
@@ -360,12 +406,14 @@ export function World({
   debugOverlay?: boolean;
 }) {
   const q = QUALITY[quality];
+  const [vw, vh] = useWindowSize();
+  const dpr = quality === "ultra" ? ultraDpr(vw, vh) : q.dpr;
   const opts = useMemo(() => ({ outlines: q.outlines, shadows: q.shadows }), [q.outlines, q.shadows]);
   const labelRegistry = useMemo(() => new Map<string, LabelEntry>(), []);
   return (
     <Canvas
       key={quality /* shadow-map settings need a fresh renderer */}
-      dpr={q.dpr}
+      dpr={dpr}
       shadows={q.shadows ? "soft" : false}
       flat /* no filmic tone mapping: keeps the cel-shaded colours crisp, not washed out */
       camera={{ fov: 50, near: 0.1, far: 80, position: OVERVIEW_POS.toArray() }}
@@ -391,6 +439,7 @@ export function World({
         <LodSystem engine={engine} />
         <FrameLoop engine={engine} onFps={onFps} />
         <PerfMeter engine={engine} quality={quality} onPerf={onPerf} />
+        <RenderInfo quality={quality} />
       </RenderContext.Provider>
     </Canvas>
   );

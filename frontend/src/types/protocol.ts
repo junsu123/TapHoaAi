@@ -134,6 +134,8 @@ export interface SceneConfig {
   stage_seconds: number;
   stage_max_queue: number;
   stage_side: "right" | "left";
+  /** show a viewer's comment (and the owner's reply) as text on screen; off = only read aloud */
+  chat_on_screen: boolean;
 }
 
 export interface LeaderboardView {
@@ -182,6 +184,7 @@ export const DEFAULT_SCENE: SceneConfig = {
   stage_seconds: 15,
   stage_max_queue: 30,
   stage_side: "right",
+  chat_on_screen: false,
 };
 
 export interface SpeechClip {
@@ -257,4 +260,6 @@ export interface PerfReport {
   quality: string;
   avatars: number;
   lod: { full: number; reduced: number; far: number; hidden: number };
+  window_px?: [number, number]; // size of the game window in real screen pixels
+  render_px?: [number, number]; // size of the picture drawn (bigger with "Nét nhất")
 }

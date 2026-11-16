@@ -748,7 +748,7 @@ test("Voice checklist: says why nobody is greeted, then shows greetings and comm
   await expect(vc.getByTestId("voice-trace")).toContainText("Đã xếp hàng đọc trên LIVE", { timeout: 10_000 });
   await vc.getByTestId("voice-test-live").click();
   await expect(vc.getByTestId("voice-test-live-msg")).toContainText("Đã gửi câu thử", { timeout: 20_000 });
-  await expect(game.getByTestId("speech-caption")).toBeVisible({ timeout: 20_000 });
+  await expect(game.locator("[data-testid=speech-caption][data-kind=test]")).toBeVisible({ timeout: 20_000 });
   await vc.scrollIntoViewIfNeeded();
   await page.screenshot({ path: `${SHOTS}/VOICECHECK-on.png`, fullPage: true });
 
@@ -1228,12 +1228,31 @@ test("Stage + owner talk: first to comment dances first, the owner answers chat 
   await card.getByRole("button", { name: "Cho xuống / bỏ lượt" }).click();
   await expect(card.getByTestId("stage-card-current")).toHaveCount(0, { timeout: 10_000 });
 
-  // small talk: the owner answers by itself (no Claude), on the voice and in the bubble
+  // small talk: the owner reads it and answers by itself (no Claude) — only on the voice:
+  // no bubble, no caption text on screen (default "chat_on_screen": off)
+  const caption = game.getByTestId("speech-caption");
   await inject(page, csrf, `@khen${RUN}: hôm nay shop đẹp quá`);
-  await expect(bubble).toContainText(`khen${RUN}`, { timeout: 25_000 });
-  await game.waitForFunction(() => (window as any).__chibiDebug.state().ownerTalking === true, null, { timeout: 25_000 });
-  await expect(bubble).toContainText("cảm ơn", { timeout: 30_000 }); // the owner's own reply follows the reading
+  await expect(caption).toContainText(`khen${RUN}`, { timeout: 25_000 });
+  await expect(caption).toHaveAttribute("data-kind", "comment");
+  await expect(caption).toHaveAttribute("data-hidden", "1");
+  await expect(caption).toBeHidden();
+  await expect(caption).toHaveAttribute("data-kind", "answer", { timeout: 30_000 }); // the owner's own reply follows the reading
+  await expect(caption).toContainText("cảm ơn");
+  await expect(caption).toBeHidden();
+  await expect(bubble.filter({ hasText: `khen${RUN}` })).toHaveCount(0);
+  await game.screenshot({ path: `${SHOTS}/CHAT-1-only-voice.png` });
+  // the shop can turn the text back on (Game 3D & OBS → Không gian cửa hàng)
+  const sc = (await (await page.request.get("/api/v1/settings/scene")).json()).config;
+  await page.request.put("/api/v1/settings/scene", { data: { ...sc, chat_on_screen: true }, headers: H });
+  await game.waitForTimeout(16_000); // small talk is answered at most once every 15 s
+  await inject(page, csrf, `@khen2${RUN}: live vui ghê, ủng hộ shop nha`);
+  await expect(bubble).toContainText(`khen2${RUN}`, { timeout: 30_000 });
+  await expect(caption).toBeVisible();
+  await expect(caption).toHaveAttribute("data-kind", "answer", { timeout: 30_000 }); // and the owner's reply, on screen too
+  await expect(caption).toBeVisible();
+  await expect(bubble).not.toContainText("nói:");
   await game.screenshot({ path: `${SHOTS}/STAGE-3-owner-answers.png` });
+  await page.request.put("/api/v1/settings/scene", { data: { ...sc, chat_on_screen: false }, headers: H });
 
   // a viewer asks for a poem → the owner recites one for them
   await inject(page, csrf, `@tho${RUN}: làm thơ đi shop`);
@@ -1254,5 +1273,46 @@ test("Stage + owner talk: first to comment dances first, the owner answers chat 
   await page.screenshot({ path: `${SHOTS}/STAGE-6-settings.png` });
 
   await page.request.put("/api/v1/settings/ai", { data: { config: { ...cfg, voice_enabled: false } }, headers: H });
+  await game.close();
+});
+
+test("Sharp LIVE picture: 'Nét nhất' draws twice the pixels; the dashboard says whether the window fills the 1080 × 1920 frame", async ({ page, context }) => {
+  test.setTimeout(150_000);
+  const csrf = await login(page.request);
+  await inject(page, csrf, `@net${RUN}: chào shop`);
+  const game = await context.newPage();
+  // a small window (as on a Full HD monitor): ultra draws 2× but the window itself is too small for LIVE
+  await game.setViewportSize({ width: 540, height: 960 });
+  await game.goto("/game/live?quality=ultra");
+  await game.waitForFunction(() => (window as any).__chibiRender?.quality === "ultra", null, { timeout: 30_000 });
+  let r = await game.evaluate(() => (window as any).__chibiRender);
+  expect([r.width, r.height]).toEqual([1080, 1920]);
+  await page.setViewportSize({ width: 1360, height: 1400 });
+  await page.goto("/dashboard/game");
+  const sharp = page.getByTestId("perf-sharpness");
+  await expect(sharp).toHaveAttribute("data-sharp", "0", { timeout: 20_000 });
+  await expect(sharp).toContainText("540 × 960");
+  await expect(sharp).toContainText("Nét nhất cho LIVE");
+  await expect(page.getByTestId("sharp-url")).toContainText("/game/live?quality=ultra");
+  await sharp.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${SHOTS}/SHARP-1-dashboard-small-window.png` });
+
+  // the full LIVE frame: 1080 × 1920 window, drawn at 2160 × 3840
+  await game.setViewportSize({ width: 1080, height: 1920 });
+  await game.waitForFunction(() => (window as any).__chibiRender?.height === 3840, null, { timeout: 20_000 });
+  r = await game.evaluate(() => (window as any).__chibiRender);
+  expect([r.width, r.height, r.cssWidth, r.cssHeight]).toEqual([2160, 3840, 1080, 1920]);
+  await expect(sharp).toHaveAttribute("data-sharp", "1", { timeout: 20_000 });
+  await expect(sharp).toContainText("vẽ ở 2160 × 3840");
+  await game.waitForTimeout(1500);
+  await game.screenshot({ path: `${SHOTS}/SHARP-2-ultra-1080x1920.png` });
+
+  // the same frame at the old default ("vừa" = 1× on a normal PC screen) for comparison
+  await game.goto("/game/live?quality=medium");
+  await game.waitForFunction(() => (window as any).__chibiRender?.quality === "medium", null, { timeout: 30_000 });
+  r = await game.evaluate(() => (window as any).__chibiRender);
+  expect([r.width, r.height]).toEqual([1080, 1920]);
+  await game.waitForTimeout(1500);
+  await game.screenshot({ path: `${SHOTS}/SHARP-3-medium-1080x1920.png` });
   await game.close();
 });

@@ -2,9 +2,9 @@
 // Everything sits inside configurable safe areas so TikTok's own UI never covers it (H4).
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
-import type { SpeechView } from "./SpeechPlayer";
+import { isChatClip, type SpeechView } from "./SpeechPlayer";
 import { formatVnd } from "../lib/api";
-import type { LeaderboardView, ProductInfo, SceneConfig } from "../types/protocol";
+import type { LeaderboardView, ProductInfo, SceneConfig, SpeechClip } from "../types/protocol";
 import type { GameEngine } from "./GameEngine";
 
 export interface SafeArea {
@@ -351,6 +351,9 @@ export function LiveOverlay({
 }) {
   // the dashboard's layout preview: the honour board can be dragged and resized
   const editBoard = useMemo(() => new URLSearchParams(location.search).get("edit") === "board", []);
+  // a viewer's chat (and the owner's reply) is only read aloud — unless the shop wants it on screen,
+  // or there is no audio (caption only): then the words would be lost
+  const chatHidden = (clip: SpeechClip) => isChatClip(clip) && !engine.scene.chat_on_screen && !clip.caption_only;
   const [st, setSt] = useState<OverlayState>({
     product: null,
     nickname: null,
@@ -431,9 +434,10 @@ export function LiveOverlay({
         )}
         {speech?.clip && (
           <div
-            className={`speech-caption speech-${speech.clip.kind}${speech.held ? " held" : ""}`}
+            className={`speech-caption speech-${speech.clip.kind}${speech.held ? " held" : ""}${chatHidden(speech.clip) ? " off-screen" : ""}`}
             data-testid="speech-caption"
             data-kind={speech.clip.kind}
+            data-hidden={chatHidden(speech.clip) ? "1" : undefined}
           >
             <span className="speech-label">
               {speech.clip.label === "Trợ lý AI" ? "🤖" : "🔊"} {speech.clip.label}

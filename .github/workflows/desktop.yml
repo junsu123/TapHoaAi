@@ -30,6 +30,60 @@ jobs:
           $cfgDir = Test-Path "$env:RUNNER_TEMP\\chibi-ud"
           Write-Host "running, pid $($p.Id), user data created: $cfgDir"
           Stop-Process -Id $p.Id -Force
+      - name: "Nét nhất cho LIVE: a full 1080 × 1920 window even on a smaller screen"
+        working-directory: desktop
+        shell: pwsh
+        run: |
+          Start-Sleep -Seconds 3
+          $exe = Get-ChildItem dist\\win-unpacked\\*.exe | Select-Object -First 1
+          $env:CHIBI_DESKTOP_USERDATA = "$env:RUNNER_TEMP\\chibi-ud2"
+          $rep = "$env:RUNNER_TEMP\\size.json"
+          $p = Start-Process -FilePath $exe.FullName -ArgumentList "--server=http://127.0.0.1:9", "--no-server", "--sharp-live", "--chibi-report=$rep" -PassThru
+          $null = $p.WaitForExit(60000)
+          Get-Content $rep
+          $r = Get-Content $rep | ConvertFrom-Json
+          Write-Host "screen work area $($r.workArea.width) x $($r.workArea.height), window $($r.window.width) x $($r.window.height), picture $($r.capture.width) x $($r.capture.height)"
+          if ($r.window.height -lt 1900 -or $r.capture.height -lt 1900) { throw "the window was made smaller than 1080 x 1920" }
+      - name: "The part of the 1080 × 1920 window below the screen edge is still drawn (what a window capture reads)"
+        working-directory: desktop
+        shell: pwsh
+        run: |
+          Start-Sleep -Seconds 3
+          Add-Type -AssemblyName System.Drawing
+          Add-Type @"
+          using System; using System.Runtime.InteropServices;
+          public static class W {
+            [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr h, IntPtr dc, uint flags);
+            [DllImport("user32.dll")] public static extern bool GetClientRect(IntPtr h, out RECT r);
+            [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left, Top, Right, Bottom; }
+          }
+          "@
+          $exe = Get-ChildItem dist\\win-unpacked\\*.exe | Select-Object -First 1
+          $env:CHIBI_DESKTOP_USERDATA = "$env:RUNNER_TEMP\\chibi-ud3"
+          $p = Start-Process -FilePath $exe.FullName -ArgumentList "--server=http://127.0.0.1:9", "--no-server", "--sharp-live", "--frameless" -PassThru
+          Start-Sleep -Seconds 12
+          $p.Refresh()
+          $h = $p.MainWindowHandle
+          $rc = New-Object W+RECT
+          $null = [W]::GetClientRect($h, [ref]$rc)
+          Write-Host "client area $($rc.Right) x $($rc.Bottom)"
+          $bmp = New-Object System.Drawing.Bitmap $rc.Right, $rc.Bottom
+          $g = [System.Drawing.Graphics]::FromImage($bmp)
+          $dc = $g.GetHdc()
+          $ok = [W]::PrintWindow($h, $dc, 3) # client area + full content (GPU-drawn windows)
+          $g.ReleaseHdc($dc)
+          $bmp.Save("$env:RUNNER_TEMP\\sharp-live-window.png")
+          function Avg($y0) { $s = 0; for ($x = 300; $x -lt 780; $x += 40) { for ($y = $y0; $y -lt $y0 + 80; $y += 20) { $c = $bmp.GetPixel($x, $y); $s += $c.R + $c.G + $c.B } }; return $s }
+          $top = Avg 200; $bottom = Avg ($rc.Bottom - 200)
+          Write-Host "PrintWindow $ok; brightness top $top, bottom (off screen) $bottom"
+          Stop-Process -Id $p.Id -Force
+          if ($rc.Bottom -lt 1900) { throw "client area smaller than 1920" }
+          if ($top -gt 0 -and $bottom -eq 0) { throw "the part below the screen edge is black" }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sharp-live-window
+          path: ${{ runner.temp }}/sharp-live-window.png
       - uses: actions/upload-artifact@v4
         with:
           name: ChibiLiveGame-windows

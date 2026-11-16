@@ -7,7 +7,7 @@ const path = require("node:path");
 const DEFAULTS = {
   server: "http://127.0.0.1:8686", // the Chibi Live Shop server (dashboard address without /dashboard)
   token: "", // only when the server runs on another computer (Game 3D & OBS page shows it)
-  quality: "", // "", "low", "medium", "high" ("" = automatic)
+  quality: "", // "", "low", "medium", "high", "ultra" ("" = automatic: starts at "ultra" = sharpest, steps down if the PC is too slow)
   size: 0, // window width in physical pixels (height = width × 16 / 9); 0 = as big as fits the screen
   alwaysOnTop: false,
   frameless: false, // no title bar: a clean picture for OBS Window Capture
@@ -51,7 +51,7 @@ function sanitize(c) {
     out.server = DEFAULTS.server;
   }
   out.token = String(out.token || "").trim().slice(0, 200);
-  out.quality = ["low", "medium", "high"].includes(out.quality) ? out.quality : "";
+  out.quality = ["low", "medium", "high", "ultra"].includes(out.quality) ? out.quality : "";
   const w = Math.round(Number(out.size));
   out.size = !Number.isFinite(w) || w <= 0 ? 0 : Math.min(2160, Math.max(270, w));
   out.alwaysOnTop = !!out.alwaysOnTop;
@@ -114,6 +114,16 @@ function findServerDir(cfg, appDir, cwd) {
   return "";
 }
 
+/** "Nét nhất cho LIVE": the window exactly the 1080 × 1920 LIVE frame, sharpest picture (steps down only if too slow). */
+function sharpLive(cfg) {
+  return { ...cfg, size: 1080, quality: "", fullscreen: false };
+}
+
+/** Does a window of this physical size stick out of the screen's work area (also in physical pixels)? */
+function sticksOut(physical, workAreaPhysical) {
+  return physical.width > workAreaPhysical.width || physical.height > workAreaPhysical.height;
+}
+
 /** Command-line options: --server=URL --token=T --size=1080 --fullscreen --frameless --on-top --quality=low */
 function fromArgs(argv, cfg) {
   const out = { ...cfg };
@@ -130,8 +140,9 @@ function fromArgs(argv, cfg) {
     else if (k === "on-top") out.alwaysOnTop = true;
     else if (k === "no-server") out.startServer = false;
     else if (k === "chibi-debug") out.debug = true;
+    else if (k === "sharp-live") Object.assign(out, sharpLive(out));
   }
   return sanitize(out);
 }
 
-module.exports = { DEFAULTS, PRESETS, load, save, sanitize, contentSize, fitInto, gameUrl, serverCommand, findServerDir, fromArgs };
+module.exports = { DEFAULTS, PRESETS, load, save, sanitize, contentSize, fitInto, gameUrl, serverCommand, findServerDir, fromArgs, sharpLive, sticksOut };

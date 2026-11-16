@@ -1,5 +1,5 @@
 // /game/live — full-screen 9:16 game for OBS (no admin navigation, no debug banners).
-// URL options: ?role=viewer (preview, never ACKs) · ?quality=low|medium|high · ?token=…
+// URL options: ?role=viewer (preview, never ACKs) · ?quality=low|medium|high|ultra · ?token=…
 // · ?safeTop=0.1&safeBottom=0.2&safeRight=0.15 · ?debug=1 (exposes window.__chibiDebug).
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -10,9 +10,10 @@ import { BehaviorDebugOverlay } from "./BehaviorDebugOverlay";
 import { LiveOverlay, type SafeArea } from "./LiveOverlay";
 import { pickVoice, SpeechPlayer, vietnameseVoices, type SpeechView, type VoiceLike } from "./SpeechPlayer";
 import { World, type Quality } from "./World";
+import { isChatClip } from "./SpeechPlayer";
 import { LOD } from "./lod";
 
-const ORDER: Quality[] = ["low", "medium", "high"];
+const ORDER: Quality[] = ["low", "medium", "high", "ultra"];
 
 export function GamePage() {
   const params = useMemo(() => new URLSearchParams(location.search), []);
@@ -20,7 +21,7 @@ export function GamePage() {
   const debug = params.get("debug") === "1";
   const overlay = params.get("overlay") === "1"; // behaviour debug overlay (spec V3 §9)
   // ?noclip=dance,cheer — pretend the rig lacks these clips (tests the fallback, T12)
-  const [quality, setQuality] = useState<Quality>((ORDER as string[]).includes(params.get("quality") ?? "") ? (params.get("quality") as Quality) : "medium");
+  const [quality, setQuality] = useState<Quality>((ORDER as string[]).includes(params.get("quality") ?? "") ? (params.get("quality") as Quality) : params.get("app") === "desktop" ? "ultra" : "medium");
   const autoQuality = params.get("quality") === null;
   const safe: SafeArea = {
     top: Number(params.get("safeTop") ?? 0.1),
@@ -53,7 +54,7 @@ export function GamePage() {
           // the voice is the shop owner's: every line shows in the owner's bubble while it plays
           if (v.clip && v.clip.id !== talkingClip.current) {
             talkingClip.current = v.clip.id;
-            if (engine.scene.owner_enabled) engine.tea.talk(v.clip.text, v.clip.kind);
+            if (engine.scene.owner_enabled && (engine.scene.chat_on_screen || !isChatClip(v.clip))) engine.tea.talk(v.clip.text, v.clip.kind);
           } else if (!v.clip && talkingClip.current) {
             talkingClip.current = null;
             engine.tea.stopTalk();

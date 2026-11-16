@@ -265,3 +265,8 @@ export class SpeechPlayer {
     this.changed();
   }
 }
+
+/** A viewer's comment / question being read, or the owner's reply to it: by default only heard, not shown. */
+export function isChatClip(clip: Pick<SpeechClip, "kind">): boolean {
+  return clip.kind === "comment" || clip.kind === "question" || clip.kind === "answer";
+}

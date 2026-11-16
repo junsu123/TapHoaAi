@@ -16,7 +16,7 @@ test("settings are cleaned and kept between runs", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "chibi-"));
   const file = path.join(dir, "config.json");
   assert.equal(S.load(file).server, "http://127.0.0.1:8686"); // no file yet: defaults
-  S.save(file, { server: "http://192.168.1.5:9090/dashboard/game", size: 99999, quality: "ultra", token: "  abc  " });
+  S.save(file, { server: "http://192.168.1.5:9090/dashboard/game", size: 99999, quality: "best", token: "  abc  " });
   const c = S.load(file);
   assert.equal(c.server, "http://192.168.1.5:9090");
   assert.equal(c.size, 2160);
@@ -53,4 +53,18 @@ test("finds the software folder and its Python to start the server", () => {
   assert.ok(c.cmd.endsWith("python.exe"));
   assert.deepEqual(c.args, ["-m", "app", "--port", "8686"]);
   assert.equal(S.serverCommand("", 8686), null);
+});
+
+test("Nét nhất cho LIVE: the window is the 1080 × 1920 LIVE frame, sharpest quality (auto steps down if slow)", () => {
+  const c = S.sharpLive(S.sanitize({ size: 540, quality: "low", fullscreen: true }));
+  assert.equal(c.size, 1080);
+  assert.equal(c.quality, ""); // automatic = starts at "ultra" in the desktop app
+  assert.equal(c.fullscreen, false);
+  assert.equal(S.sanitize({ quality: "ultra" }).quality, "ultra");
+  assert.equal(S.fromArgs(["--sharp-live"], S.sanitize({ size: 720 })).size, 1080);
+  // on a Full HD landscape monitor (and at 150 % scaling) the frame is taller than the screen
+  assert.deepEqual(S.contentSize(1080, 1), { width: 1080, height: 1920 });
+  assert.deepEqual(S.contentSize(1080, 1.5), { width: 720, height: 1280 });
+  assert.ok(S.sticksOut({ width: 1080, height: 1920 }, { width: 1920, height: 1040 }));
+  assert.ok(!S.sticksOut({ width: 1080, height: 1920 }, { width: 2160, height: 3800 }));
 });

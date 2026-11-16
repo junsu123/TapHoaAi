@@ -127,10 +127,19 @@ Trên màn hình LIVE (đổi trong thẻ **Không gian cửa hàng & banner s�
 - Các câu của chủ quán sửa được, dùng `{ten}`, `{qua}`, `{san_pham}`.
 - **Đặt bảng vàng ở đâu cũng được:** trong phần Bảng vàng, bấm **Kéo thả bảng vàng tới chỗ muốn đặt** — một khung xem trước màn hình LIVE mở ra; kéo bảng vàng tới chỗ muốn đặt, kéo chấm vàng ở góc để phóng to/thu nhỏ (60–180%). Thả tay là lưu, màn hình OBS đổi ngay. **Về góc mặc định** đưa bảng về góc đã chọn.
 
+## Hình LIVE nét trên điện thoại
+
+Hình trên điện thoại chỉ nét khi nguồn game đủ **1080 × 1920 điểm ảnh** — cửa sổ nhỏ hơn thì phần mềm LIVE phải phóng to nên mờ.
+
+1. Cửa sổ Chibi Live Game: chuột phải → **Nét nhất cho LIVE (1080 × 1920)** (Ctrl+L). Cửa sổ có thể cao hơn màn hình; phần ngoài màn hình vẫn được phát. Chất lượng Tự động bắt đầu từ *Nét nhất* (vẽ gấp đôi rồi thu nhỏ), chỉ giảm khi máy chậm.
+2. Hoặc dùng nguồn **Link** (TikTok LIVE Studio) / **Browser Source** (OBS): `http://127.0.0.1:8686/game/live?quality=ultra`, rộng 1080, cao 1920 — không phụ thuộc cỡ màn hình. Chỉ mở một màn hình game chính.
+3. Trong phần mềm LIVE: khung hình 1080 × 1920, nguồn game phủ vừa khít khung (không phóng to), bitrate cao nhất mạng tải lên cho phép.
+4. Kiểm tra: Game 3D & OBS → *Hiệu năng màn hình game* ghi cỡ cửa sổ game và báo nếu chưa đủ 1080 × 1920.
+
 ## Sân khấu nhảy & chủ quán trò chuyện
 
 - **Sân khấu** (phía trước quán): người xem bình luận “nhảy” / “lên sân khấu” / “đăng ký nhảy” được xếp hàng, **ai bình luận trước lên nhảy trước**. Tới lượt, chủ quán mời lên, Chibi bước lên sân khấu nhảy một bài dưới đèn chiếu (mặc định 15 giây), camera quay sân khấu; xong thì cúi chào, bước xuống và người kế tiếp được mời. Bảng *Sân khấu* trên màn hình LIVE cho biết ai đang nhảy, ai kế tiếp. Người trực xem/sửa hàng chờ ở thẻ **Sân khấu** (trang Người trực); cài đặt ở Game 3D & OBS → *Sân khấu*. Tắt sân khấu thì “nhảy” lại là nhảy tại chỗ như trước.
-- **Chủ quán trò chuyện** (Trợ lý AI & giọng đọc → *Chủ quán trò chuyện*, cần bật “Phát trên LIVE”): chủ quán đọc bình luận và tự trả lời câu chào hỏi, khen, hỏi thăm (không gọi Claude); câu không tự trả lời được thì gọi Claude nếu bật. Lời chủ quán hiện trong bong bóng trên đầu chủ quán.
+- **Chủ quán trò chuyện** (Trợ lý AI & giọng đọc → *Chủ quán trò chuyện*, cần bật “Phát trên LIVE”): chủ quán đọc bình luận và tự trả lời câu chào hỏi, khen, hỏi thăm (không gọi Claude); câu không tự trả lời được thì gọi Claude nếu bật. Bình luận của khách và câu chủ quán trả lời chỉ đọc bằng giọng, không hiện chữ (bật lại ở Không gian cửa hàng → “Hiện chữ bình luận của khách”).
 - **Làm thơ, kể chuyện:** khách bình luận “làm thơ đi” / “kể chuyện đi”, hoặc LIVE vắng một lúc, chủ quán đọc một bài thơ hay một truyện ngắn (có sẵn 8 + 8, thêm được của shop, hoặc để Claude làm thơ mới). Nút **Đọc thơ ngay** / **Kể chuyện ngay** để người trực gọi bất cứ lúc nào.
 
 ## Hành vi Chibi (V3)
