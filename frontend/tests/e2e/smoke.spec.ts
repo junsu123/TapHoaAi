@@ -822,7 +822,7 @@ test("Honour board: drag it anywhere on the LIVE screen and resize it from the d
   test.setTimeout(150_000);
   const csrf = await login(page.request);
   const cur = (await (await page.request.get("/api/v1/settings/scene")).json()).config;
-  await page.request.put("/api/v1/settings/scene", { data: { ...cur, board_enabled: true, board_x: null, board_y: null, board_scale: 1 }, headers: { "X-CSRF-Token": csrf } });
+  await page.request.put("/api/v1/settings/scene", { data: { ...cur, board_enabled: true, board_x: null, board_y: null, board_scale: 1, stage_enabled: true, stage_board_x: null, stage_board_y: null, stage_board_scale: 1 }, headers: { "X-CSRF-Token": csrf } });
   const game = await context.newPage();
   await game.setViewportSize({ width: 540, height: 960 });
   await game.goto("/game/live?debug=1&quality=low");
@@ -830,7 +830,7 @@ test("Honour board: drag it anywhere on the LIVE screen and resize it from the d
 
   await page.setViewportSize({ width: 1360, height: 1300 });
   await page.goto("/dashboard/game");
-  await page.getByRole("button", { name: "Kéo thả bảng vàng tới chỗ muốn đặt" }).click();
+  await page.getByRole("button", { name: "Kéo thả bảng vàng và ô Sân khấu tới chỗ muốn đặt" }).click();
   const frame = page.frameLocator('[data-testid="board-placer-frame"]');
   const board = frame.getByTestId("honour-board");
   await expect(board).toBeVisible({ timeout: 20_000 });
@@ -866,10 +866,42 @@ test("Honour board: drag it anywhere on the LIVE screen and resize it from the d
   await game.waitForTimeout(800);
   await game.screenshot({ path: `${SHOTS}/BOARD-moved-live.png` });
 
-  // back to the corner
-  await page.getByRole("button", { name: "Về góc mặc định" }).click();
+  // the "Sân khấu" box moves the same way: drag it from the top right down to the left
+  const sb = frame.getByTestId("stage-board");
+  await expect(sb).toBeVisible();
+  const s0 = (await sb.boundingBox())!;
+  await page.mouse.move(s0.x + 20, s0.y + 12);
+  await page.mouse.down();
+  await page.mouse.move(s0.x - 60, s0.y + 60, { steps: 8 });
+  await page.mouse.move(s0.x - 140, s0.y + 120, { steps: 8 });
+  await page.mouse.up();
+  await expect(page.getByTestId("board-place-note")).toContainText("Đã lưu vị trí ô Sân khấu", { timeout: 10_000 });
+  let sc = (await (await page.request.get("/api/v1/settings/scene")).json()).config;
+  expect(sc.stage_board_x).toBeLessThan((s0.x - iframeBox.x) / iframeBox.width - 0.2); // 140 px left
+  expect(sc.stage_board_y).toBeGreaterThan((s0.y - iframeBox.y) / iframeBox.height + 0.1); // 120 px down
+  expect(sc.board_x).toBe(sized.board_x); // the honour board stays where it was
+  const sh = (await frame.getByTestId("stage-board-resize").boundingBox())!;
+  await page.mouse.move(sh.x + sh.width / 2, sh.y + sh.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(sh.x + 50, sh.y + 15, { steps: 10 });
+  await page.mouse.up();
+  await expect(page.getByTestId("board-place-note")).toContainText(/ô Sân khấu \(cỡ 1[1-8]\d%\)/, { timeout: 10_000 });
+  sc = (await (await page.request.get("/api/v1/settings/scene")).json()).config;
+  expect(sc.stage_board_scale).toBeGreaterThan(1.1);
+  const gs = game.getByTestId("stage-board");
+  await expect(gs).toHaveAttribute("data-placed", "1", { timeout: 10_000 });
+  await expect.poll(async () => (await gs.evaluate((el) => (el as HTMLElement).style.left))).toBe(`${sc.stage_board_x * 100}%`);
+  await page.screenshot({ path: `${SHOTS}/STAGE-BOARD-drag-dashboard.png`, fullPage: true });
+  await game.waitForTimeout(800);
+  await game.screenshot({ path: `${SHOTS}/STAGE-BOARD-moved-live.png` });
+
+  // back to their default spots
+  await page.getByRole("button", { name: "Bảng vàng về góc mặc định" }).click();
   await expect(page.getByTestId("board-place-note")).toContainText("góc mặc định");
   await expect.poll(async () => (await gb.evaluate((el) => (el as HTMLElement).style.left))).toBe("");
+  await page.getByRole("button", { name: "Ô Sân khấu về chỗ mặc định" }).click();
+  await expect(page.getByTestId("board-place-note")).toContainText("ô Sân khấu về chỗ mặc định");
+  await expect(gs).not.toHaveAttribute("data-placed", "1", { timeout: 10_000 });
   await game.close();
 });
 

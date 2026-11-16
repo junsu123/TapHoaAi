@@ -176,7 +176,26 @@ export function SceneSettings() {
         <input type="checkbox" checked={cfg.board_enabled} onChange={(e) => set({ board_enabled: e.target.checked })} aria-label="Bảng vàng" />
         Hiện bảng vàng top tặng quà & mua hàng trên màn hình LIVE
       </label>
-      {cfg.board_enabled && <BoardPlacer cfg={cfg} onSaved={(c) => setCfg((prev) => (prev ? { ...prev, board_x: c.board_x, board_y: c.board_y, board_scale: c.board_scale } : prev))} />}
+      {(cfg.board_enabled || cfg.stage_enabled) && (
+        <BoardPlacer
+          cfg={cfg}
+          onSaved={(c) =>
+            setCfg((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    board_x: c.board_x,
+                    board_y: c.board_y,
+                    board_scale: c.board_scale,
+                    stage_board_x: c.stage_board_x,
+                    stage_board_y: c.stage_board_y,
+                    stage_board_scale: c.stage_board_scale,
+                  }
+                : prev,
+            )
+          }
+        />
+      )}
       {cfg.board_enabled && (
         <div className="row wrap">
           <label>
@@ -252,20 +271,16 @@ export function SceneSettings() {
   );
 }
 
-/** Drag the honour board on a live preview of the LIVE screen; dropping it saves the spot. */
+/** Drag the honour board and the "Sân khấu" box on a live preview of the LIVE screen; dropping one saves its spot. */
 function BoardPlacer({ cfg, onSaved }: { cfg: SceneConfig; onSaved: (c: SceneConfig) => void }) {
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState<string | null>(null);
-  const save = async (patch: Partial<SceneConfig>) => {
+  const save = async (patch: Partial<SceneConfig>, done: (c: SceneConfig) => string) => {
     try {
       const cur = await api.get<{ config: SceneConfig }>("/settings/scene");
       const r = await api.put<{ config: SceneConfig }>("/settings/scene", { ...cur.config, ...patch });
       onSaved(r.config);
-      setNote(
-        r.config.board_x == null
-          ? "Đã đưa bảng vàng về góc mặc định."
-          : `Đã lưu vị trí bảng vàng (cỡ ${Math.round(r.config.board_scale * 100)}%). Màn hình LIVE đổi ngay.`,
-      );
+      setNote(done(r.config));
     } catch (x) {
       setNote(x instanceof ApiError ? x.message : String(x));
     }
@@ -273,23 +288,38 @@ function BoardPlacer({ cfg, onSaved }: { cfg: SceneConfig; onSaved: (c: SceneCon
   useEffect(() => {
     if (!open) return;
     const on = (e: MessageEvent) => {
-      if (e.origin !== location.origin || e.data?.type !== "chibi-board") return;
-      const { x, y, scale } = e.data as { x: number; y: number; scale: number };
-      save({ board_x: x, board_y: y, board_scale: scale });
+      if (e.origin !== location.origin) return;
+      const { type, x, y, scale } = (e.data ?? {}) as { type?: string; x: number; y: number; scale: number };
+      if (type === "chibi-board")
+        save({ board_x: x, board_y: y, board_scale: scale }, (c) => `Đã lưu vị trí bảng vàng (cỡ ${Math.round(c.board_scale * 100)}%). Màn hình LIVE đổi ngay.`);
+      else if (type === "chibi-stage-board")
+        save(
+          { stage_board_x: x, stage_board_y: y, stage_board_scale: scale },
+          (c) => `Đã lưu vị trí ô Sân khấu (cỡ ${Math.round(c.stage_board_scale * 100)}%). Màn hình LIVE đổi ngay.`,
+        );
     };
     window.addEventListener("message", on);
     return () => window.removeEventListener("message", on);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+  const what = [cfg.board_enabled && "bảng vàng", cfg.stage_enabled && "ô Sân khấu"].filter(Boolean).join(" và ");
   return (
     <div className="board-placer">
       <div className="row wrap">
         <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
-          {open ? "Xong, đóng khung kéo thả" : "Kéo thả bảng vàng tới chỗ muốn đặt"}
+          {open ? "Xong, đóng khung kéo thả" : `Kéo thả ${what} tới chỗ muốn đặt`}
         </button>
-        {(cfg.board_x != null || cfg.board_scale !== 1) && (
-          <button type="button" onClick={() => save({ board_x: null, board_y: null, board_scale: 1 })}>
-            Về góc mặc định
+        {cfg.board_enabled && (cfg.board_x != null || cfg.board_scale !== 1) && (
+          <button type="button" onClick={() => save({ board_x: null, board_y: null, board_scale: 1 }, () => "Đã đưa bảng vàng về góc mặc định.")}>
+            Bảng vàng về góc mặc định
+          </button>
+        )}
+        {cfg.stage_enabled && (cfg.stage_board_x != null || cfg.stage_board_scale !== 1) && (
+          <button
+            type="button"
+            onClick={() => save({ stage_board_x: null, stage_board_y: null, stage_board_scale: 1 }, () => "Đã đưa ô Sân khấu về chỗ mặc định.")}
+          >
+            Ô Sân khấu về chỗ mặc định
           </button>
         )}
         {note && (
@@ -300,8 +330,8 @@ function BoardPlacer({ cfg, onSaved }: { cfg: SceneConfig; onSaved: (c: SceneCon
       </div>
       {open && (
         <div className="board-placer-frame">
-          <iframe title="Kéo thả bảng vàng" src="/game/live?role=viewer&quality=low&edit=board" data-testid="board-placer-frame" />
-          <p className="muted small">Kéo bảng vàng trong khung này. Kéo chấm vàng ở góc để phóng to, thu nhỏ. Thả tay là lưu.</p>
+          <iframe title={`Kéo thả ${what}`} src="/game/live?role=viewer&quality=low&edit=board" data-testid="board-placer-frame" />
+          <p className="muted small">Kéo {what} trong khung này. Kéo chấm tròn ở góc để phóng to, thu nhỏ. Thả tay là lưu.</p>
         </div>
       )}
     </div>

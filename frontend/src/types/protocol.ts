@@ -134,6 +134,9 @@ export interface SceneConfig {
   stage_seconds: number;
   stage_max_queue: number;
   stage_side: "right" | "left";
+  stage_board_x: number | null; // the "Sân khấu" box dragged by the host: top-left, fraction of the frame
+  stage_board_y: number | null;
+  stage_board_scale: number;
   /** show a viewer's comment (and the owner's reply) as text on screen; off = only read aloud */
   chat_on_screen: boolean;
 }
@@ -184,6 +187,9 @@ export const DEFAULT_SCENE: SceneConfig = {
   stage_seconds: 15,
   stage_max_queue: 30,
   stage_side: "right",
+  stage_board_x: null,
+  stage_board_y: null,
+  stage_board_scale: 1,
   chat_on_screen: false,
 };
 
