@@ -407,7 +407,7 @@ export function LiveOverlay({
           liveStatus: engine.liveStatus,
           scene: engine.scene,
           board: engine.board,
-          teaShot: engine.tea.cameraOnTable(),
+          teaShot: engine.tea.cameraOnTable() || engine.stageShot(), // close-ups (tea, dance stage): the board steps aside
           bannerIds: engine.bannerProducts().map((p) => `${p.id}:${p.card_image_url ?? p.image_url}:${p.price}`).join(","),
         };
         return prev.product?.id === next.product?.id &&

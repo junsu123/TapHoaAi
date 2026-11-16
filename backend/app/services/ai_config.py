@@ -86,8 +86,11 @@ class AiConfig(BaseModel):
     owner_chat_claude: bool = True  # …and asks Claude when it has no answer of its own
     stage_announce: bool = True  # "Mời bạn … lên sân khấu!" out loud
     poem_story: bool = True  # recite a poem / tell a short story (on request, and now and then)
-    poem_story_every_min: int = Field(8, ge=0, le=60)  # when the LIVE is quiet; 0 = only on request
-    poem_story_claude: bool = False  # let Claude write a new poem (costs a little); always checked
+    # the owner makes up a poem for everybody every poem_auto_min–poem_auto_max minutes (random in between)
+    poem_auto: bool = True
+    poem_auto_min: int = Field(10, ge=1, le=120)
+    poem_auto_max: int = Field(15, ge=1, le=120)
+    poem_story_claude: bool = True  # Claude writes a new poem each time (costs a little); else the built-in ones
     poem_story_builtin: bool = True  # use the built-in poems and stories too (besides your own)
     custom_poems: list[str] = Field(default_factory=list, max_length=50)
     custom_stories: list[str] = Field(default_factory=list, max_length=50)

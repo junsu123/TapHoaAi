@@ -22,7 +22,7 @@ CFG = {"model": "claude-haiku-5-5", "budget_day_usd": 0.5, "budget_month_usd": 1
        # these tests exercise the Claude path; the answer memory has its own tests
        "simple_auto": False, "simple_auto_speak": True, "learn_enabled": False, "memory_threshold": 0.75,
        # the owner's poems "when the LIVE is quiet" have their own tests; never in the middle of these
-       "poem_story_every_min": 0}
+       "poem_auto": False}
 
 
 class ScriptedClaude:

@@ -171,22 +171,54 @@ def test_poem_written_by_claude_is_checked(admin_client):
     assert not risky_claims(h[-1]["text"])
 
 
-def test_now_and_then_when_quiet(admin_client):
+def test_a_poem_every_10_to_15_minutes(admin_client):
     c = admin_client
     cont = c.app.state.container
-    # a long time with the voice off is not "quiet time": switching it on never starts with a poem
-    cont.speech.last_activity -= 3600
-    cont.talk._last_auto = time.monotonic() - 3600
-    assert cont.talk.tick() is False
-    assert time.monotonic() - cont.talk._last_auto < 5
-    _voice_on(c)
-    c.post("/api/v1/demo/start")
     t = cont.talk
-    t._last_auto = time.monotonic()
-    time.sleep(6)
-    assert not t.history  # just started: not yet
-    t._last_auto -= 9 * 60  # 9 quiet minutes later (the owner looks every 5 s)
-    t._last_any -= 120
-    cont.speech.last_activity -= 9 * 60
+    # voice off / no LIVE: nothing scheduled — switching the voice on never starts with a poem
+    assert t.tick() is False and t.next_in() is None
+    _voice_on(c, poem_story_claude=True)
+    from app.services.assistant import FakeClaude
+
+    cont.assistant.client = FakeClaude()
+    c.post("/api/v1/demo/start")
+    _until(lambda: t.next_in() is not None, timeout=8)  # the owner looks every 5 s
+    assert 10 * 60 - 10 <= t.next_in() <= 15 * 60
+    assert not t.history
+    assert c.get("/api/v1/talk").json()["next_poem_in_s"] > 500
+    # some (random) 10–15 minutes later: a poem for everybody, made up by Claude (offline stand-in)
+    t._next_auto = t.clock() - 1
     _until(lambda: len(t.history) == 1, timeout=12)
-    assert t.history[0]["kind"] == "poem"
+    h = t.history[0]
+    assert h["kind"] == "poem" and h["for"] is None and h["source"] == "claude"
+    clip = cont.speech.history[-1] if cont.speech.history else cont.speech.current or cont.speech.queue[-1]
+    assert clip.text.startswith("Chủ quán vừa nghĩ ra một bài thơ tặng cả nhà:")
+    assert 10 * 60 - 10 <= t.next_in() <= 15 * 60  # and the next one is scheduled
+    # spread out: many schedules land all over the 10–15 minute window
+    gaps = []
+    for _ in range(200):
+        t._schedule(0.0)
+        gaps.append(t._next_auto / 60)
+    assert min(gaps) >= 10 and max(gaps) <= 15 and max(gaps) - min(gaps) > 4
+    # a question waiting to be read: the due poem waits for the gap
+    cont.speech.pending = lambda: 1  # e.g. a question being read
+    t._next_auto = t.clock() - 1
+    assert t.tick() is False and len(t.history) == 1 and t.next_in() == 0
+
+
+def test_stage_moves_to_the_middle_once_for_shops_saved_before(admin_client):
+    import json
+
+    from app.services.scene_config import CONFIG_KEY, SceneConfig, load_scene
+
+    c = admin_client
+    cont = c.app.state.container
+    old = SceneConfig().model_dump()
+    old.pop("stage_layout_v")
+    old["stage_side"] = "right"  # the 0.20 default, saved with the other settings
+    cont.set_setting(CONFIG_KEY, json.dumps(old), secret=False)
+    cfg = load_scene(cont)
+    assert cfg.stage_side == "center" and cfg.stage_layout_v == 2
+    # a shop that chooses the corner again keeps it
+    cont.set_setting(CONFIG_KEY, cfg.model_copy(update={"stage_side": "left"}).model_dump_json(), secret=False)
+    assert load_scene(cont).stage_side == "left"

@@ -17,12 +17,13 @@ export interface TeaSpot {
   obstacle: { minX: number; maxX: number; minZ: number; maxZ: number };
 }
 
-/** The tea corner sits in the centre aisle, between the first two rows of shelves. */
-export function teaSpot(layout: StoreLayout): TeaSpot {
+/** The tea corner sits in the centre aisle, between the first two rows of shelves — or, when the
+ * dance stage takes the middle of the shop, further back, just in front of the counter. */
+export function teaSpot(layout: StoreLayout, roomForStage = false): TeaSpot {
   const c = layout.store.counter;
   const front = c.z + c.d / 2;
   // halfway between the counter and the middle of the shop, never too close to the counter
-  const z = Math.max(front + 1.6, Math.min(front + 4.6, (front + 0) / 2 + 1.2));
+  const z = roomForStage ? front + 2.2 : Math.max(front + 1.6, Math.min(front + 4.6, (front + 0) / 2 + 1.2));
   const x = c.x;
   const turn = 0.35; // both sit slightly turned towards the main camera
   return {

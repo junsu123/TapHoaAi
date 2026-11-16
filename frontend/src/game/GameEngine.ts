@@ -192,9 +192,12 @@ export class GameEngine {
   /** Walkable map: shelves and counter, plus the tea table when the shop owner is on. */
   private rebuildNav(): void {
     if (!this.layout) return;
-    this.spot = this.scene.owner_enabled ? teaSpot(this.layout) : null;
+    const centreStage = this.scene.stage_enabled && this.scene.stage_side === "center";
+    this.spot = this.scene.owner_enabled ? teaSpot(this.layout, centreStage) : null;
     this.benches = benchSpots(this.layout);
-    this.stageSpot = this.scene.stage_enabled ? stageSpot(this.layout, this.scene.stage_side) : null;
+    this.stageSpot = this.scene.stage_enabled
+      ? stageSpot(this.layout, this.scene.stage_side, [...(this.spot ? [this.spot.obstacle] : []), ...this.benches.map((b) => b.obstacle)])
+      : null;
     this.nav = new NavGrid(this.layout, [
       ...(this.spot ? [this.spot.obstacle] : []),
       ...this.benches.map((b) => b.obstacle),
@@ -449,7 +452,7 @@ export class GameEngine {
       })),
       clipWarnings: [...this.clips.warnings],
       stage: this.stage ? { current: this.stage.current, waiting: this.stage.waiting, queue: this.stage.queue.map((q) => q.name) } : null,
-      stageSpot: this.stageSpot ? { x: this.stageSpot.center.x, z: this.stageSpot.center.z } : null,
+      stageSpot: this.stageSpot ? { x: this.stageSpot.center.x, z: this.stageSpot.center.z, shape: this.stageSpot.shape, placed: this.stageSpot.placed } : null,
       ownerTalking: this.tea.talking,
       hostSpeaking: this.hostSpeaking,
       behaviorConfig: this.behavior,

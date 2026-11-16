@@ -342,8 +342,8 @@ export class AvatarController {
     if (this.phase === "stage_dance") return st.spot.height;
     // on the steps: height grows with the distance walked from the foot of the steps
     const a = st.spot.approach;
-    const along = Math.abs(this.pos.x - a.x);
-    return st.spot.height * Math.min(1, along / Math.max(0.01, Math.abs(st.spot.stepsX - a.x)));
+    const along = Math.hypot(this.pos.x - a.x, this.pos.z - a.z);
+    return st.spot.height * Math.min(1, along / Math.max(0.01, Math.hypot(st.spot.steps.x - a.x, st.spot.steps.z - a.z)));
   }
 
   /** Their turn on the stage: walk over, climb up, dance until STAGE_END. */
