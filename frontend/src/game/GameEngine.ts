@@ -13,7 +13,7 @@ import type {
   ShelfLayout,
   StoreLayout,
 } from "../types/protocol";
-import { DEFAULT_SCENE, type LeaderboardView, type StageView, type UpcomingView } from "../types/protocol";
+import { DEFAULT_SCENE, type GameView, type LeaderboardView, type StageView, type UpcomingView } from "../types/protocol";
 import { TeaHouse, teaSpot, type TeaSpot } from "./teahouse";
 import { stageSpot, type StageSpot } from "./stage";
 import { benchSpots, DEFAULT_BEHAVIOR, type Bench, type BehaviorConfig } from "./behaviors";
@@ -57,6 +57,8 @@ export class GameEngine {
   /** the dance stage: where it stands, and who dances / waits (from the server) */
   /** “Sắp diễn ra” rows (server) */
   upcoming: UpcomingView | null = null;
+  /** the mini-game round on now (server) */
+  game: GameView | null = null;
   stageSpot: StageSpot | null = null;
   stage: StageView | null = null;
   /** owner's head on screen (0..1), written by the renderer, read by the speech bubble */
@@ -273,6 +275,7 @@ export class GameEngine {
     this.camera = { mode: s.camera.mode, avatarId: s.camera.avatar_id ?? null, commandId: s.camera.command_id ?? null };
     if (s.stage !== undefined) this.setStage(s.stage ?? null, true);
     if (s.upcoming !== undefined) this.upcoming = s.upcoming ?? null;
+    if (s.game !== undefined) this.game = s.game ?? null;
     this.version++;
   }
 
@@ -366,11 +369,23 @@ export class GameEngine {
         if (this.scene.owner_enabled) this.tea.thanks(m.text);
         break;
       case "OWNER_SAY":
-        if (this.scene.owner_enabled) this.tea.line(m.text, m.kind === "stage" || m.kind === "level" ? "stage" : "talk");
+        if (this.scene.owner_enabled)
+          this.tea.line(m.text, m.kind === "stage" || m.kind === "level" ? "stage" : m.kind === "game" ? "game" : "talk");
         break;
       case "UPCOMING":
         this.upcoming = m.upcoming;
         break;
+      case "GAME_STATE":
+        this.game = m.game;
+        break;
+      case "AVATAR_MEDAL": {
+        const a = this.avatars.get(m.avatar_id);
+        if (a) {
+          a.medals = m.medals;
+          a.info = { ...a.info, medals: m.medals };
+        }
+        break;
+      }
       case "STAGE_STATE":
         this.setStage(m.stage);
         break;
@@ -476,6 +491,7 @@ export class GameEngine {
         pose: a.pose,
         elevation: +a.elevation.toFixed(2),
         level: a.level,
+        medals: a.medals,
         levelProgress: a.levelProgress,
       })),
       clipWarnings: [...this.clips.warnings],

@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 from collections import Counter, deque
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from app.events.schema import EventType, LiveEvent
@@ -171,7 +169,16 @@ class Orchestrator:
         av = self.c.avatars.get_or_create(ev.user, is_demo, reason="product" if intent.moves_chibi else "comment")
         outcome = None
         command_id = None
-        if intent.moves_chibi and av:
+        game = None
+        if self.c.games.active:
+            gname = (ev.user.nickname or ev.user.unique_id or "bạn") if ev.user else "bạn"
+            game = self.c.games.answer(ev.user, gname, text, av.avatar_id if av else None)
+        if game:
+            # a mini-game answer: counted, nothing else (not read aloud, no Chibi errand, no Claude)
+            outcome = "game_" + game
+            if av and game == "answer":
+                self._direct(av.avatar_id, "think")
+        elif intent.moves_chibi and av:
             self.product_counts[intent.product_id] += 1
             cmd, outcome = self.c.actions.submit(
                 av.avatar_id, av.viewer_key, intent.product_id,
@@ -229,8 +236,9 @@ class Orchestrator:
                 self._dash_skipped_sent = now
                 self.c.hub.send_dashboard({"type": "COMMENTS_SKIPPED", "total": self.dash_skipped})
         viewer_key = av.viewer_key if av else (ev.user.identity_key if ev.user else None)
-        chat = not intent.needs_host and outcome != "no_location" and self.c.assistant.wants_chat(intent, viewer_key)
-        if intent.needs_host or outcome == "no_location" or chat:
+        chat = (not game and not intent.needs_host and outcome != "no_location"
+                and self.c.assistant.wants_chat(intent, viewer_key))
+        if not game and (intent.needs_host or outcome == "no_location" or chat):
             item = {**record, "status": "Chưa được trả lời",
                     "suggestion": None, "suggestion_label": None, "chat": chat,
                     "hint": "Bình luận thường — tự động hoàn toàn: chỉ đọc khi có câu trả lời an toàn." if chat

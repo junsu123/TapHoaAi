@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api, ApiError, formatVnd } from "../lib/api";
-import type { AgendaItem, SceneConfig } from "../types/protocol";
+import type { AgendaItem, QuizQuestion, SceneConfig } from "../types/protocol";
 
 interface ProductLite {
   id: string;
@@ -176,7 +176,7 @@ export function SceneSettings() {
         <input type="checkbox" checked={cfg.board_enabled} onChange={(e) => set({ board_enabled: e.target.checked })} aria-label="Bảng vàng" />
         Hiện bảng vàng top tặng quà & mua hàng trên màn hình LIVE
       </label>
-      {(cfg.board_enabled || cfg.stage_enabled || cfg.upcoming_enabled) && (
+      {(cfg.board_enabled || cfg.stage_enabled || cfg.upcoming_enabled || cfg.minigame_enabled) && (
         <BoardPlacer
           cfg={cfg}
           onSaved={(c) =>
@@ -193,6 +193,9 @@ export function SceneSettings() {
                     upcoming_x: c.upcoming_x,
                     upcoming_y: c.upcoming_y,
                     upcoming_scale: c.upcoming_scale,
+                    game_x: c.game_x,
+                    game_y: c.game_y,
+                    game_scale: c.game_scale,
                   }
                 : prev,
             )
@@ -270,6 +273,76 @@ export function SceneSettings() {
         Hiện trên LIVE những gì sắp tới, có đếm ngược: bài thơ tiếp theo, ai sắp lên cấp, hàng chờ sân khấu, lịch của shop — để người xem chờ thêm chút nữa
       </label>
       {cfg.upcoming_enabled && <AgendaEditor items={cfg.agenda} onChange={(agenda) => set({ agenda })} />}
+      <h3>Mini-game</h3>
+      <label className="check">
+        <input type="checkbox" checked={cfg.minigame_enabled} onChange={(e) => set({ minigame_enabled: e.target.checked })} aria-label="Mini-game tự động" />
+        <span>
+          Tự chạy một mini-game ngắn, cứ khoảng
+          <input
+            type="number"
+            className="mini"
+            min={3}
+            max={120}
+            value={cfg.minigame_every_min}
+            disabled={!cfg.minigame_enabled}
+            onChange={(e) => set({ minigame_every_min: Math.max(3, Math.min(120, Number(e.target.value) || 3)) })}
+            aria-label="Mini-game sau ít nhất (phút)"
+          />
+          đến
+          <input
+            type="number"
+            className="mini"
+            min={3}
+            max={120}
+            value={cfg.minigame_every_max}
+            disabled={!cfg.minigame_enabled}
+            onChange={(e) => set({ minigame_every_max: Math.max(3, Math.min(120, Number(e.target.value) || 3)) })}
+            aria-label="Mini-game sau nhiều nhất (phút)"
+          />
+          phút một lần. Người thắng được đeo huy chương trên Chibi và lên Bảng vàng (tab Mini-game).
+        </span>
+      </label>
+      <div className="row wrap">
+        {(
+          [
+            ["price", "Đoán giá (sản phẩm có giá đã kiểm tra)"],
+            ["quiz", "Đố vui (A / B / C)"],
+            ["keyword", "Nhanh tay (gõ đúng chữ)"],
+          ] as const
+        ).map(([k, label]) => (
+          <label key={k} className="check">
+            <input
+              type="checkbox"
+              checked={cfg.minigame_kinds.includes(k)}
+              onChange={(e) =>
+                set({ minigame_kinds: e.target.checked ? [...cfg.minigame_kinds.filter((x) => x !== k), k] : cfg.minigame_kinds.filter((x) => x !== k) })
+              }
+              aria-label={label}
+            />
+            {label}
+          </label>
+        ))}
+      </div>
+      <div className="row wrap">
+        <label>
+          Thời gian trả lời
+          <select value={cfg.minigame_seconds} onChange={(e) => set({ minigame_seconds: Number(e.target.value) })} aria-label="Thời gian trả lời mini-game">
+            {[20, 30, 45, 60, 90].map((n) => (
+              <option key={n} value={n}>
+                {n} giây
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="check">
+          <input type="checkbox" checked={cfg.minigame_voice} onChange={(e) => set({ minigame_voice: e.target.checked })} aria-label="Chủ quán đọc mini-game" />
+          Chủ quán đọc câu hỏi và kết quả bằng giọng
+        </label>
+      </div>
+      <QuizEditor items={cfg.minigame_questions} onChange={(minigame_questions) => set({ minigame_questions })} />
+      <p className="muted small">
+        Phần thưởng chỉ là danh hiệu trong game (huy chương, Bảng vàng). Nếu tặng quà thật hay rút thăm, shop cần làm đúng quy định khuyến mãi của TikTok.
+      </p>
       <h3>Chibi lên cấp theo thời gian xem</h3>
       <label className="check">
         <input type="checkbox" checked={cfg.levels_enabled} onChange={(e) => set({ levels_enabled: e.target.checked })} aria-label="Chibi lên cấp" />
@@ -357,12 +430,19 @@ function BoardPlacer({ cfg, onSaved }: { cfg: SceneConfig; onSaved: (c: SceneCon
           { upcoming_x: x, upcoming_y: y, upcoming_scale: scale },
           (c) => `Đã lưu vị trí bảng Sắp diễn ra (cỡ ${Math.round(c.upcoming_scale * 100)}%). Màn hình LIVE đổi ngay.`,
         );
+      else if (type === "chibi-game-board")
+        save(
+          { game_x: x, game_y: y, game_scale: scale },
+          (c) => `Đã lưu vị trí bảng mini-game (cỡ ${Math.round(c.game_scale * 100)}%). Màn hình LIVE đổi ngay.`,
+        );
     };
     window.addEventListener("message", on);
     return () => window.removeEventListener("message", on);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
-  const parts = [cfg.board_enabled && "bảng vàng", cfg.stage_enabled && "ô Sân khấu", cfg.upcoming_enabled && "bảng Sắp diễn ra"].filter(Boolean) as string[];
+  const parts = [cfg.board_enabled && "bảng vàng", cfg.stage_enabled && "ô Sân khấu", cfg.upcoming_enabled && "bảng Sắp diễn ra", cfg.minigame_enabled && "bảng mini-game"].filter(
+    Boolean,
+  ) as string[];
   const what = parts.length > 1 ? `${parts.slice(0, -1).join(", ")} và ${parts[parts.length - 1]}` : parts[0];
   return (
     <div className="board-placer">
@@ -386,6 +466,11 @@ function BoardPlacer({ cfg, onSaved }: { cfg: SceneConfig; onSaved: (c: SceneCon
         {cfg.upcoming_enabled && (cfg.upcoming_x != null || cfg.upcoming_scale !== 1) && (
           <button type="button" onClick={() => save({ upcoming_x: null, upcoming_y: null, upcoming_scale: 1 }, () => "Đã đưa bảng Sắp diễn ra về chỗ mặc định.")}>
             Bảng Sắp diễn ra về chỗ mặc định
+          </button>
+        )}
+        {cfg.minigame_enabled && (cfg.game_x != null || cfg.game_scale !== 1) && (
+          <button type="button" onClick={() => save({ game_x: null, game_y: null, game_scale: 1 }, () => "Đã đưa bảng mini-game về chỗ mặc định.")}>
+            Bảng mini-game về chỗ mặc định
           </button>
         )}
         {note && (
@@ -497,4 +582,53 @@ function nextHalfHour(): string {
   const d = new Date(Date.now() + 30 * 60000);
   d.setMinutes(d.getMinutes() < 30 ? 30 : 60, 0, 0);
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+/** "Đố vui" questions of the shop's own: the question, the right answer, two wrong ones. */
+function QuizEditor({ items, onChange }: { items: QuizQuestion[]; onChange: (v: QuizQuestion[]) => void }) {
+  const setAt = (i: number, q: QuizQuestion) => onChange(items.map((it, k) => (k === i ? q : it)));
+  return (
+    <div className="quiz-editor" data-testid="quiz-editor">
+      <p className="muted small">
+        Câu đố của shop (thêm vào các câu có sẵn về trà, Việt Nam và LIVE này). Ô đầu là đáp án đúng; khi chơi, thứ tự A/B/C được xáo ngẫu nhiên. Đừng hỏi về
+        công dụng chữa bệnh.
+      </p>
+      {items.map((q, i) => (
+        <div className="quiz-row" key={i}>
+          <input
+            type="text"
+            value={q.question}
+            maxLength={140}
+            placeholder="Câu hỏi"
+            onChange={(e) => setAt(i, { ...q, question: e.target.value })}
+            aria-label={`Câu đố ${i + 1}`}
+          />
+          {q.options.map((o, k) => (
+            <input
+              key={k}
+              type="text"
+              value={o}
+              maxLength={60}
+              placeholder={k === 0 ? "Đáp án đúng" : "Đáp án sai"}
+              className={k === 0 ? "right" : ""}
+              onChange={(e) => {
+                const opts = [...q.options] as QuizQuestion["options"];
+                opts[k] = e.target.value;
+                setAt(i, { ...q, options: opts });
+              }}
+              aria-label={`Câu đố ${i + 1} — ${k === 0 ? "đáp án đúng" : `đáp án sai ${k}`}`}
+            />
+          ))}
+          <button type="button" className="link" onClick={() => onChange(items.filter((_, k) => k !== i))} aria-label={`Xóa câu đố ${i + 1}`}>
+            Xóa
+          </button>
+        </div>
+      ))}
+      {items.length < 30 && (
+        <button type="button" onClick={() => onChange([...items, { question: "", options: ["", "", ""] }])}>
+          + Thêm câu đố
+        </button>
+      )}
+    </div>
+  );
 }

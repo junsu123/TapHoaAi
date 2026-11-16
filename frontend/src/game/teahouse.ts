@@ -43,7 +43,7 @@ export type OwnerPose = "brew" | "rise" | "bow" | "stand" | "sit" | "serve" | "o
 
 export interface Bubble {
   text: string;
-  kind: "greet" | "tea" | "thanks" | "talk" | "stage" | "poem" | "story";
+  kind: "greet" | "tea" | "thanks" | "talk" | "stage" | "poem" | "story" | "game";
   until: number;
 }
 
@@ -63,7 +63,7 @@ const POSE_SECONDS: Record<OwnerPose, number> = {
   serve: 2.4,
   offer: 2.2,
 };
-export const BUBBLE_SECONDS = { greet: 4.2, tea: 6, thanks: 4.5, talk: 30, stage: 4.5, poem: 40, story: 40 };
+export const BUBBLE_SECONDS = { greet: 4.2, tea: 6, thanks: 4.5, talk: 30, stage: 4.5, poem: 40, story: 40, game: 9 };
 /** a short owner line said while the voice was talking is shown when it stops, if still this fresh */
 const LINE_WAIT_S = 20;
 export const GUEST_SIT_SECONDS = 12;
@@ -91,7 +91,7 @@ export class TeaHouse {
   /** cups on the table: the guest's cup is filled when served */
   guestCupFull = false;
   private pendingGreet: string[] = [];
-  private pendingLine: { text: string; kind: "stage" | "talk"; at: number } | null = null;
+  private pendingLine: { text: string; kind: "stage" | "talk" | "game"; at: number } | null = null;
   private now = 0;
   history: { kind: string; text: string; at: number }[] = [];
 
@@ -109,13 +109,13 @@ export class TeaHouse {
   }
 
   /** A short line in the bubble (stage calls, thanks…) without standing up. */
-  line(text: string, kind: "stage" | "talk" = "talk"): void {
+  line(text: string, kind: "stage" | "talk" | "game" = "talk"): void {
     if (this.talking) {
       // the voice is speaking: its words stay in the bubble; this line follows right after
       this.pendingLine = { text, kind, at: this.now };
       return;
     }
-    this.say(text, kind === "stage" ? "stage" : "thanks");
+    this.say(text, kind === "stage" ? "stage" : kind === "game" ? "game" : "thanks");
   }
 
   /** The owner speaks (every line of the LIVE voice): the bubble shows it while it plays. */
@@ -132,7 +132,7 @@ export class TeaHouse {
     const next = this.pendingLine;
     this.pendingLine = null;
     if (next && this.now - next.at <= LINE_WAIT_S) {
-      this.say(next.text, next.kind === "stage" ? "stage" : "thanks");
+      this.say(next.text, next.kind === "stage" ? "stage" : next.kind === "game" ? "game" : "thanks");
       return;
     }
     if (this.bubble && (this.bubble.kind === "talk" || this.bubble.kind === "poem" || this.bubble.kind === "story" || this.bubble.kind === "stage"))

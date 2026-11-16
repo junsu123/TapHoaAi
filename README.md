@@ -136,6 +136,10 @@ Hình trên điện thoại chỉ nét khi nguồn game đủ **1080 × 1920 đi
 3. Trong phần mềm LIVE: khung hình 1080 × 1920, nguồn game phủ vừa khít khung (không phóng to), bitrate cao nhất mạng tải lên cho phép.
 4. Kiểm tra: Game 3D & OBS → *Hiệu năng màn hình game* ghi cỡ cửa sổ game và báo nếu chưa đủ 1080 × 1920.
 
+## Mini-game
+
+Mỗi 15–20 phút (ngẫu nhiên) LIVE tự chạy một mini-game khoảng 1 phút: **Đoán giá** (bình luận con số, gần đúng nhất thắng), **Đố vui** (bình luận A/B/C, 3 người đúng nhanh nhất thắng), **Nhanh tay** (3 người gõ đúng chữ đầu tiên thắng). Người thắng được đeo huy chương trên Chibi và lên Bảng vàng (tab Mini-game). Người trực bắt đầu/dừng ở thẻ **Mini-game** (trang Người trực); cài đặt và câu đố của shop ở Không gian cửa hàng → *Mini-game*.
+
 ## Bảng “Sắp diễn ra”
 
 Bảng nhỏ trên màn hình LIVE cho người xem biết sắp có gì, kèm đếm ngược: bài thơ tiếp theo của chủ quán, ai sắp lên cấp, và **lịch LIVE của shop** (Không gian cửa hàng → *Bảng “Sắp diễn ra”* → “+ Thêm mục vào lịch”, ví dụ 22:10 Mini-game đoán giá; hiện khi còn dưới 90 phút, giờ Việt Nam). Kéo thả được như Bảng vàng.

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
@@ -141,3 +143,36 @@ def levels_try(body: LevelTry, request: Request, admin: CurrentAdmin = AdminDep)
     if r is None:
         raise HTTPException(409, "Không có Chibi nào trên màn hình để lên cấp (hoặc tất cả đã có vương miện).")
     return {"ok": True, "message": f"{r['name']} sắp được {r['next']}.", **r}
+
+
+GameKind = Literal["price", "quiz", "keyword"]
+
+
+class GameStart(BaseModel):
+    kind: GameKind | None = None
+
+
+@router.get("/games")
+def games(request: Request, admin: CurrentAdmin = AdminDep) -> dict:
+    """Mini-games: the round on now, the next one, recent winners."""
+    return request.app.state.container.games.dashboard_view()
+
+
+@router.post("/games/start")
+def games_start(body: GameStart, request: Request, admin: CurrentAdmin = AdminDep) -> dict:
+    c = request.app.state.container
+    if not c.live.session_id:
+        raise HTTPException(409, "Chưa có LIVE (hoặc Demo) đang chạy.")
+    if c.games.round is not None:
+        raise HTTPException(409, "Đang có một mini-game, chờ xong đã.")
+    if body.kind == "price" and not c.games._priced():
+        raise HTTPException(409, "Chưa có sản phẩm nào có giá đã kiểm tra để đoán giá.")
+    r = c.games.start(body.kind, manual=True)
+    if r is None:
+        raise HTTPException(409, "Chưa bắt đầu được mini-game.")
+    return {"ok": True, "kind": r.kind, "title": r.data and c.games.view()["title"]}
+
+
+@router.post("/games/stop")
+def games_stop(request: Request, admin: CurrentAdmin = AdminDep) -> dict:
+    return {"ok": request.app.state.container.games.stop()}

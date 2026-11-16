@@ -185,7 +185,7 @@ class OwnerHost:
 class Leaderboard:
     def __init__(self, c: AppContainer) -> None:
         self.c = c
-        self.data: dict[str, Any] = {"session": None, "gifts": {}, "purchases": []}
+        self.data: dict[str, Any] = {"session": None, "gifts": {}, "purchases": [], "games": {}}
         self._pub_last = -1e9
         self._pub_timer: asyncio.TimerHandle | None = None
         self._dirty = False
@@ -195,7 +195,7 @@ class Leaderboard:
                 d = json.loads(raw)
                 if isinstance(d, dict):
                     self.data = {"session": d.get("session"), "gifts": dict(d.get("gifts") or {}),
-                                 "purchases": list(d.get("purchases") or [])}
+                                 "purchases": list(d.get("purchases") or []), "games": dict(d.get("games") or {})}
             except (ValueError, TypeError):
                 pass
 
@@ -241,6 +241,7 @@ class Leaderboard:
             if self.data.get("session") is not None:
                 self.data["gifts"] = {}
                 self.data["purchases"] = []
+                self.data["games"] = {}
             self.data["session"] = session_id
 
     # ------------------------------------------------------------------ events
@@ -254,6 +255,19 @@ class Leaderboard:
         g["name"] = display_name(name) if name else g["name"]
         g["gifts"] += max(1, count)
         g["coins"] += max(0, diamonds_each) * max(1, count)
+        g["last"] = time.time()
+        self._save()
+        self._publish()
+
+    def add_game_win(self, key: str | None, name: str | None, session_id: str | None, is_demo: bool) -> None:
+        """A mini-game winner (the "Mini-game" tab)."""
+        if self.c.scene.board_scope == "all" and is_demo:
+            return
+        self._session_check(session_id)
+        k = key or f"name:{name}"
+        g = self.data.setdefault("games", {}).setdefault(k, {"name": display_name(name), "wins": 0})
+        g["name"] = display_name(name) if name else g["name"]
+        g["wins"] += 1
         g["last"] = time.time()
         self._save()
         self._publish()
@@ -279,7 +293,7 @@ class Leaderboard:
         return True
 
     def reset(self) -> None:
-        self.data = {"session": self.c.live.session_id, "gifts": {}, "purchases": []}
+        self.data = {"session": self.c.live.session_id, "gifts": {}, "purchases": [], "games": {}}
         self._save()
         self._publish()
 
@@ -296,8 +310,10 @@ class Leaderboard:
             b["amount"] += p["amount"]
             b["orders"] += 1
         top_buyers = sorted(buyers.values(), key=lambda b: (b["amount"], b["items"]), reverse=True)
+        games = sorted(self.data.get("games", {}).values(), key=lambda g: (g["wins"], -g.get("last", 0)), reverse=True)
         return {
             "gifts": [{"name": g["name"], "gifts": g["gifts"], "coins": g["coins"]} for g in gifts[:n]],
+            "games": [{"name": g["name"], "wins": g["wins"]} for g in games[:n]],
             "buyers": top_buyers[:n],
             "recent_purchases": list(reversed(self.data["purchases"][-20:])),
             "scope": self.c.scene.board_scope,

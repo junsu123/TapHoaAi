@@ -54,6 +54,8 @@ export interface AvatarInfo {
   is_demo: boolean;
   /** watch-time level: 0, 1 nón lá, 2 áo choàng, 3 vương miện */
   level?: number;
+  /** mini-game wins this LIVE (a medal on the Chibi) */
+  medals?: number;
 }
 
 export interface CharacterAction {
@@ -83,9 +85,38 @@ export interface GameSnapshot {
   board?: LeaderboardView;
   stage?: StageView;
   upcoming?: UpcomingView;
+  game?: GameView | null;
 }
 
 /** The dance stage (whoever comments "nhảy" first dances first). */
+/** A mini-game round on the LIVE screen (the right answer only once revealed). */
+export interface GameView {
+  id: string;
+  kind: "price" | "quiz" | "keyword";
+  title: string;
+  phase: "intro" | "open" | "reveal";
+  opens_at: number;
+  closes_at: number;
+  ends_at: number;
+  answers: number;
+  product?: string;
+  image?: string | null;
+  question?: string;
+  options?: string[];
+  keyword?: string;
+  winners?: string[];
+  price?: number;
+  closest?: { name: string; guess: number }[];
+  answer?: number;
+  right?: number;
+}
+
+/** A "Đố vui" question of the shop's own: the right answer first. */
+export interface QuizQuestion {
+  question: string;
+  options: [string, string, string];
+}
+
 /** One line of the shop's LIVE schedule. */
 export interface AgendaItem {
   time: string; // "22:10"
@@ -94,7 +125,7 @@ export interface AgendaItem {
 
 /** “Sắp diễn ra”: what is coming up (soonest first) + how to join in. */
 export interface UpcomingRow {
-  kind: "poem" | "level" | "stage" | "agenda";
+  kind: "poem" | "level" | "stage" | "agenda" | "game";
   icon: string;
   text: string;
   due: number | null; // epoch ms the screen counts down to (null: happening now)
@@ -170,6 +201,16 @@ export interface SceneConfig {
   upcoming_x: number | null;
   upcoming_y: number | null;
   upcoming_scale: number;
+  minigame_enabled: boolean;
+  minigame_every_min: number;
+  minigame_every_max: number;
+  minigame_kinds: ("price" | "quiz" | "keyword")[];
+  minigame_seconds: number;
+  minigame_voice: boolean;
+  minigame_questions: QuizQuestion[];
+  game_x: number | null;
+  game_y: number | null;
+  game_scale: number;
   levels_enabled: boolean;
   level_minutes: number[];
   level_presence_min: number;
@@ -179,6 +220,7 @@ export interface SceneConfig {
 export interface LeaderboardView {
   gifts: { name: string; gifts: number; coins: number }[];
   buyers: { name: string; items: number; amount: number; orders: number }[];
+  games?: { name: string; wins: number }[];
   recent_purchases: { id: string; name: string; product: string; qty: number; amount: number; at: number }[];
   scope: "session" | "all";
   total_gifts: number;
@@ -233,6 +275,16 @@ export const DEFAULT_SCENE: SceneConfig = {
   upcoming_x: null,
   upcoming_y: null,
   upcoming_scale: 1,
+  minigame_enabled: true,
+  minigame_every_min: 15,
+  minigame_every_max: 20,
+  minigame_kinds: ["price", "quiz", "keyword"],
+  minigame_seconds: 45,
+  minigame_voice: true,
+  minigame_questions: [],
+  game_x: null,
+  game_y: null,
+  game_scale: 1,
   levels_enabled: true,
   level_minutes: [5, 15, 30],
   level_presence_min: 10,
@@ -241,7 +293,7 @@ export const DEFAULT_SCENE: SceneConfig = {
 
 export interface SpeechClip {
   id: string;
-  kind: "question" | "answer" | "test" | "comment" | "greeting" | "product" | "welcome" | "stage" | "poem" | "story" | "level";
+  kind: "question" | "answer" | "test" | "comment" | "greeting" | "product" | "welcome" | "stage" | "poem" | "story" | "level" | "game";
   label: string;
   text: string;
   url: string | null;
@@ -258,6 +310,8 @@ export type ServerGameMessage =
   | { type: "AVATAR_LEVEL"; sequence: number; avatar_id: string; level: number; up: boolean; item: string }
   /** [avatar_id, level, progress 0…1 towards the next level or null (not counting / top level)] */
   | { type: "UPCOMING"; sequence: number; upcoming: UpcomingView }
+  | { type: "GAME_STATE"; sequence: number; game: GameView | null }
+  | { type: "AVATAR_MEDAL"; sequence: number; avatar_id: string; medals: number }
   | { type: "LEVEL_PROGRESS"; sequence: number; items: [string, number, number | null][] }
   | { type: "AVATAR_EXIT"; sequence: number; avatar_id: string; reason: string }
   | { type: "PREEMPT"; sequence: number; command_id: string; avatar_id: string }

@@ -117,6 +117,8 @@ export class AvatarController {
   info: AvatarInfo;
   /** watch-time level (0 … 3) and progress towards the next one (null: not counting / at the top) */
   level = 0;
+  /** mini-game wins this LIVE */
+  medals = 0;
   levelProgress: number | null = null;
   levelUpAt = -1e9;
   /** seconds since the level-up (for the little "pop" of the new gear) */
@@ -172,6 +174,7 @@ export class AvatarController {
 
   constructor(info: AvatarInfo, spawn: Point2, private world: WorldQuery, private emit: (m: ClientGameMessage) => void) {
     this.level = info.level ?? 0;
+    this.medals = info.medals ?? 0;
     this.info = info;
     this.pos = { ...spawn };
     this.lastCheckPos = { ...spawn };

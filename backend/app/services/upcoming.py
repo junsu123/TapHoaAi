@@ -65,6 +65,11 @@ class UpcomingService:
             out.append({"kind": "poem", "icon": "📜", "text": "Chủ quán làm thơ tặng cả nhà",
                         "due": now_ms + int(nxt * 1000)})
 
+        # the next mini-game
+        g = self.c.games.next_in() if live else None
+        if g is not None:
+            out.append({"kind": "game", "icon": "🎮", "text": "Mini-game có quà danh hiệu", "due": now_ms + int(g * 1000)})
+
         # the next Chibi to level up
         if live and scene.levels_enabled:
             lv = self.c.levels

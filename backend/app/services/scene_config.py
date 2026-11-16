@@ -35,6 +35,21 @@ class AgendaItem(BaseModel):
         return v
 
 
+class QuizQuestion(BaseModel):
+    """A question of the shop's own for the "Đố vui" mini-game: the right answer first."""
+
+    question: str = Field(min_length=3, max_length=140)
+    options: list[str] = Field(min_length=3, max_length=3)
+
+    @field_validator("options")
+    @classmethod
+    def _opts(cls, v: list[str]) -> list[str]:
+        v = [" ".join(o.split())[:60] for o in v]
+        if any(not o for o in v) or len({o.lower() for o in v}) < 3:
+            raise ValueError("ba đáp án, khác nhau, không bỏ trống")
+        return v
+
+
 class SceneConfig(BaseModel):
     theme: Theme = "herbal"
     sign_text: str = Field("TIỆM TRÀ THẢO MỘC", max_length=32)
@@ -99,12 +114,36 @@ class SceneConfig(BaseModel):
     upcoming_x: float | None = Field(None, ge=0.0, le=0.95)
     upcoming_y: float | None = Field(None, ge=0.0, le=0.95)
     upcoming_scale: float = Field(1.0, ge=0.6, le=1.8)
+    # mini-games: a short round every minigame_every_min–max minutes (random), to keep viewers
+    minigame_enabled: bool = True
+    minigame_every_min: int = Field(15, ge=3, le=120)
+    minigame_every_max: int = Field(20, ge=3, le=120)
+    minigame_kinds: list[Literal["price", "quiz", "keyword"]] = Field(default_factory=lambda: ["price", "quiz", "keyword"])
+    minigame_seconds: int = Field(45, ge=15, le=120)  # time to answer (Đoán giá, Đố vui)
+    minigame_voice: bool = True
+    minigame_questions: list[QuizQuestion] = Field(default_factory=list, max_length=30)
+    game_x: float | None = Field(None, ge=0.0, le=0.95)
+    game_y: float | None = Field(None, ge=0.0, le=0.95)
+    game_scale: float = Field(1.0, ge=0.6, le=1.8)
     levels_enabled: bool = True
     level_minutes: list[int] = Field(default_factory=lambda: [5, 15, 30])
     level_presence_min: int = Field(10, ge=2, le=60)
     level_voice: bool = True
     # a viewer's comment (and the owner's reply to it) is only read aloud: no bubble, no caption text
     chat_on_screen: bool = False
+
+    @field_validator("minigame_questions", mode="before")
+    @classmethod
+    def _questions(cls, v):
+        """Rows left unfinished in the editor (no question, or an answer box empty) are dropped."""
+        if not isinstance(v, list):
+            return v
+        def done(q):
+            if not isinstance(q, dict):
+                return True
+            opts = q.get("options") or []
+            return len(str(q.get("question", "")).strip()) >= 3 and len(opts) == 3 and all(str(o).strip() for o in opts)
+        return [q for q in v if done(q)]
 
     @field_validator("agenda", mode="before")
     @classmethod
