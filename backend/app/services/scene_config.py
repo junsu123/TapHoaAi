@@ -66,7 +66,9 @@ class SceneConfig(BaseModel):
     stage_enabled: bool = True
     stage_seconds: int = Field(15, ge=8, le=60)  # each performer dances this long
     stage_max_queue: int = Field(30, ge=5, le=100)
-    stage_side: Literal["right", "left"] = "right"
+    # "center": a round stage in the middle aisle, seen by everybody; "right"/"left": front corner
+    stage_side: Literal["center", "right", "left"] = "center"
+    stage_layout_v: int = 2  # 1 = saved before the centre stage existed (moved to the centre once)
     # the "Sân khấu" box on the LIVE screen, where the host dragged it (None = default spot)
     stage_board_x: float | None = Field(None, ge=0.0, le=0.95)
     stage_board_y: float | None = Field(None, ge=0.0, le=0.95)
@@ -85,7 +87,12 @@ def load_scene(c: AppContainer) -> SceneConfig:
     raw = c.get_setting(CONFIG_KEY)
     if raw:
         try:
-            return SceneConfig.model_validate(json.loads(raw))
+            data = json.loads(raw)
+            if isinstance(data, dict) and data.get("stage_layout_v", 1) < 2:
+                # 0.20/0.21 kept the stage in the front corner by default: it now stands in the middle
+                data["stage_side"] = "center"
+                data["stage_layout_v"] = 2
+            return SceneConfig.model_validate(data)
         except (ValueError, TypeError):
             pass
     return SceneConfig()

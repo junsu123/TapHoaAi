@@ -105,7 +105,24 @@ POEMS: list[str] = [
     "Sáng ra pha ấm trà đầy,\nNghe chim ríu rít, nghe ngày sang trang.\nChúc ai một sớm bình an,\nLòng như chén nước, nhẹ nhàng mà trong.",
     "Gió đưa hương lá về đây,\nAi qua ghé lại, đôi tay chén trà.\nĐường xa thì cứ đi xa,\nNhớ còn một quán nhà ta đợi chờ.",
     "Đêm nay quán sáng đèn vàng,\nChibi nhảy múa rộn ràng khắp nơi.\nBạn ơi nhắn một câu thôi,\nChủ quán đọc hết, trả lời từng người.",
+    "Hôm nay trời đã sang đông,\nGió heo may thổi bên sông lạnh lùng.\nMời nhau chén nước ấm lòng,\nNgoài kia gió rét, trong phòng vẫn vui.",
+    "Bạn ở phương nào xa xôi,\nVẫn vào quán nhỏ chung vui một chiều.\nChén trà chẳng có bao nhiêu,\nMà lòng chủ quán thương yêu thật nhiều.",
+    "Trăng lên đầu ngõ sáng trong,\nẤm trà sôi nhẹ, gian phòng thơm hương.\nAi về giữa chốn phố phường,\nGhé đây nghỉ chút, dặm đường bớt xa.",
+    "Quán nhà có bạn Chibi,\nSáng ra dạo kệ, chiều đi chào người.\nThấy ai bình luận đôi lời,\nChạy ra vẫy vẫy, miệng cười tươi rói.",
+    "Một mai bận rộn trăm bề,\nNhớ pha chén nước mà nghe lòng mình.\nĐời người như lá trà xanh,\nCó khi nóng vội, có khi dịu dàng.",
+    "Cảm ơn ai đã tặng quà,\nChủ quán xin rót chén trà đáp ân.\nQuà to quà nhỏ chẳng cần,\nCó người ghé lại là gần là thân.",
+    "Ngoài kia xe cộ ồn ào,\nTrong đây chén nước ngọt ngào hương quê.\nNghe chim ríu rít bờ đê,\nTưởng như mình đã trở về tuổi thơ.",
+    "Live đêm khuya khoắt mấy ai,\nVẫn còn bạn đó, chẳng phai nụ cười.\nChúc ai ngủ ngon tuyệt vời,\nMai về quán nhỏ, ta ngồi chuyện tiếp.",
 ]
+
+# what a new poem may be about (Claude gets one at random, so poems do not all sound alike)
+POEM_THEMES = (
+    "chén trà nóng và người bạn ghé quán", "người xem ở nơi xa vẫn vào live", "buổi sáng bình yên",
+    "buổi chiều tan tầm", "đêm khuya còn thức", "mưa rơi ngoài hiên", "nắng sớm và lá trà xanh",
+    "gió mùa về, trời se lạnh", "các bạn Chibi đi dạo trong quán", "sân khấu nhỏ, ai cũng nhảy được",
+    "cảm ơn người thả tim, tặng quà", "quê nhà và bếp lửa", "tình bạn bên ấm trà", "mẹ pha trà buổi sớm",
+    "niềm vui nhỏ mỗi ngày", "chúc mọi người ngủ ngon", "con đường làng và bờ rào", "quán nhỏ đèn vàng",
+)
 
 STORIES: list[str] = [
     (
@@ -153,10 +170,23 @@ STORIES: list[str] = [
 POEM_SCHEMA = {"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"],
                "additionalProperties": False}
 POEM_SYSTEM = (
-    "Bạn là chủ một quán trà thảo mộc nhỏ đang LIVE bán hàng. Viết MỘT bài thơ lục bát 4 câu (6-8-6-8 chữ), "
-    "tiếng Việt, ấm áp, vui vẻ, về quán trà, chén trà, người xem LIVE. Không nói công dụng, không hứa chữa bệnh, "
-    "không nhắc bệnh tật hay thuốc, không nêu giá. Mỗi câu một dòng. Trả về JSON {\"text\": \"...\"}."
+    "Bạn là chủ một quán trà thảo mộc nhỏ đang LIVE bán hàng. Viết MỘT bài thơ lục bát MỚI 4 câu (6-8-6-8 chữ, "
+    "vần lục bát), tiếng Việt, ấm áp, vui vẻ, theo chủ đề được gợi ý và hợp với giờ trong ngày. Không nói công dụng, "
+    "không hứa chữa bệnh, không nhắc bệnh tật hay thuốc, không nêu giá, không quảng cáo. Không lặp lại các bài gần đây. "
+    "Mỗi câu một dòng. Trả về JSON {\"text\": \"...\"}."
 )
+
+
+def time_of_day(hour: int) -> str:
+    if 5 <= hour < 11:
+        return "buổi sáng"
+    if 11 <= hour < 14:
+        return "buổi trưa"
+    if 14 <= hour < 18:
+        return "buổi chiều"
+    if 18 <= hour < 22:
+        return "buổi tối"
+    return "đêm khuya"
 
 REQUEST_GAP_S = 45.0  # one poem / story at a time on request
 VIEWER_AGAIN_S = 180.0  # the same viewer asks again: wait
@@ -169,7 +199,7 @@ class OwnerTalk:
         self.rng = random.Random()
         self._order: dict[str, list[int]] = {"poem": [], "story": []}
         self._last_any = -1e9
-        self._last_auto = clock()
+        self._next_auto: float | None = None  # when the next "every 10–15 minutes" poem is due
         self._by_viewer: dict[str, float] = {}
         self.history: deque[dict[str, Any]] = deque(maxlen=30)
         self._task: asyncio.Task | None = None
@@ -241,7 +271,9 @@ class OwnerTalk:
             text, source = await self._compose(kind, name)
             cfg = self.cfg
             who = speakable_name(name, cfg.banned_words) if name else None
-            if kind == "poem":
+            if kind == "poem" and source == "claude":
+                intro = f"Chủ quán vừa nghĩ ra một bài thơ tặng {who}:" if who else "Chủ quán vừa nghĩ ra một bài thơ tặng cả nhà:"
+            elif kind == "poem":
                 intro = f"Tặng {who} một bài thơ nhỏ:" if who else "Chủ quán đọc tặng cả nhà một bài thơ:"
             else:
                 intro = f"{who} ơi, nghe chủ quán kể chuyện nha." if who else "Chủ quán kể cả nhà nghe một chuyện nhỏ nha."
@@ -266,7 +298,12 @@ class OwnerTalk:
             worst = a.budget.worst_case(cfg.model, len(POEM_SYSTEM) + 200, 300)
             if a.budget.allows(worst, cfg.budget_day_usd, cfg.budget_month_usd):
                 try:
-                    user = f"Quán: {cfg.shop_name}. " + (f"Tặng người xem tên {name}." if name else "Tặng cả nhà đang xem.")
+                    now = time.localtime()
+                    recent = [h["text"].split("\n")[0] for h in list(self.history)[-4:] if h["kind"] == "poem" and h.get("text")]
+                    user = (f"Quán: {cfg.shop_name}. Bây giờ là {time_of_day(now.tm_hour)}, tháng {now.tm_mon}. "
+                            f"Chủ đề gợi ý: {self.rng.choice(POEM_THEMES)}. "
+                            + (f"Tặng người xem tên {name}. " if name else "Tặng cả nhà đang xem LIVE. ")
+                            + (f"Các bài gần đây bắt đầu bằng: {' / '.join(recent)}." if recent else ""))
                     comp = await asyncio.wait_for(
                         a.client.complete(api_key=key, model=cfg.model, system=POEM_SYSTEM, user=user,
                                           schema=POEM_SCHEMA, max_tokens=300), timeout=20.0)
@@ -297,25 +334,37 @@ class OwnerTalk:
                 self.tick()
 
     def tick(self) -> bool:
-        """When the LIVE is quiet: a poem or a story every `poem_story_every_min` minutes."""
+        """Every `poem_auto_min`–`poem_auto_max` minutes (random in between) the owner makes up a poem
+        for everybody — counted from when the voice is on during a LIVE; it waits for a gap, never
+        talks over an answer or a question being read."""
         cfg = self.cfg
-        every = cfg.poem_story_every_min
         now = self.clock()
-        if (not cfg.poem_story or every <= 0 or self._busy or not self.c.live.session_id
-                or self.c.speech.pending() > 0 or not self.c.assistant.voice_ready()[0]):
-            # not quiet (or the voice is off): the quiet time starts again from now —
-            # never a poem the moment the voice is switched on, never one over an answer
-            self._last_auto = now
+        if (not cfg.poem_story or not cfg.poem_auto or not self.c.live.session_id
+                or not self.c.assistant.voice_ready()[0]):
+            self._next_auto = None  # starts again when the voice / the LIVE is back: never a poem at once
             return False
-        # quiet = nothing said for `every` minutes (a clip that came and went between two looks counts too)
-        quiet_since = max(self._last_auto, self.c.speech.last_activity - time.monotonic() + now)
-        if now - quiet_since < every * 60 or now - self._last_any < 60:
+        if self._next_auto is None:
+            self._schedule(now)
             return False
-        self._last_auto = now
-        kind = "poem" if len(self.history) % 2 == 0 else "story"
-        self._start(kind, None)
+        if now < self._next_auto:
+            return False
+        if self._busy or self.c.speech.pending() > 0 or now - self._last_any < 60:
+            return False  # due: waits for a gap
+        self._schedule(now)
+        self._start("poem", None)
         return True
 
+    def _schedule(self, now: float) -> None:
+        cfg = self.cfg
+        lo, hi = sorted((cfg.poem_auto_min, cfg.poem_auto_max))
+        self._next_auto = now + self.rng.uniform(lo, hi) * 60
+
+    def next_in(self) -> float | None:
+        """Seconds until the next poem (None: not scheduled now)."""
+        return None if self._next_auto is None else max(0.0, self._next_auto - self.clock())
+
     def view(self) -> dict[str, Any]:
+        nxt = self.next_in()
         return {"history": list(self.history)[-10:], "poems": len(self._library("poem")),
+                "next_poem_in_s": None if nxt is None else round(nxt),
                 "stories": len(self._library("story"))}

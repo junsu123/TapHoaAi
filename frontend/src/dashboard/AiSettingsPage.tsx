@@ -44,7 +44,9 @@ export interface AiConfig {
   owner_chat_claude: boolean;
   stage_announce: boolean;
   poem_story: boolean;
-  poem_story_every_min: number;
+  poem_auto: boolean;
+  poem_auto_min: number;
+  poem_auto_max: number;
   poem_story_claude: boolean;
   poem_story_builtin: boolean;
   custom_poems: string[];
@@ -630,19 +632,45 @@ function OwnerTalkCard({ cfg, set }: { cfg: AiConfig; set: <K extends keyof AiCo
         <label className="check big">
           <input type="checkbox" checked={cfg.poem_story} onChange={(e) => set("poem_story", e.target.checked)} aria-label="Làm thơ, kể chuyện" />
           <span>
-            <b>Làm thơ, kể chuyện</b> — khách bình luận “làm thơ”, “kể chuyện” thì chủ quán đọc tặng; lúc LIVE vắng thì thỉnh thoảng tự đọc.
+            <b>Làm thơ, kể chuyện</b> — khách bình luận “làm thơ”, “kể chuyện” thì chủ quán đọc tặng (mỗi khách tối đa 1 lần mỗi 3 phút).
           </span>
         </label>
-        <Field label={cfg.poem_story_every_min ? `Tự đọc khi LIVE vắng: ${cfg.poem_story_every_min} phút một lần` : "Tự đọc khi LIVE vắng: tắt (chỉ đọc khi khách xin)"} hint="Chỉ đọc khi không còn câu nào chờ đọc. Mỗi khách xin tối đa 1 lần mỗi 3 phút.">
-          <input type="range" min={0} max={60} step={1} value={cfg.poem_story_every_min} disabled={!cfg.poem_story} onChange={(e) => set("poem_story_every_min", Number(e.target.value))} aria-label="Phút giữa các bài thơ" />
-        </Field>
         <label className="check">
-          <input type="checkbox" checked={cfg.poem_story_builtin} disabled={!cfg.poem_story} onChange={(e) => set("poem_story_builtin", e.target.checked)} aria-label="Dùng thơ truyện có sẵn" />
-          Dùng các bài thơ, truyện ngắn có sẵn (8 bài thơ, 8 truyện)
+          <input type="checkbox" checked={cfg.poem_auto} disabled={!cfg.poem_story} onChange={(e) => set("poem_auto", e.target.checked)} aria-label="Chủ quán tự làm thơ định kỳ" />
+          <span>
+            Chủ quán tự làm một bài thơ tặng cả nhà, cứ khoảng
+            <input
+              type="number"
+              className="mini"
+              min={1}
+              max={120}
+              value={cfg.poem_auto_min}
+              disabled={!cfg.poem_story || !cfg.poem_auto}
+              onChange={(e) => set("poem_auto_min", Math.max(1, Math.min(120, Number(e.target.value) || 1)))}
+              aria-label="Làm thơ sau ít nhất (phút)"
+            />
+            đến
+            <input
+              type="number"
+              className="mini"
+              min={1}
+              max={120}
+              value={cfg.poem_auto_max}
+              disabled={!cfg.poem_story || !cfg.poem_auto}
+              onChange={(e) => set("poem_auto_max", Math.max(1, Math.min(120, Number(e.target.value) || 1)))}
+              aria-label="Làm thơ sau nhiều nhất (phút)"
+            />
+            phút một lần (ngẫu nhiên trong khoảng này; chờ lúc không có câu nào đang đọc)
+          </span>
+        </label>
+        <TalkNext />
+        <label className="check">
+          <input type="checkbox" checked={cfg.poem_story_claude} disabled={!cfg.poem_story} onChange={(e) => set("poem_story_claude", e.target.checked)} aria-label="Claude làm thơ mới" />
+          Mỗi lần là một bài thơ mới do Claude nghĩ ra (theo giờ trong ngày, chủ đề thay đổi; tốn rất ít tiền Claude; bài nào nói về bệnh/chữa trị sẽ bị bỏ). Không có khóa Claude hoặc hết ngân sách thì đọc bài có sẵn.
         </label>
         <label className="check">
-          <input type="checkbox" checked={cfg.poem_story_claude} disabled={!cfg.poem_story} onChange={(e) => set("poem_story_claude", e.target.checked)} aria-label="Claude làm thơ tặng khách" />
-          Claude làm thơ mới tặng riêng khách xin thơ (tốn một ít tiền Claude; thơ có nói về bệnh/chữa trị sẽ bị bỏ)
+          <input type="checkbox" checked={cfg.poem_story_builtin} disabled={!cfg.poem_story} onChange={(e) => set("poem_story_builtin", e.target.checked)} aria-label="Dùng thơ truyện có sẵn" />
+          Dùng các bài thơ, truyện ngắn có sẵn (16 bài thơ, 8 truyện)
         </label>
         <Field label="Thơ của shop (mỗi bài cách nhau một dòng trống)" hint="Được đọc trước các bài có sẵn. Tối đa 50 bài.">
           <BlocksInput value={cfg.custom_poems} onChange={(v) => set("custom_poems", v)} label="Thơ của shop" rows={5} />
@@ -678,5 +706,30 @@ function BlocksInput({ value, onChange, label, rows }: { value: string[]; onChan
         onChange(split(e.target.value));
       }}
     />
+  );
+}
+
+/** "Bài thơ tiếp theo sau khoảng … phút" (from the server). */
+function TalkNext() {
+  const [s, setS] = useState<number | null | undefined>(undefined);
+  useEffect(() => {
+    let alive = true;
+    const load = () =>
+      api
+        .get<{ next_poem_in_s: number | null }>("/talk")
+        .then((r) => alive && setS(r.next_poem_in_s))
+        .catch(() => undefined);
+    load();
+    const id = setInterval(load, 15000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, []);
+  if (s === undefined) return null;
+  return (
+    <p className="muted small" data-testid="poem-next">
+      {s === null ? "Bài thơ tự động bắt đầu đếm giờ khi đang LIVE và giọng đọc đang bật." : s <= 0 ? "Đến giờ làm thơ — chờ lúc không có câu nào đang đọc." : `Bài thơ tiếp theo sau khoảng ${Math.ceil(s / 60)} phút.`}
+    </p>
   );
 }

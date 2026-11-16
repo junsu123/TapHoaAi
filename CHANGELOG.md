@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.22.0 — 2026-11-16 — Sân khấu giữa quán, đèn sân khấu & thơ mỗi 10–15 phút
+
+- **Sân khấu ở giữa quán** (mặc định): sân khấu tròn đặt ngay giữa lối đi chính, giữa khung hình — ai xem cũng thấy người nhảy. Hai bên vẫn chừa lối đi; bàn trà của chủ quán lùi về phía quầy để nhường chỗ. Phía sau có giàn đèn với biển “SÂN KHẤU”. Shop nào đã lưu cài đặt trước đây cũng được chuyển ra giữa một lần; muốn để ở góc trước như cũ: Không gian cửa hàng → Sân khấu → *Đặt sân khấu*. Nếu sơ đồ kệ của shop không còn chỗ trống ở giữa, sân khấu tự về góc trước.
+- **Hiệu ứng ánh sáng khi nhảy:** đèn trong quán dịu xuống; 4 luồng đèn màu quét quanh người nhảy theo nhịp nhạc; sàn sân khấu đổi màu từng ô theo nhịp; viền đèn chạy vòng; vòng sáng lan ra trên sàn; đốm lấp lánh bay lên; pháo giấy bung ra mỗi khi một người bước lên; đèn màu chiếu từ trên xuống. Camera quay toàn cảnh sân khấu, Bảng vàng tạm ẩn trong lúc nhảy để không che. Ô “Sân khấu” gọn hơn.
+- **Chủ quán tự làm thơ mỗi 10–15 phút** (ngẫu nhiên trong khoảng; chỉnh được ở Trợ lý AI & giọng đọc → *Chủ quán trò chuyện*). Tính giờ khi đang LIVE và giọng đọc bật; đến giờ thì chờ lúc không có câu nào đang đọc. Mỗi lần là một bài lục bát mới do Claude nghĩ ra theo giờ trong ngày và một chủ đề thay đổi (“Chủ quán vừa nghĩ ra một bài thơ tặng cả nhà: …”), có kiểm tra không nói về bệnh/chữa trị; không có khóa Claude thì đọc bài có sẵn (thêm 8 bài, nay 16 bài). Bảng điều khiển cho biết bài thơ tiếp theo sau khoảng bao nhiêu phút.
+
 ## 0.21.1 — 2026-11-16 — Kéo thả ô Sân khấu
 
 - Ô **Sân khấu** trên màn hình LIVE kéo thả được như Bảng vàng: Game 3D & OBS → Không gian cửa hàng → “Kéo thả bảng vàng và ô Sân khấu tới chỗ muốn đặt”, kéo ô tới chỗ muốn đặt, kéo chấm tròn ở góc để phóng to/thu nhỏ (60–180 %), thả tay là lưu, màn hình LIVE đổi ngay. Nút “Ô Sân khấu về chỗ mặc định” để đưa về như cũ.

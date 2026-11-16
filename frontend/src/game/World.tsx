@@ -112,8 +112,15 @@ function CameraRig({ engine }: { engine: GameEngine }) {
       // someone is dancing on the stage: frame the stage (with a bit of the shop around it)
       const S = engine.stageSpot;
       const lift = overlayBanner(engine) ? 0.6 : 0;
-      goalLook.set(S.center.x * 0.85, S.height + 0.75 + lift, S.center.z - lift * 0.5);
-      goalPos.set(S.center.x * 0.55, S.height + 3.4 + lift * 0.6, S.center.z + 5.6 + lift * 0.5);
+      if (S.shape === "round") {
+        // the stage in the middle: a little higher and wider, so the light show and the shop around it show too
+        // (the dancer a little left of the middle: the "Sân khấu" box sits on the right)
+        goalLook.set(S.center.x + 0.4, S.height + 0.95 + lift, S.center.z - 0.2 - lift * 0.5);
+        goalPos.set(S.center.x + 0.4, S.height + 4.6 + lift * 0.6, S.center.z + 6.6 + lift * 0.5);
+      } else {
+        goalLook.set(S.center.x * 0.85, S.height + 0.75 + lift, S.center.z - lift * 0.5);
+        goalPos.set(S.center.x * 0.55, S.height + 3.4 + lift * 0.6, S.center.z + 5.6 + lift * 0.5);
+      }
       shot = "stage";
     } else {
       const o = overviewOf(engine);
@@ -370,11 +377,25 @@ function Lights({ engine, q }: { engine: GameEngine; q: (typeof QUALITY)[Quality
   useEffect(() => {
     gl.domElement.style.background = t.background;
   }, [gl, t]);
+  // someone dances on the stage: the shop lights go down a little so the stage lights stand out
+  const amb = useRef<THREE.AmbientLight>(null!);
+  const hemi = useRef<THREE.HemisphereLight>(null!);
+  const sun = useRef<THREE.DirectionalLight>(null!);
+  const dim = useRef(0);
+  useFrame((_, dt) => {
+    const want = engine.stageShot() ? 1 : 0;
+    dim.current += (want - dim.current) * Math.min(1, dt * 2.5);
+    const k = 1 - 0.32 * dim.current;
+    if (amb.current) amb.current.intensity = 0.45 * k;
+    if (hemi.current) hemi.current.intensity = 0.55 * k;
+    if (sun.current) sun.current.intensity = 1.9 * (1 - 0.38 * dim.current);
+  });
   return (
     <>
-      <ambientLight intensity={0.45} color={t.ambient} />
-      <hemisphereLight args={[t.hemiSky, t.hemiGround, 0.55]} />
+      <ambientLight ref={amb} intensity={0.45} color={t.ambient} />
+      <hemisphereLight ref={hemi} args={[t.hemiSky, t.hemiGround, 0.55]} />
       <directionalLight
+        ref={sun}
         position={[6, 13, 7]}
         intensity={1.9}
         color={t.sun}

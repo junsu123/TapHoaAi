@@ -631,7 +631,7 @@ ol.steps code { font-size: 12px; background: #eef2f0; padding: 1px 5px; border-r
 .owner-bubble.stage::after { border-top-color: #c2408a; }
 
 /* dance stage line, on the LIVE frame */
-.stage-board { position: absolute; z-index: 2; width: 22vh; padding: 1vh 1.3vh; border-radius: 1.4vh; background: rgba(38, 16, 34, .82); color: #fff; font-size: clamp(10px, 1.45vh, 28px); line-height: 1.35; border: .25vh solid #f2b6d8; box-shadow: 0 .5vh 1.4vh rgba(0, 0, 0, .3); }
+.stage-board { position: absolute; z-index: 2; width: 15vh; padding: .8vh 1vh; border-radius: 1.2vh; background: rgba(38, 16, 34, .78); color: #fff; font-size: clamp(9px, 1.25vh, 26px); line-height: 1.3; border: .25vh solid #f2b6d8; box-shadow: 0 .5vh 1.4vh rgba(0, 0, 0, .3); }
 .stage-board-title { font-weight: 800; letter-spacing: .02em; color: #ffd2ea; margin-bottom: .4vh; }
 .stage-now { display: flex; gap: .6vh; align-items: baseline; flex-wrap: wrap; padding: .5vh .7vh; margin: 0 -.4vh .5vh; border-radius: .8vh; background: rgba(255, 210, 234, .16); }
 .stage-now span { color: #ffd2ea; font-size: .85em; }
@@ -649,3 +649,5 @@ ol.steps code { font-size: 12px; background: #eef2f0; padding: 1px 5px; border-r
 
 /* a viewer's chat is only read aloud (Không gian cửa hàng → "Hiện chữ bình luận" off) */
 .speech-caption.off-screen { display: none; }
+
+input.mini { width: 4.2em; margin: 0 .35em; padding: 2px 4px; display: inline-block; }

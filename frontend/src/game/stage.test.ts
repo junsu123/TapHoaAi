@@ -26,6 +26,42 @@ const run = (e: GameEngine, s: number, f?: () => void) => {
   }
 };
 
+describe("the stage in the middle of the shop (default)", () => {
+  it("stands in the centre aisle, in the middle of the picture, with a walkway on both sides", () => {
+    const { e } = engineWith(0);
+    const s = e.stageSpot!;
+    expect(s.shape).toBe("round");
+    expect(s.placed).toBe("center");
+    expect(s.center.x).toBe(0);
+    // where the tea table stood before: the middle of the overview picture
+    expect(s.center.z).toBeGreaterThan(-2);
+    expect(s.center.z).toBeLessThan(0.5);
+    expect(e.spot!.table.z).toBeLessThan(s.center.z - 2); // the tea table moved back towards the counter
+    const nav = e.nav!;
+    expect(nav.isPointFree(s.approach)).toBe(true);
+    expect(nav.isPointFree(s.top)).toBe(false);
+    // people still walk past it, left and right of the stage
+    for (const x of [-1.375, 1.375]) expect(nav.isPointFree({ x, z: s.center.z })).toBe(true);
+    // the door still reaches every shelf, the tea table and the counter
+    const door = LAYOUT.store.door;
+    for (const sh of LAYOUT.shelves) for (const p of [...sh.stand_positions, ...sh.wait_positions]) expect(nav.findPath(door, p), `${sh.code}`).not.toBeNull();
+    expect(nav.findPath(door, e.spot!.guestApproach)).not.toBeNull();
+    // clear of the tea table
+    const t = e.spot!.obstacle;
+    expect(s.obstacle.minZ).toBeGreaterThan(t.maxZ + 0.5);
+  });
+
+  it("a shop layout with no room in the middle puts it at the front corner", () => {
+    const crowded = {
+      ...LAYOUT,
+      shelves: [...LAYOUT.shelves, ...[-2, 0.25, 2.25, 4].map((z, i) => ({ ...LAYOUT.shelves[0], code: `MID_${i}`, transform: { ...LAYOUT.shelves[0].transform, x: 0, z, w: 1.2 }, stand_positions: [], wait_positions: [] }))],
+    };
+    const s = stageSpot(crowded, "center");
+    expect(s.placed).toBe("right");
+    expect(s.shape).toBe("box");
+  });
+});
+
 describe("the stage in the shop", () => {
   it("stands in front, clear of shelves and the door, with free steps", () => {
     for (const side of ["right", "left"] as const) {

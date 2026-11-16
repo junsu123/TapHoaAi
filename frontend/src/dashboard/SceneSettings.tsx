@@ -254,6 +254,7 @@ export function SceneSettings() {
           <label>
             Đặt sân khấu
             <select value={cfg.stage_side} onChange={(e) => set({ stage_side: e.target.value as SceneConfig["stage_side"] })} aria-label="Vị trí sân khấu">
+              <option value="center">Giữa quán (ai cũng thấy người nhảy)</option>
               <option value="right">Phía trước, bên phải</option>
               <option value="left">Phía trước, bên trái</option>
             </select>

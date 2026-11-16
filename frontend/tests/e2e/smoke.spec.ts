@@ -1193,9 +1193,9 @@ test("Stage + owner talk: first to comment dances first, the owner answers chat 
   const csrf = await login(page.request);
   const H = { "X-CSRF-Token": csrf };
   const scene = (await (await page.request.get("/api/v1/settings/scene")).json()).config;
-  await page.request.put("/api/v1/settings/scene", { data: { ...scene, owner_enabled: true, stage_enabled: true, stage_seconds: 25, stage_side: "right" }, headers: H });
+  await page.request.put("/api/v1/settings/scene", { data: { ...scene, owner_enabled: true, stage_enabled: true, stage_seconds: 25, stage_side: "center" }, headers: H });
   const s = await (await page.request.get("/api/v1/settings/ai")).json();
-  const cfg = { ...s.config, voice_policy_confirmed: true, voice_enabled: true, autopilot: false, read_comments: false, greet_joins: false, owner_chat: true, stage_announce: true, poem_story: true, poem_story_every_min: 0, poem_story_builtin: true, poem_story_claude: false };
+  const cfg = { ...s.config, voice_policy_confirmed: true, voice_enabled: true, autopilot: false, read_comments: false, greet_joins: false, owner_chat: true, stage_announce: true, poem_story: true, poem_auto: false, poem_story_builtin: true, poem_story_claude: false };
   const put = await page.request.put("/api/v1/settings/ai", { data: { config: cfg }, headers: H });
   expect(put.ok(), await put.text()).toBeTruthy();
   await page.request.post("/api/v1/voice/unmute", { headers: H });
@@ -1213,6 +1213,12 @@ test("Stage + owner talk: first to comment dances first, the owner answers chat 
   await game.waitForFunction(() => (window as any).__chibiDebug?.state().stageSpot, null, { timeout: 30_000 });
   const board = game.getByTestId("stage-board");
   const bubble = game.getByTestId("owner-bubble");
+  // the stage stands in the middle of the shop, in the middle of the picture
+  const spot = await game.evaluate(() => (window as any).__chibiDebug.state().stageSpot);
+  expect(spot.shape).toBe("round");
+  expect(spot.x).toBe(0);
+  await game.waitForTimeout(1500);
+  await game.screenshot({ path: `${SHOTS}/STAGE-0-center-idle.png` });
 
   // three viewers ask to dance; the first one is called up first, the others wait in order
   const [a, b, c] = ["mai", "tung", "linh"].map((n) => `${n}${RUN}`);
@@ -1297,6 +1303,9 @@ test("Stage + owner talk: first to comment dances first, the owner answers chat 
   await page.goto("/dashboard/ai");
   const talk = page.getByTestId("owner-talk-card");
   await expect(talk).toBeVisible();
+  // the owner makes up a poem every 10–15 minutes (random in between)
+  await expect(talk.getByLabel("Làm thơ sau ít nhất (phút)")).toHaveValue("10");
+  await expect(talk.getByLabel("Làm thơ sau nhiều nhất (phút)")).toHaveValue("15");
   await talk.getByRole("button", { name: "Kể chuyện ngay" }).click();
   await expect(talk.getByTestId("talk-now-msg")).toContainText("câu chuyện");
   await expect(bubble).toHaveAttribute("data-kind", "story", { timeout: 60_000 });
