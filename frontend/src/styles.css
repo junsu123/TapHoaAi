@@ -617,3 +617,4 @@ label.check.big { font-size: 15px; }
 .perf-cell.ok b { color: #1f7a4d; }
 .perf-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 .perf-table th, .perf-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line, #dfe5e2); font-size: 13px; }
+.perf-sub { margin: 8px 0 0; font-size: 14px; }

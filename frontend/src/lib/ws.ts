@@ -106,27 +106,14 @@ export class SequencedSocket<S extends { type: string; sequence: number }, M ext
     };
     ws.onmessage = (ev) => {
       this.lastMessageAt = Date.now();
-      let msg: S | M;
-      try {
-        msg = JSON.parse(ev.data);
-      } catch {
-        return;
+      for (const msg of unpackFrame<S | M>(ev.data)) {
+        try {
+          this.dispatch(msg);
+        } catch (e) {
+          // one bad message must not stop the rest of the frame (or the page)
+          console.error("message handler failed", msg.type, e);
+        }
       }
-      if (msg.type === "SNAPSHOT") {
-        const pending = this.tracker.onSnapshot((msg as S).sequence);
-        this.handlers.onSnapshot(msg as S);
-        for (const m of pending) this.handlers.onMessage(m as M);
-        if (!this.tracker.haveSnapshot) this.send({ type: "RESYNC" });
-        return;
-      }
-      const seq = (msg as M).sequence;
-      if (typeof seq !== "number") {
-        this.handlers.onMessage(msg as M); // un-sequenced (PONG)
-        return;
-      }
-      const d = this.tracker.decide(seq, msg);
-      if (d === "apply") this.handlers.onMessage(msg as M);
-      else if (d === "resync") this.send({ type: "RESYNC" });
     };
     ws.onclose = () => {
       this.connected = false;
@@ -137,6 +124,37 @@ export class SequencedSocket<S extends { type: string; sequence: number }, M ext
       setTimeout(() => !this.closed && this.open(), delay);
     };
   }
+
+  private dispatch(msg: S | M): void {
+    if (msg.type === "SNAPSHOT") {
+      const pending = this.tracker.onSnapshot((msg as S).sequence);
+      this.handlers.onSnapshot(msg as S);
+      for (const m of pending) this.handlers.onMessage(m as M);
+      if (!this.tracker.haveSnapshot) this.send({ type: "RESYNC" });
+      return;
+    }
+    const seq = (msg as M).sequence;
+    if (typeof seq !== "number") {
+      this.handlers.onMessage(msg as M); // un-sequenced (PONG)
+      return;
+    }
+    const d = this.tracker.decide(seq, msg);
+    if (d === "apply") this.handlers.onMessage(msg as M);
+    else if (d === "resync") this.send({ type: "RESYNC" });
+  }
+}
+
+/** One WebSocket frame → messages. The server packs several into {type: "BATCH", messages}. */
+export function unpackFrame<T extends { type: string }>(data: string): T[] {
+  let msg: T | { type: "BATCH"; messages: T[] };
+  try {
+    msg = JSON.parse(data);
+  } catch {
+    return [];
+  }
+  if (!msg || typeof msg !== "object") return [];
+  if (msg.type === "BATCH") return Array.isArray((msg as { messages: T[] }).messages) ? (msg as { messages: T[] }).messages : [];
+  return [msg as T];
 }
 
 export function wsUrl(path: string): string {

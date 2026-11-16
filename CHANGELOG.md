@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.18.0 — 2026-11-16 — LIVE đông người xem vẫn ổn định
+
+- **Máy chủ chịu tải gấp đôi trở lên:** trên máy kiểm thử, bản cũ nghẽn từ khoảng 500 sự kiện/giây (trễ 4–7 giây, bỏ hàng nghìn lượt tim/vào xem); bản mới xử lý 1 000 sự kiện/giây, trễ 12 ms, CPU 35 % một nhân, không bỏ gì. Chi tiết và cách đo: `docs/high-load.md`.
+- Ghi cơ sở dữ liệu theo lô (vài lần mỗi giây, luồng riêng); thả tim và số người xem chỉ đếm, không ghi từng cái.
+- Mỗi màn hình (OBS, xem trước, dashboard) có hàng chờ riêng có giới hạn và nhận tin theo khung gộp; màn hình quá chậm được ngắt và tự kết nối lại với trạng thái mới — không làm chậm màn hình khác, bộ nhớ không phình.
+- Chibi vào quán đều đặn ~3/giây, ở lại ít nhất 40 giây; người gọi tên sản phẩm rồi người tặng quà được vào trước (ai hỏi trước vào trước, thế chỗ Chibi đã ở ≥ 15 giây); yêu cầu chờ quá 30 giây được bỏ (đặc tả §4); người chỉ vào xem không chen khi quán đầy.
+- Bão quà: chủ quán mời trà tối đa 1 khách/15 giây, những người khác được cảm ơn chung trong một bong bóng; bảng vàng cập nhật tối đa 1 lần/giây.
+- Dashboard: lệnh, câu hỏi, tên sản phẩm luôn hiện; bình luận trò chuyện thường tối đa 12/giây (báo số bình luận đã gộp); danh sách bình luận chỉ vẽ lại dòng mới.
+- Trợ lý AI: tối đa 12 câu hỏi soạn cùng lúc, còn lại để người trực; trò chuyện tự động một câu một lúc và tạm dừng khi máy chủ bận.
+- Theo dõi máy chủ: sự kiện/giây, độ trễ, CPU, RAM, mức *Ổn định / Bận / Quá tải* (thẻ *Hiệu năng màn hình game*), nút **Giả lập 200 / 500 / 1000 sự kiện/giây** (chỉ khi Demo). API: `GET /api/v1/system/health`, `POST /api/v1/game/loadtest`, `POST /api/v1/game/loadtest/stop`. Kịch bản đo: `scripts/loadtest.py`.
+- Bộ nhớ có giới hạn trong LIVE dài: quên người xem đã rời > 10 phút (quay lại vẫn đúng Chibi cũ), dọn lệnh đã xong, giới hạn bộ nhớ đệm.
+
 ## 0.17.0 — 2026-11-16 — Hành vi Chibi V3 (P1)
 
 - **Thiếu hoạt ảnh không làm hỏng game (T12):** mỗi trạng thái chơi một “clip” có tên (idle, walk, wave, reach, present, put_back, sit, stand_up, dance, cheer…). Nếu bộ nhân vật thiếu clip nào, Chibi dùng clip gần nghĩa nhất (nhảy → vỗ tay → vẫy tay → đứng yên), ghi cảnh báo một lần, không lỗi. Thử bằng `/game/live?noclip=dance`.

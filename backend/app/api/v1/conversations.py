@@ -40,6 +40,7 @@ def _entry(e: KnowledgeEntry, catalog) -> dict:
 @router.get("/conversations/sessions")
 def sessions(request: Request, admin: CurrentAdmin = AdminDep) -> dict:
     c = request.app.state.container
+    c.writer.flush_sync()  # rows still waiting in the batch writer
     with c.db.session() as s:
         rows = s.execute(
             select(ConversationTurn.session_id, func.count(ConversationTurn.id), func.min(ConversationTurn.asked_at),
@@ -62,6 +63,7 @@ def conversations(request: Request, session_id: str | None = None, q: str | None
                   limit: int = Query(200, ge=1, le=1000), offset: int = Query(0, ge=0),
                   admin: CurrentAdmin = AdminDep) -> dict:
     c = request.app.state.container
+    c.writer.flush_sync()  # rows still waiting in the batch writer
     stmt = select(ConversationTurn)
     if session_id:
         stmt = stmt.where(ConversationTurn.session_id == session_id)
@@ -78,6 +80,7 @@ def conversations(request: Request, session_id: str | None = None, q: str | None
 @router.get("/conversations/stats")
 def stats(request: Request, admin: CurrentAdmin = AdminDep) -> dict:
     c = request.app.state.container
+    c.writer.flush_sync()  # rows still waiting in the batch writer
     since = datetime.now(UTC) - timedelta(days=1)
     with c.db.session() as s:
         today = dict(s.execute(select(ConversationTurn.draft_source, func.count(ConversationTurn.id))
@@ -92,6 +95,7 @@ def stats(request: Request, admin: CurrentAdmin = AdminDep) -> dict:
 @router.get("/conversations/export.csv")
 def export_csv(request: Request, session_id: str | None = None, admin: CurrentAdmin = AdminDep) -> Response:
     c = request.app.state.container
+    c.writer.flush_sync()  # rows still waiting in the batch writer
     stmt = select(ConversationTurn).order_by(ConversationTurn.asked_at)
     if session_id:
         stmt = stmt.where(ConversationTurn.session_id == session_id)

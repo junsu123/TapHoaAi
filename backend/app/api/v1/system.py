@@ -34,6 +34,7 @@ def metrics(request: Request, admin: CurrentAdmin = AdminDep) -> dict:
 @router.get("/actions")
 def actions(request: Request, admin: CurrentAdmin = AdminDep, limit: int = Query(50, ge=1, le=500)) -> list[dict]:
     c = request.app.state.container
+    c.writer.flush_sync()
     with c.db.session() as s:
         rows = s.execute(select(ActionJob).order_by(ActionJob.id.desc()).limit(limit)).scalars().all()
         return [{"command_id": r.command_id, "avatar_id": r.avatar_id, "product_id": r.product_id,

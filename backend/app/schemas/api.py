@@ -48,6 +48,13 @@ class LiveSettingsPatch(BaseModel):
     sign_api_key: str | None = Field(default=None, max_length=300)
 
 
+class LoadTestIn(BaseModel):
+    rate: int = Field(ge=10, le=1500)  # events per second
+    seconds: int = Field(ge=5, le=180)
+    viewers: int = Field(2000, ge=50, le=20000)
+    product_share: float = Field(0.12, ge=0.0, le=0.8)  # comments asking for a product
+
+
 class BenchmarkIn(BaseModel):
     count: int = Field(ge=5, le=80)
 

@@ -1075,3 +1075,76 @@ test("Behaviour P1 (T16): benchmark 30 and 50 Chibis from the dashboard, with le
   await card.getByTestId("bench-clear").click();
   await game.close();
 });
+
+test("High viewership: 500 events/s for 30 s — game page and dashboard stay responsive, nothing important lost", async ({ page, context }) => {
+  test.setTimeout(240_000);
+  const csrf = await login(page.request);
+  const H = { "X-CSRF-Token": csrf };
+  const errors: string[] = [];
+  const game = await context.newPage();
+  game.on("pageerror", (e) => errors.push(`game: ${e.message}`));
+  page.on("pageerror", (e) => errors.push(`dashboard: ${e.message}`));
+  await game.setViewportSize({ width: 540, height: 960 });
+  await game.goto("/game/live?debug=1&overlay=1");
+  await game.waitForFunction(() => (window as any).__chibiDebug?.state().layoutVersion > 0);
+  await page.setViewportSize({ width: 1360, height: 1500 });
+  await page.goto("/dashboard/host");
+  await expect(page.getByTestId("comment-row").first()).toBeVisible({ timeout: 20_000 }).catch(() => undefined);
+
+  // 500 events/s: ~150 comments, ~220 likes, ~90 joins a second from 3000 viewers — far above
+  // a very big shop LIVE; a few product requests a second among the chatter
+  const r = await page.request.post("/api/v1/game/loadtest", { data: { rate: 500, seconds: 30, viewers: 3000, product_share: 0.02 }, headers: H });
+  expect(r.ok()).toBeTruthy();
+  // while the storm runs: a viewer's product comment still makes their own Chibi fetch the box
+  await game.waitForTimeout(8000);
+  const nick = `storm${RUN.slice(-3)}`;
+  const t0 = Date.now();
+  await inject(page, csrf, `@${nick}: trà cà gai leo`);
+  // their Chibi comes in at once (ahead of the chatters) and goes for the box — or lines up at
+  // the shelf when many others asked for the same product
+  await game.waitForFunction(
+    (n) => (window as any).__chibiDebug.state().avatars.some((a: any) => a.nickname === n && (a.commandId || a.top === "WAITING_SLOT")),
+    nick,
+    { timeout: 30_000 },
+  ).catch(async (e) => {
+    const st = await game.evaluate(() => (window as any).__chibiDebug.state());
+    const h = await (await page.request.get("/api/v1/system/health")).json();
+    console.log("STATE", JSON.stringify(st.avatars.find((a: any) => a.nickname.startsWith("storm"))), st.avatars.length, JSON.stringify(h));
+    throw e;
+  });
+  const commandMs = Date.now() - t0;
+  // the dashboard answers a click quickly in the middle of the storm
+  const c0 = Date.now();
+  await page.getByRole("link", { name: "Tổng quan" }).click();
+  await expect(page.getByRole("heading", { name: "Tổng quan" }).first()).toBeVisible();
+  const clickMs = Date.now() - c0;
+  await page.goto("/dashboard/game");
+  const card = page.getByTestId("server-health");
+  await expect(card).toBeVisible({ timeout: 20_000 });
+  await card.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${SHOTS}/LOAD-server-health-during-storm.png` });
+  await game.screenshot({ path: `${SHOTS}/LOAD-game-during-storm.png` });
+  // wait for the end and the backlog to clear
+  await expect.poll(async () => {
+    const h = await (await page.request.get("/api/v1/system/health")).json();
+    return h.loadtest?.done && h.server.bus_depth === 0;
+  }, { timeout: 60_000 }).toBe(true);
+  const h = await (await page.request.get("/api/v1/system/health")).json();
+  const m = await (await page.request.get("/api/v1/metrics")).json();
+  const fps: number[] = await game.evaluate(() => (window as any).__chibiDebug.fps());
+  const s = await game.evaluate(() => (window as any).__chibiDebug.state());
+  const summary = { sent: h.loadtest.sent, achieved: h.loadtest.achieved_rate, server: h.server, commandMs, clickMs,
+    gameFpsLast: fps.slice(-10), avatars: s.avatars.length, socketsKicked: m.errors, comments: m.events.COMMENT };
+  const fs = await import("node:fs");
+  fs.writeFileSync(`${SHOTS}/LOAD-summary.json`, JSON.stringify(summary, null, 2));
+  expect(h.loadtest.sent).toBeGreaterThan(14_000);
+  expect(commandMs).toBeLessThan(15_000);
+  expect(clickMs).toBeLessThan(5_000);
+  // never more than the on-screen cap, apart from Chibis already walking out of the door
+  expect(s.avatars.filter((a: any) => a.top !== "LEAVING").length).toBeLessThanOrEqual(60);
+  expect(errors).toEqual([]);
+  await expect(page.getByTestId("server-level")).toContainText("Ổn định", { timeout: 30_000 });
+  await page.screenshot({ path: `${SHOTS}/LOAD-server-health-after.png` });
+  await page.request.post("/api/v1/game/benchmark/clear", { headers: H });
+  await game.close();
+});

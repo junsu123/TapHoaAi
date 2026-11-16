@@ -107,7 +107,7 @@ def test_on_screen_cap_keeps_extra_viewers_waiting(admin_client):
         c.post("/api/v1/demo/events", json={"raw": "@nguoi11: trà ba kích"})
         time.sleep(0.3)
         assert len(cont.avatars.visible()) == 10  # everyone busy with a box: the 11th waits
-        assert len(cont.avatars.overflow) == 1
+        assert cont.avatars.waiting == 1
     assert c.put("/api/v1/settings/scene", json={**base, "chibi_max_visible": 5}).status_code == 422
     c.put("/api/v1/settings/scene", json=base)
 
