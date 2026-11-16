@@ -70,7 +70,10 @@ def test_visible_cap_evicts_idle_and_queues_when_all_busy(world, catalog):
     assert not c.visible and list(world.avatars.overflow) == [c.viewer_key]
     cmd_a = world.actions.queues[a.avatar_id].active
     client_runs(world, cmd_a)
-    world.avatars.tick()  # a is idle now → leaves, c enters
+    world.avatars.tick()  # a is idle but only just arrived: it stays a while (no churn)
+    assert not c.visible and a.visible
+    world.clock.advance(41)
+    world.avatars.tick()  # a has been here a while and is quiet → leaves, c enters
     assert c.visible and not a.visible
     assert len(world.avatars.visible()) == 2
 

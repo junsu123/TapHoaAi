@@ -40,6 +40,7 @@ from app.services.claude_service import (
     system_prompt,
     template_reply,
 )
+from app.services.health import TokenBucket
 from app.services.intent_router import Intent, IntentKind
 from app.services.text_safety import (
     contains_banned,
@@ -64,6 +65,7 @@ GREET_GAP_S = 12.0
 PRODUCT_GAP_S = 8.0
 SAME_PRODUCT_GAP_S = 45.0
 CHAT_GAP_S = 15.0
+MAX_PENDING_DRAFTS = 12  # questions being answered at once; more wait for the host
 VIEWER_SOCIAL_GAP_S = 60.0  # one viewer is greeted/answered for small talk at most once a minute
 WELCOME_AGAIN_S = 600.0  # someone who leaves and comes back within 10 minutes is not greeted twice
 WELCOME_GATHER_S = 2.0  # wait this long for others joining at the same moment, to greet them together
@@ -132,6 +134,7 @@ class Assistant:
         self._welcome_task: asyncio.Task | None = None
         self._comment_last: dict[str, tuple[float, str]] = {}
         self._sem = asyncio.Semaphore(2)
+        self._trace_bucket = TokenBucket(3.0, 6.0)
         self._tasks: set[asyncio.Task] = set()
         self.last_error: str | None = None
         # why each join / comment was or was not put on the LIVE (shown on the host page)
@@ -157,7 +160,10 @@ class Assistant:
         entry = {"at": time.time(), "kind": kind, "who": (who or "")[:60], "text": (text or "")[:120],
                  "ok": ok, "reason": reason}
         self.trace.append(entry)
-        self.c.hub.send_dashboard({"type": "VOICE_TRACE", "entry": entry})
+        # a busy LIVE writes hundreds of these a second: the host page gets a few, the rest
+        # stay in the list it loads (the last 40)
+        if ok or self._trace_bucket.allow():
+            self.c.hub.send_dashboard({"type": "VOICE_TRACE", "entry": entry})
 
     def apply_voice(self) -> None:
         sq = self.c.speech
@@ -279,28 +285,29 @@ class Assistant:
 
     # ------------------------------------------------------------------ conversation log
     def _persist(self, item: dict[str, Any]) -> None:
-        """Mirror the item into conversation_turns (one row per question, upserted)."""
-        try:
-            with self.c.db.session() as s:
-                row = s.query(ConversationTurn).filter_by(event_id=item["event_id"]).one_or_none()
-                if row is None:
-                    row = ConversationTurn(event_id=item["event_id"], session_id=self.c.live.session_id,
-                                           is_demo=bool(item.get("is_demo")), nickname=item.get("nickname"),
-                                           question=scrub_pii(item["text"]) or "(trống)", intent=item.get("intent"),
-                                           product_id=item.get("product_id"), status=item.get("status") or ST_NEW)
-                    s.add(row)
-                row.status = item.get("status") or row.status
-                if item.get("suggestion") and not row.draft:
-                    row.draft = item["suggestion"]
-                    row.draft_source = item.get("draft_source")
-                if item.get("final_answer"):
-                    row.answer = item["final_answer"]
-                    row.answered_by = item.get("answered_by")
-                row.spoken = bool(item.get("spoken"))
-                row.knowledge_id = item.get("knowledge_id") or row.knowledge_id
-                row.cost_usd = float(item.get("cost_usd") or row.cost_usd or 0.0)
-        except Exception:
-            log.exception("Không ghi được lịch sử hội thoại")
+        """Mirror the item into conversation_turns (one row per question, upserted) — batched:
+        several updates of the same question within a fraction of a second are one write."""
+        session_id = self.c.live.session_id
+        self.c.writer.submit(("conversation", item["event_id"]), lambda s: self._persist_row(s, item, session_id))
+
+    def _persist_row(self, s, item: dict[str, Any], session_id: str | None) -> None:
+        row = s.query(ConversationTurn).filter_by(event_id=item["event_id"]).one_or_none()
+        if row is None:
+            row = ConversationTurn(event_id=item["event_id"], session_id=session_id,
+                                   is_demo=bool(item.get("is_demo")), nickname=item.get("nickname"),
+                                   question=scrub_pii(item["text"]) or "(trống)", intent=item.get("intent"),
+                                   product_id=item.get("product_id"), status=item.get("status") or ST_NEW)
+            s.add(row)
+        row.status = item.get("status") or row.status
+        if item.get("suggestion") and not row.draft:
+            row.draft = item["suggestion"]
+            row.draft_source = item.get("draft_source")
+        if item.get("final_answer"):
+            row.answer = item["final_answer"]
+            row.answered_by = item.get("answered_by")
+        row.spoken = bool(item.get("spoken"))
+        row.knowledge_id = item.get("knowledge_id") or row.knowledge_id
+        row.cost_usd = float(item.get("cost_usd") or row.cost_usd or 0.0)
 
     def _learn(self, item: dict[str, Any], answer: str, *, trusted: bool, source: str) -> None:
         cfg = self.config
@@ -358,6 +365,12 @@ class Assistant:
         elif intent.kind == IntentKind.AMBIGUOUS or item.get("chat"):
             self.read_comment(item, viewer_key, now, as_question=False)
         item["viewer_key"] = viewer_key
+        if len(self._tasks) >= MAX_PENDING_DRAFTS:
+            # a flood of questions: answers would come minutes late; the host sees them instead
+            self.c.health.skip()
+            item.update(hint="Rất nhiều câu hỏi cùng lúc — người trực xem và trả lời.")
+            self._persist(item)
+            return
         self._persist(item)
         self._spawn(self._draft_and_maybe_speak(item, intent))
 
@@ -442,9 +455,23 @@ class Assistant:
         self._trace("join", name, None, True, "Chờ gộp vào lời chào.")
         return True
 
+    def _prune(self) -> None:
+        """Per-viewer "last time" maps: forget viewers not seen for 10 minutes (huge LIVEs)."""
+        now = time.monotonic()
+        for name in ("_viewer_read", "_viewer_social"):
+            d = getattr(self, name)
+            if len(d) > 20000:
+                setattr(self, name, {k: t for k, t in d.items() if now - t < 600})
+        if len(self._comment_last) > 20000:
+            self._comment_last = {k: v for k, v in self._comment_last.items() if now - v[0] < 600}
+
     async def _welcome_loop(self) -> None:
+        n = 0
         while True:
             await asyncio.sleep(0.4)
+            n += 1
+            if n % 150 == 0:
+                self._prune()
             try:
                 self.welcome_flush()
             except Exception:
@@ -568,6 +595,11 @@ class Assistant:
         item["cost_usd"] = cost
         await asyncio.to_thread(self._log_message, item, draft, cfg.model, cost)
         self._cache[ckey] = (draft, time.monotonic())
+        if len(self._cache) > 2000:
+            now = time.monotonic()
+            self._cache = {k: v for k, v in self._cache.items() if now - v[1] < CACHE_TTL_S}
+            while len(self._cache) > 2000:
+                self._cache.pop(next(iter(self._cache)))
         return draft, None
 
     def _log_message(self, item: dict[str, Any], draft: Draft, model: str, cost: float) -> None:
@@ -638,8 +670,16 @@ class Assistant:
     def wants_chat(self, intent: Intent, viewer_key: str | None) -> bool:
         """An ordinary comment (not a question/product/greeting) that autopilot should answer."""
         cfg = self.config
-        return (intent.kind == IntentKind.NONE and cfg.autopilot and cfg.auto_chat
-                and self._social_ok("chat", CHAT_GAP_S, viewer_key, time.monotonic()))
+        if intent.kind != IntentKind.NONE or not (cfg.autopilot and cfg.auto_chat):
+            return False
+        if self.c.health.busy:
+            self.c.health.skip()  # small talk is the first thing to go when the server is busy
+            return False
+        now = time.monotonic()
+        if not self._social_ok("chat", CHAT_GAP_S, viewer_key, now):
+            return False
+        self._kind_last["chat"] = now  # one chat comment at a time (not one per comment while Claude thinks)
+        return True
 
     def _speak_chat_then(self, item: dict[str, Any]) -> bool:
         """Small talk is read out only together with its answer: queue the comment first."""

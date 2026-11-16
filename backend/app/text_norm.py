@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from functools import lru_cache
 
 _CONTROL = re.compile("[\\u0000-\\u001f\\u007f-\\u009f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\ufeff]")
 _NON_WORD = re.compile(r"[^0-9a-z]+")
@@ -45,8 +46,10 @@ def strip_diacritics(text: str) -> str:
     return "".join(ch for ch in decomposed if unicodedata.category(ch) != "Mn")
 
 
+@lru_cache(maxsize=16384)
 def fold(text: str) -> str:
-    """Lowercase, remove diacritics, punctuation and emoji; collapse whitespace."""
+    """Lowercase, remove diacritics, punctuation and emoji; collapse whitespace. Cached: the
+    same comments, names and word lists are folded again and again on a busy LIVE."""
     text = clean_display_text(text).lower()
     text = strip_diacritics(text)
     text = _NON_WORD.sub(" ", text)

@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 
 from app.text_norm import clean_display_text, fold, strip_diacritics
 
@@ -36,11 +37,16 @@ RISKY_CLAIMS = (
 _PRICE = re.compile(r"(\d{1,3}(?:[.,]\d{3})+|\d+)\s*(k|nghin|ngan|d|dong|vnd|trieu|tr)\b")
 
 
+@lru_cache(maxsize=64)
+def _banned_forms(banned: tuple[str, ...], builtin: bool) -> tuple[str, ...]:
+    words = [*(BUILTIN_BANNED if builtin else ()), *banned]
+    return tuple(dict.fromkeys(f" {fold(w)} " for w in words if fold(w)))
+
+
 def contains_banned(text: str, banned: list[str], builtin: bool = True) -> bool:
     folded = f" {fold(text)} "
     squeezed = f" {fold(re.sub(r'[._*-]', '', text))} "  # "đ.m", "v-c-l"
-    words = [*(BUILTIN_BANNED if builtin else ()), *banned]
-    return any(f" {fold(w)} " in folded or f" {fold(w)} " in squeezed for w in words if fold(w))
+    return any(w in folded or w in squeezed for w in _banned_forms(tuple(banned), builtin))
 
 
 def sanitize_comment(text: str, banned: list[str], max_len: int = 160) -> str | None:

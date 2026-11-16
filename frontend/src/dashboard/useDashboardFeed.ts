@@ -102,6 +102,7 @@ type Msg =
   | { type: "METRICS"; sequence: number; metrics: Metrics }
   | { type: "AI_PAUSED"; sequence: number; paused: boolean }
   | { type: "ACTION_UPDATE"; sequence: number }
+  | { type: "COMMENTS_SKIPPED"; sequence: number; total: number }
   | { type: "PONG"; sequence?: number };
 
 export function useDashboardFeed(enabled: boolean) {
@@ -118,6 +119,7 @@ export function useDashboardFeed(enabled: boolean) {
   const [voiceTrace, setVoiceTrace] = useState<VoiceTraceEntry[]>([]);
   const [board, setBoard] = useState<LeaderboardView | null>(null);
   const [connected, setConnected] = useState(false);
+  const [skipped, setSkipped] = useState(0);
   const sockRef = useRef<SequencedSocket<Snap, Msg> | null>(null);
 
   useEffect(() => {
@@ -137,7 +139,9 @@ export function useDashboardFeed(enabled: boolean) {
       onMessage: (m) => {
         if (m.type === "COMMENT") setComments((c) => [m.comment, ...c].slice(0, 200));
         else if (m.type === "HOST_ATTENTION") setHost((h) => [m.item, ...h.filter((x) => x.event_id !== m.item.event_id)].slice(0, 100));
-        else if (m.type === "HOST_ATTENTION_UPDATE") setHost((h) => (h.some((x) => x.event_id === m.item.event_id) ? h.map((x) => (x.event_id === m.item.event_id ? m.item : x)) : [m.item, ...h]));
+        else if (m.type === "HOST_ATTENTION_UPDATE")
+          setHost((h) => (h.some((x) => x.event_id === m.item.event_id) ? h.map((x) => (x.event_id === m.item.event_id ? m.item : x)) : [m.item, ...h].slice(0, 100)));
+        else if (m.type === "COMMENTS_SKIPPED") setSkipped(m.total);
         else if (m.type === "SPEECH_STATE") setSpeech(m.speech);
         else if (m.type === "AI_STATUS") setAi(m.ai);
         else if (m.type === "VOICE_TRACE") setVoiceTrace((t) => [m.entry, ...t].slice(0, 60));
@@ -162,5 +166,5 @@ export function useDashboardFeed(enabled: boolean) {
     return () => sock.stop();
   }, [enabled]);
 
-  return { comments, host, live, metrics, aiPaused, setAiPaused, connected, speech, ai, alerts, logStats, setLogStats, liveLogs, voiceTrace, board };
+  return { comments, skipped, host, live, metrics, aiPaused, setAiPaused, connected, speech, ai, alerts, logStats, setLogStats, liveLogs, voiceTrace, board };
 }

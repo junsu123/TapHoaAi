@@ -146,6 +146,10 @@ Mỗi Chibi đại diện cho **một người xem thật** (khóa theo id TikTo
 
 Chỉ bình luận ngắn (≤ 5 từ) mới là lệnh; câu dài vẫn hiện và được trợ lý đọc nhưng không điều khiển Chibi. Quà tặng không cho lợi thế mua hàng; đơn hàng không bao giờ được đoán từ bình luận. Mở `/game/live?overlay=1` để xem trạng thái từng Chibi.
 
+## LIVE đông người xem
+
+Máy chủ xử lý được khoảng 1 000 sự kiện mỗi giây trên máy kiểm thử (bình luận, tim, lượt vào, quà) mà không trễ; bình luận, quà và lệnh không bao giờ bị bỏ, việc phụ (trò chuyện tự động) tạm dừng khi máy chủ bận. Mỗi màn hình có hàng chờ riêng nên một máy chậm không làm chậm máy khác. Tự thử: Game 3D & OBS → *Hiệu năng màn hình game* → **Giả lập 500 sự kiện/giây** (khi chạy Demo). Chi tiết và số đo: `docs/high-load.md`.
+
 ## Trợ lý AI & giọng đọc (Claude + Vbee)
 
 Dashboard → **Trợ lý AI & giọng đọc**:

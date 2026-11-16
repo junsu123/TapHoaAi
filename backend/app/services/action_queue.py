@@ -39,6 +39,10 @@ RUNNING = {CmdStatus.DISPATCHED, CmdStatus.ACKED, CmdStatus.STARTED}
 WALK_FOLLOW_SECONDS = 20.0  # camera follows a walking Chibi at most this long
 
 
+KEEP_FINISHED = 2000
+PENDING_TTL_S = 30.0  # a request waiting longer than this is stale (spec §4)
+
+
 @dataclass
 class Command:
     command_id: str
@@ -157,6 +161,7 @@ class GameActionQueue:
         self.session_id: str | None = None
         self.queues: dict[str, AvatarQueue] = {}
         self.commands: dict[str, Command] = {}
+        self._finished: deque[str] = deque()
         self.shelf_waiters: dict[str, deque[str]] = {}
         self.is_avatar_visible: Callable[[str], bool] = lambda _a: True
         self.on_update: Callable[[Command], None] = lambda _c: None
@@ -205,6 +210,14 @@ class GameActionQueue:
             cmd.reason = reason
         self.persist(cmd)
         self.on_update(cmd)
+        if status in TERMINAL:
+            # a long, busy LIVE: finished commands are kept for a while (late ACKs, metrics),
+            # then forgotten — they are in the database
+            self._finished.append(cmd.command_id)
+            while len(self._finished) > KEEP_FINISHED:
+                old = self.commands.get(self._finished.popleft())
+                if old is not None and old.status in TERMINAL:
+                    del self.commands[old.command_id]
 
     def _new_id(self) -> str:
         return f"cmd_{int(time.time() * 1000) % 10**10:010d}_{next(self._ids):05d}"
@@ -371,6 +384,11 @@ class GameActionQueue:
             if q and q.active and q.active.shelf_code == shelf_code and q.active.status in RUNNING:
                 self._timeout(q.active, "reservation_expired")
         for avatar_id, q in list(self.queues.items()):
+            # spec §4: a request still waiting after PENDING_TTL_S is stale (the viewer has moved on,
+            # e.g. their Chibi could not get in on a crowded LIVE) — dropped, with the reason logged
+            while q.pending and now - q.pending[0].created_at > PENDING_TTL_S:
+                stale = q.pending.popleft()
+                self._set(stale, CmdStatus.CANCELLED, "stale_request")
             cmd = q.active
             if cmd and cmd.status == CmdStatus.DISPATCHED and now - cmd.dispatched_at > self.ack_timeout:
                 if cmd.send_attempts < 2 and self.hub.has_primary():

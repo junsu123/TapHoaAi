@@ -1,7 +1,7 @@
 // Vietnamese operator dashboard (SPEC I). Only features that really work are shown;
 // later milestones are labelled as such instead of being faked.
 
-import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link, Navigate, Route, Routes } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { api, ApiError, formatVnd, setCsrf } from "../lib/api";
@@ -366,7 +366,8 @@ function ConnectPage({ live }: { live: LiveStatus | null }) {
   );
 }
 
-function CommentRow({ c, onOrder }: { c: CommentRecord; onOrder?: (c: CommentRecord) => void }) {
+// memo: on a busy LIVE the list re-renders several times a second; rows that did not change are skipped
+const CommentRow = memo(function CommentRow({ c, onOrder }: { c: CommentRecord; onOrder?: (c: CommentRecord) => void }) {
   return (
     <li className="comment" data-testid="comment-row">
       {onOrder && (
@@ -381,10 +382,11 @@ function CommentRow({ c, onOrder }: { c: CommentRecord; onOrder?: (c: CommentRec
       {c.action_outcome === "no_location" && <span className="error"> (chưa gắn kệ)</span>}
     </li>
   );
-}
+});
 
 function HostPage({
   comments,
+  skipped,
   host,
   aiPaused,
   setAiPaused,
@@ -395,6 +397,7 @@ function HostPage({
 }: {
   board: LeaderboardView | null;
   comments: CommentRecord[];
+  skipped: number;
   host: HostItem[];
   aiPaused: boolean;
   setAiPaused: (b: boolean) => void;
@@ -405,6 +408,11 @@ function HostPage({
   const [raw, setRaw] = useState("@lananh88: trà cà gai leo");
   const [prefill, setPrefill] = useState<PurchasePrefill | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const onOrder = useCallback(
+    (x: CommentRecord) =>
+      setPrefill({ name: x.nickname ?? x.unique_id ?? "", key: x.unique_id ? `uid:${x.unique_id.toLowerCase()}` : null, productId: x.product_id, nonce: Date.now() }),
+    [],
+  );
   const send = async (body: object) => {
     setErr(null);
     try {
@@ -480,17 +488,19 @@ function HostPage({
           <ErrorText err={err} />
         </Card>
       </div>
-      <Card title="Bình luận trực tiếp" desc={comments.length ? `${comments.length} bình luận gần nhất, mới nhất ở trên.` : undefined}>
+      <Card
+        title="Bình luận trực tiếp"
+        desc={
+          comments.length
+            ? `${comments.length} bình luận gần nhất, mới nhất ở trên.` +
+              (skipped ? ` LIVE rất đông: ${skipped} bình luận trò chuyện thường không hiện ở đây (lệnh, câu hỏi và tên sản phẩm luôn hiện).` : "")
+            : undefined
+        }
+      >
         {comments.length === 0 && <p className="empty">Chưa có bình luận. Kết nối TikTok hoặc bật Demo để thấy bình luận ở đây.</p>}
         <ul className="comment-list">
           {comments.map((c) => (
-            <CommentRow
-              key={c.event_id}
-              c={c}
-              onOrder={(x) =>
-                setPrefill({ name: x.nickname ?? x.unique_id ?? "", key: x.unique_id ? `uid:${x.unique_id.toLowerCase()}` : null, productId: x.product_id, nonce: Date.now() })
-              }
-            />
+            <CommentRow key={c.event_id} c={c} onOrder={onOrder} />
           ))}
         </ul>
       </Card>
@@ -1102,7 +1112,7 @@ export function DashboardApp() {
         <Routes>
           <Route index element={<Overview live={feed.live} metrics={feed.metrics} ai={feed.ai} />} />
           <Route path="connect" element={<ConnectPage live={feed.live} />} />
-          <Route path="host" element={<HostPage comments={feed.comments} host={feed.host} aiPaused={feed.aiPaused} setAiPaused={feed.setAiPaused} speech={feed.speech} ai={feed.ai} voiceTrace={feed.voiceTrace} board={feed.board} />} />
+          <Route path="host" element={<HostPage comments={feed.comments} skipped={feed.skipped} host={feed.host} aiPaused={feed.aiPaused} setAiPaused={feed.setAiPaused} speech={feed.speech} ai={feed.ai} voiceTrace={feed.voiceTrace} board={feed.board} />} />
           <Route path="ai" element={<AiSettingsPage />} />
           <Route path="knowledge" element={<KnowledgePage />} />
           <Route path="logs" element={<LogsPage live={feed.liveLogs} stats={feed.logStats} onSeen={feed.setLogStats} />} />

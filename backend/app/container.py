@@ -31,6 +31,9 @@ from app.services.intent_router import CommentIntentRouter
 from app.services.live_session import LiveSessionService
 from app.services.orchestrator import Orchestrator
 from app.services.product_matcher import ProductMatcher
+from app.services.db_writer import DbWriter
+from app.services.health import ServerHealth
+from app.services.loadgen import LoadGenerator
 from app.services.perf import PerfMonitor
 from app.services.scene_config import apply_avatar_cap, load_scene
 from app.services.teahouse import Leaderboard, OwnerHost
@@ -52,6 +55,7 @@ class AppContainer:
         self.errors = ErrorLog(settings.data_dir / "logs")
         self.errors.publish = self._publish_error
         self.bus = EventBus(settings.bus_max_size)
+        self.writer = DbWriter(self.db)  # batched writes for the busy paths
         self.deduper = Deduper()
         self.gifts = GiftStreakTracker()
         self.catalog_version = 1
@@ -88,6 +92,8 @@ class AppContainer:
         self.assistant.memory.load(self.catalog)
         self.fps_reports: deque[dict[str, Any]] = deque(maxlen=120)
         self.perf = PerfMonitor()
+        self.health = ServerHealth(self.bus)
+        self.loadgen = LoadGenerator()
         self.started_at = time.time()
         self.game_token = self._load_or_create_game_token()
         # TikTok client factory: None = the real TikTokLive client (tests inject a fake)
@@ -100,17 +106,22 @@ class AppContainer:
         return av is not None and av.visible
 
     def _persist_command(self, cmd: Command) -> None:
-        with self.db.session() as s:
-            row = s.execute(select(ActionJob).where(ActionJob.command_id == cmd.command_id)).scalar_one_or_none()
-            if row is None:
-                row = ActionJob(command_id=cmd.command_id, session_id=cmd.session_id, viewer_key=cmd.viewer_key,
-                                avatar_id=cmd.avatar_id, product_id=cmd.product_id, action=cmd.action,
-                                priority=cmd.priority, parent_event_id=cmd.parent_event_id, status=cmd.status.value)
-                s.add(row)
-            row.status = cmd.status.value
-            row.reason = cmd.reason
-            row.shelf_code = cmd.shelf_code
-            row.stand_index = cmd.stand_index
+        # batched: a command changes status several times a second under load; the latest wins
+        snap = (cmd.status.value, cmd.reason, cmd.shelf_code, cmd.stand_index)
+        self.writer.submit(("command", cmd.command_id), lambda s: self._persist_command_row(s, cmd, snap))
+
+    def _persist_command_row(self, s, cmd: Command, snap: tuple) -> None:
+        status, reason, shelf_code, stand_index = snap
+        row = s.execute(select(ActionJob).where(ActionJob.command_id == cmd.command_id)).scalar_one_or_none()
+        if row is None:
+            row = ActionJob(command_id=cmd.command_id, session_id=cmd.session_id, viewer_key=cmd.viewer_key,
+                            avatar_id=cmd.avatar_id, product_id=cmd.product_id, action=cmd.action,
+                            priority=cmd.priority, parent_event_id=cmd.parent_event_id, status=status)
+            s.add(row)
+        row.status = status
+        row.reason = reason
+        row.shelf_code = shelf_code
+        row.stand_index = stand_index
 
     def _on_session_change(self, session_id: str | None) -> None:
         for cmd in list(self.actions.commands.values()):
@@ -147,6 +158,8 @@ class AppContainer:
 
     # ------------------------------------------------------------------ settings
     def get_setting(self, key: str) -> str | None:
+        if self.writer.has_job(("setting", key)):
+            self.writer.flush_sync()  # a newer value is still waiting in the batch
         with self.db.session() as s:
             row = s.get(Setting, key)
             if not row:
@@ -158,18 +171,25 @@ class AppContainer:
 
     def set_setting(self, key: str, value: str | None, *, secret: bool) -> None:
         with self.db.session() as s:
-            row = s.get(Setting, key)
-            if value in (None, ""):
-                if row:
-                    s.delete(row)
-                return
-            enc = self.box.encrypt(value)
+            self.set_setting_in(s, key, value, secret=secret)
+
+    def set_setting_later(self, key: str, value: str | None, *, secret: bool) -> None:
+        """Batched (busy paths, e.g. the honour board on every gift): the latest value wins."""
+        self.writer.submit(("setting", key), lambda s: self.set_setting_in(s, key, value, secret=secret))
+
+    def set_setting_in(self, s, key: str, value: str | None, *, secret: bool) -> None:
+        row = s.get(Setting, key)
+        if value in (None, ""):
             if row:
-                row.encrypted_value = enc
-                row.is_secret = secret
-                row.updated_at = datetime.now(UTC)
-            else:
-                s.add(Setting(key=key, encrypted_value=enc, is_secret=secret))
+                s.delete(row)
+            return
+        enc = self.box.encrypt(value)
+        if row:
+            row.encrypted_value = enc
+            row.is_secret = secret
+            row.updated_at = datetime.now(UTC)
+        else:
+            s.add(Setting(key=key, encrypted_value=enc, is_secret=secret))
 
     # ------------------------------------------------------------------ catalog
     def reload_catalog(self) -> None:
@@ -217,7 +237,7 @@ class AppContainer:
             "top_products": self.orchestrator.product_counts.most_common(5),
             "comments_per_s": self.orchestrator.comments_per_second(),
             "avatars": {"total": self.avatars.count, "visible": len(self.avatars.visible()),
-                        "overflow": len(self.avatars.overflow)},
+                        "overflow": self.avatars.waiting},
             "actions": {"queue_depth": self.actions.queue_depth(), "completed": self.actions.completed,
                         "failed": self.actions.failed, "latency": self.actions.latency_stats()},
             "bus": {"depth": self.bus.depth, "dropped_low_priority": self.bus.dropped_low_priority,
@@ -226,6 +246,7 @@ class AppContainer:
             "game_clients": {"connected": len(self.hub.game.clients), "primary": self.hub.has_primary()},
             "game_fps": {"last": fps[-1] if fps else None, "min_last_2min": min(fps) if fps else None},
             "game_perf": self.perf.last,
+            "server": {**self.health.view(), "db": self.writer.view()},
             "gifts_total": self.gifts.total_gifts,
             "ai": self.assistant.status(),
             "speech": {"muted": self.speech.muted, "hold": self.speech.hold, "queue": len(self.speech.queue)},
@@ -257,6 +278,8 @@ class AppContainer:
         loop.set_exception_handler(self._loop_exception)
         self._cancel_stale_commands()
         self.hub.start()
+        self.health.start()
+        self.writer.start()
         self.speech.start()
         self.assistant.start()
         self.owner.start()
@@ -269,6 +292,7 @@ class AppContainer:
 
     async def stop(self) -> None:
         self.errors.uninstall()
+        self.loadgen.stop()
         await self.live.stop()
         await self.speech.stop()
         await self.assistant.stop()
@@ -278,6 +302,9 @@ class AppContainer:
         for t in self._tasks:
             with contextlib.suppress(asyncio.CancelledError):
                 await t
+        await self.health.stop()
+        self.board.flush()
+        await self.writer.stop()
         await self.hub.stop()
 
     def _cancel_stale_commands(self) -> None:
@@ -308,6 +335,7 @@ class AppContainer:
                     log.exception("Lỗi khi kiểm tra giọng đọc")
 
     def retention_once(self, now: datetime | None = None) -> None:
+        self.writer.flush_sync()  # pending rows first, so nothing escapes the clean-up
         cutoff = (now or datetime.now(UTC)) - timedelta(days=self.settings.event_retention_days)
         with self.db.session() as s:
             s.execute(delete(LiveEventRow).where(LiveEventRow.observed_at < cutoff))

@@ -90,6 +90,10 @@ class DemoProvider(LiveEventProvider):
             payload = {"count": spec.get("count", 1)}
         return [await self._push(etype, user, payload, spec.get("event_id"))]
 
+    async def push_raw(self, etype: str, user: dict, payload: dict) -> str:
+        """Load generator: one event straight into the pipeline (no text parsing)."""
+        return await self._push(etype, user, payload)
+
     async def _push(self, etype: str, user: dict, payload: dict, event_id: str | None = None) -> str:
         eid = event_id or self.next_event_id()
         await self._emit({

@@ -84,3 +84,29 @@ def admin_client(app_client):
     assert r.status_code in (200, 201), r.text
     app_client.headers["X-CSRF-Token"] = r.json()["csrf_token"]
     return app_client
+
+
+# The hub sends several messages in one BATCH frame; tests read them one by one, as the
+# browser's SequencedSocket does.
+def _unwrap_batches() -> None:
+    from starlette.testclient import WebSocketTestSession
+
+    if getattr(WebSocketTestSession, "_batch_aware", False):
+        return
+    original = WebSocketTestSession.receive_json
+
+    def receive_json(self, mode: str = "text"):
+        buf = self.__dict__.setdefault("_batch_buf", [])
+        if buf:
+            return buf.pop(0)
+        msg = original(self, mode)
+        if isinstance(msg, dict) and msg.get("type") == "BATCH":
+            buf.extend(msg["messages"][1:])
+            return msg["messages"][0]
+        return msg
+
+    WebSocketTestSession.receive_json = receive_json
+    WebSocketTestSession._batch_aware = True
+
+
+_unwrap_batches()

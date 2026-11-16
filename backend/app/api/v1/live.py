@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 from fastapi import APIRouter, HTTPException, Query, Request
 from sqlalchemy import select
 
@@ -7,7 +9,7 @@ from app.models import AuditLog, LiveEventRow
 from app.providers.demo_adapter import DemoProvider
 from app.providers.tiktoklive_adapter import TikTokLiveAdapter
 from app.providers.url_validator import InvalidLiveUrl, parse_live_url, resolve_short_link
-from app.schemas.api import BenchmarkIn, ConnectIn, DemoEventIn, LiveSettingsPatch
+from app.schemas.api import BenchmarkIn, LoadTestIn, ConnectIn, DemoEventIn, LiveSettingsPatch
 from app.security.crypto import mask_secret
 from app.security.sessions import AdminDep, CurrentAdmin
 
@@ -74,6 +76,7 @@ def status(request: Request, admin: CurrentAdmin = AdminDep) -> dict:
 def events(request: Request, admin: CurrentAdmin = AdminDep, limit: int = Query(50, ge=1, le=500),
            before_id: int | None = None, session_id: str | None = None) -> dict:
     c = request.app.state.container
+    c.writer.flush_sync()
     sid = session_id or c.live.session_id
     with c.db.session() as s:
         q = select(LiveEventRow).order_by(LiveEventRow.id.desc()).limit(limit)
@@ -129,7 +132,7 @@ def game_perf(request: Request, admin: CurrentAdmin = AdminDep) -> dict:
     v = c.perf.view()
     v["visible"] = len(c.avatars.visible())
     v["max_visible"] = c.avatars.max_visible
-    v["waiting"] = len(c.avatars.overflow)
+    v["waiting"] = c.avatars.waiting
     v["is_demo"] = c.live.is_demo
     v["live_real"] = c.live.provider is not None and not c.live.is_demo
     return v
@@ -157,7 +160,15 @@ async def game_benchmark(body: BenchmarkIn, request: Request, admin: CurrentAdmi
     target = min(body.count, c.avatars.max_visible)
     missing = max(0, target - len(c.avatars.visible()))
     if missing:
-        await provider.inject({"type": "SPAWN_RANDOM", "count": missing})
+        # the benchmark measures a full shop: let everyone in at once (no entry pacing)
+        c.avatars.pace = False
+        try:
+            await provider.inject({"type": "SPAWN_RANDOM", "count": missing})
+            await asyncio.wait_for(c.bus.queue.join(), timeout=10)
+        except TimeoutError:
+            pass
+        finally:
+            c.avatars.pace = True
     c.perf.start(target)
     return {"target": target, "added": missing, "max_visible": c.avatars.max_visible}
 
@@ -172,3 +183,31 @@ def game_benchmark_clear(request: Request, admin: CurrentAdmin = AdminDep) -> di
         c.actions.cancel_avatar(avatar_id, "benchmark_clear")
         c.camera.forget_avatar(avatar_id)
     return {"left": len(gone)}
+
+
+# ---------------------------------------------------------------------- high load (stability)
+@router.get("/system/health")
+def system_health(request: Request, admin: CurrentAdmin = AdminDep) -> dict:
+    c = request.app.state.container
+    run = c.loadgen.run
+    return {"server": c.health.view(), "loadtest": run.view() if run else None,
+            "avatars": {"visible": len(c.avatars.visible()), "waiting": c.avatars.waiting},
+            "game_clients": len(c.hub.game.clients), "dashboard_clients": len(c.hub.dashboard.clients)}
+
+
+@router.post("/game/loadtest")
+async def game_loadtest(body: LoadTestIn, request: Request, admin: CurrentAdmin = AdminDep) -> dict:
+    """Demo only: simulate a very busy LIVE (rate events/s for `seconds`) to check this PC copes."""
+    _demo_only(request)
+    c = request.app.state.container
+    if not c.live.is_demo:
+        await c.live.start(DemoProvider())
+    run = c.loadgen.start(c.live.provider, body.rate, body.seconds, body.viewers, product_share=body.product_share)
+    return run.view()
+
+
+@router.post("/game/loadtest/stop")
+def game_loadtest_stop(request: Request, admin: CurrentAdmin = AdminDep) -> dict:
+    c = request.app.state.container
+    c.loadgen.stop()
+    return {"stopped": True}

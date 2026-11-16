@@ -9,12 +9,9 @@ from collections import Counter, deque
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
-
 from app.events.schema import EventType, LiveEvent
-from app.models import LiveEventRow, Viewer
 from app.services.camera_director import PRIORITY_GIFT
+from app.services.health import TokenBucket
 from app.services.intent_router import IntentKind
 
 if TYPE_CHECKING:
@@ -25,6 +22,8 @@ log = logging.getLogger("chibi.orchestrator")
 
 DIRECT_WINDOW_S = 4.0  # the same direct command again within this window does nothing (spec §4)
 LIKE_WINDOW_S = 8.0
+DASH_CHAT_PER_S = 12.0
+JOIN_WAVE_S = 60.0  # re-joining (TikTok sends join again after a reconnect) waves at most once a minute
 DIRECT_EFFECTS = {
     IntentKind.GREETING: "wave", IntentKind.DANCE: "dance", IntentKind.EXPLORE: "explore",
     IntentKind.SIT: "sit", IntentKind.POSE: "pose",
@@ -43,6 +42,12 @@ class Orchestrator:
         self.viewer_count: int | None = None
         self.errors = 0
         self._last_effect: dict[tuple[str, str], float] = {}
+        self._viewer_seen: dict[str, tuple[float, str]] = {}
+        # the host page: every command / question / problem, but ordinary chat at most
+        # DASH_CHAT_PER_S (nobody can read 300 comments a second); the rest is counted
+        self._dash_chat = TokenBucket(DASH_CHAT_PER_S, DASH_CHAT_PER_S * 2)
+        self.dash_skipped = 0
+        self._dash_skipped_sent = 0.0
 
     async def run(self) -> None:
         while True:
@@ -54,62 +59,65 @@ class Orchestrator:
                 log.exception("failed to handle event %s", ev.event_id)
             finally:
                 self.c.bus.task_done()
+                self.c.health.event_handled(ev.received_monotonic)
 
     # ------------------------------------------------------------------ persistence
-    def _persist_event(self, ev: LiveEvent) -> bool:
+    # Written in batches by DbWriter (a few times a second, one transaction): the pipeline never
+    # waits for the disk. Likes and viewer counts come in floods and are only counted, not stored
+    # one by one. Duplicates are caught by the in-memory deduper; the unique index ignores the rest.
+    NOT_STORED = (EventType.LIKE, EventType.VIEWER_COUNT)
+    VIEWER_TOUCH_S = 30.0
+
+    def _persist_event(self, ev: LiveEvent) -> None:
+        if ev.type in self.NOT_STORED:
+            return
         safe = dict(ev.payload)
         if ev.user:
             safe["nickname"] = ev.user.nickname
             safe["unique_id"] = ev.user.unique_id
-        try:
-            with self.c.db.session() as s:
-                s.add(LiveEventRow(
-                    session_id=ev.session_id, provider=ev.provider, source_event_id=ev.event_id,
-                    dedup_mode=ev.dedup_mode, platform_user_id=ev.user.identity_key if ev.user else None,
-                    type=ev.type.value, safe_payload=safe, observed_at=ev.observed_at,
-                ))
-            return True
-        except IntegrityError:
-            return False  # duplicate at DB level (e.g. after reconnect) — drop silently
+        self.c.writer.add_event({
+            "session_id": ev.session_id, "provider": ev.provider, "source_event_id": ev.event_id,
+            "dedup_mode": ev.dedup_mode, "platform_user_id": ev.user.identity_key if ev.user else None,
+            "type": ev.type.value, "safe_payload": safe, "observed_at": ev.observed_at,
+        })
 
     def _upsert_viewer(self, ev: LiveEvent) -> None:
         if not ev.user or not ev.user.identity_key:
             return
         key = ev.user.identity_key
-        with self.c.db.session() as s:
-            v = s.execute(select(Viewer).where(Viewer.session_id == ev.session_id,
-                                               Viewer.platform_user_id == key)).scalar_one_or_none()
-            nickname = ev.user.nickname or ev.user.unique_id or "?"
-            if v is None:
-                s.add(Viewer(session_id=ev.session_id, platform_user_id=key, unique_id=ev.user.unique_id,
-                             nickname=nickname))
-            else:
-                v.nickname = nickname
-                v.last_seen_at = datetime.now(UTC)
+        now = time.monotonic()
+        nickname = ev.user.nickname or ev.user.unique_id or "?"
+        last = self._viewer_seen.get(key)
+        if last and now - last[0] < self.VIEWER_TOUCH_S and last[1] == nickname:
+            return  # written recently with the same name
+        self._viewer_seen[key] = (now, nickname)
+        if len(self._viewer_seen) > 50_000:
+            self._viewer_seen.clear()
+        self.c.writer.touch_viewer(ev.session_id, key, ev.user.unique_id, nickname)
 
     # ------------------------------------------------------------------ routing
     async def handle(self, ev: LiveEvent) -> None:
         if ev.session_id != self.c.live.session_id:
             return  # stale event from a previous session
-        if not await asyncio.to_thread(self._persist_event, ev):
-            return
+        self._persist_event(ev)
         self.counts[ev.type.value] += 1
         is_demo = ev.capability == "simulated"
         if ev.type == EventType.COMMENT:
-            await asyncio.to_thread(self._upsert_viewer, ev)
+            self._upsert_viewer(ev)
             self._comment(ev, is_demo)
         elif ev.type == EventType.JOIN:
-            av = self.c.avatars.get_or_create(ev.user, is_demo)
+            av = self.c.avatars.get_or_create(ev.user, is_demo, reason="join")
             if av:
-                await asyncio.to_thread(self._upsert_viewer, ev)
-                self.c.hub.send_game({"type": "SOCIAL_EFFECT", "kind": "wave", "avatar_id": av.avatar_id})
+                self._upsert_viewer(ev)
+                if av.visible and self._allow(av.avatar_id, "join_wave", JOIN_WAVE_S):
+                    self.c.hub.send_game({"type": "SOCIAL_EFFECT", "kind": "wave", "avatar_id": av.avatar_id})
             if ev.user:  # greet everyone who joins, with or without a Chibi on screen
                 self.c.assistant.on_join(ev.user.nickname or ev.user.unique_id, ev.user.identity_key)
                 self.c.owner.on_join(ev.user.nickname or ev.user.unique_id, ev.user.identity_key)
         elif ev.type == EventType.GIFT:
             n = self.c.gifts.settle(ev)
             if n:
-                av = self.c.avatars.get_or_create(ev.user, is_demo)
+                av = self.c.avatars.get_or_create(ev.user, is_demo, reason="gift")
                 name = (ev.user.nickname or ev.user.unique_id) if ev.user else None
                 if av:
                     self.c.hub.send_game({"type": "SOCIAL_EFFECT", "kind": "gift", "avatar_id": av.avatar_id,
@@ -158,7 +166,7 @@ class Orchestrator:
         text = ev.payload["text"]
         intent = self.c.router.route(text)
         self.intent_counts[intent.kind.value] += 1
-        av = self.c.avatars.get_or_create(ev.user, is_demo)
+        av = self.c.avatars.get_or_create(ev.user, is_demo, reason="product" if intent.moves_chibi else "comment")
         outcome = None
         command_id = None
         if intent.moves_chibi and av:
@@ -200,7 +208,15 @@ class Orchestrator:
             "is_demo": is_demo,
         }
         self.recent_comments.append(record)
-        self.c.hub.send_dashboard({"type": "COMMENT", "comment": record})
+        important = (intent.moves_chibi or intent.needs_host or outcome in ("no_location", "leave")
+                     or intent.kind in (IntentKind.QUESTION, IntentKind.AMBIGUOUS))
+        if important or self._dash_chat.allow():
+            self.c.hub.send_dashboard({"type": "COMMENT", "comment": record})
+        else:
+            self.dash_skipped += 1
+            if now - self._dash_skipped_sent >= 1.0:
+                self._dash_skipped_sent = now
+                self.c.hub.send_dashboard({"type": "COMMENTS_SKIPPED", "total": self.dash_skipped})
         viewer_key = av.viewer_key if av else (ev.user.identity_key if ev.user else None)
         chat = not intent.needs_host and outcome != "no_location" and self.c.assistant.wants_chat(intent, viewer_key)
         if intent.needs_host or outcome == "no_location" or chat:

@@ -135,6 +135,8 @@ def test_load_60_avatars_100_comments(admin_client):
                 break
             time.sleep(0.05)
     assert m["events"]["COMMENT"] == 100
-    assert m["avatars"]["total"] == 60 and m["avatars"]["visible"] == 60
+    # 60 viewers at once: Chibis come in at a steady pace, nobody is lost
+    assert m["avatars"]["total"] == 60 and m["avatars"]["visible"] + m["avatars"]["overflow"] == 60
+    assert m["avatars"]["visible"] >= 10
     assert m["actions"]["queue_depth"] <= 60 * 3  # ≤ 1 active + 2 pending per viewer
     assert m["errors"] == 0

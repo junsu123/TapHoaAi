@@ -28,6 +28,13 @@ GREET_AGAIN_S = 600.0
 GATHER_S = 1.2
 BUBBLE_GAP_S = 4.2  # one greeting bubble at a time
 NAMES_PER_BUBBLE = 3
+# a gift storm: the owner can serve tea to one guest at a time (about 12 s each), so at most one
+# invitation per TEA_GAP_S and the same viewer at most once per TEA_AGAIN_S; everyone else is
+# thanked together in one bubble every THANKS_GAP_S
+TEA_GAP_S = 15.0
+TEA_AGAIN_S = 180.0
+THANKS_GAP_S = 5.0
+BOARD_PUBLISH_GAP_S = 1.0
 BOARD_KEY = "leaderboard"
 MAX_PURCHASES = 1000
 
@@ -58,6 +65,10 @@ class OwnerHost:
         self._greeted: dict[str, float] = {}
         self._pending: deque[tuple[str, float]] = deque()
         self._last_bubble = -1e9
+        self._tea_last = -1e9
+        self._tea_by: dict[str, float] = {}
+        self._thanks: list[str] = []
+        self._thanks_last = -1e9
         self._task: asyncio.Task | None = None
         self.history: deque[dict[str, Any]] = deque(maxlen=20)
 
@@ -81,6 +92,7 @@ class OwnerHost:
             await asyncio.sleep(0.25)
             try:
                 self.flush()
+                self.flush_thanks()
             except Exception:  # never let the bubble loop die
                 log.exception("Lỗi khi chủ quán chào khách")
 
@@ -127,9 +139,34 @@ class OwnerHost:
     def on_gift(self, avatar_id: str | None, name: str | None, gift_name: str | None, count: int) -> None:
         if not self.scene.owner_enabled:
             return
-        gift = f"{count} {gift_name}" if gift_name and count > 1 else (gift_name or "quà")
-        text = fill(self.scene.owner_tea_template, ten=display_name(name), qua=gift)
-        self._send({"type": "OWNER_TEA", "avatar_id": avatar_id, "name": display_name(name), "text": text})
+        now = time.monotonic()
+        who = avatar_id or f"name:{name}"
+        if now - self._tea_last >= TEA_GAP_S and now - self._tea_by.get(who, -1e9) >= TEA_AGAIN_S:
+            self._tea_last = now
+            self._tea_by[who] = now
+            if len(self._tea_by) > 5000:
+                self._tea_by = {k: t for k, t in self._tea_by.items() if now - t < TEA_AGAIN_S}
+            gift = f"{count} {gift_name}" if gift_name and count > 1 else (gift_name or "quà")
+            text = fill(self.scene.owner_tea_template, ten=display_name(name), qua=gift)
+            self._send({"type": "OWNER_TEA", "avatar_id": avatar_id, "name": display_name(name), "text": text})
+            return
+        n = display_name(name)
+        if n not in self._thanks and len(self._thanks) < 500:
+            self._thanks.append(n)
+
+    def flush_thanks(self, now: float | None = None) -> dict[str, Any] | None:
+        """Many gifts at once: "Cảm ơn A, B, C và 12 bạn khác đã tặng quà ạ!" in one bubble."""
+        if not self._thanks:
+            return None
+        now = time.monotonic() if now is None else now
+        if now - self._thanks_last < THANKS_GAP_S or now - self._last_bubble < BUBBLE_GAP_S:
+            return None
+        names, more = self._thanks[:NAMES_PER_BUBBLE], max(0, len(self._thanks) - NAMES_PER_BUBBLE)
+        self._thanks = []
+        self._thanks_last = self._last_bubble = now
+        msg = {"type": "OWNER_THANKS", "text": f"Cảm ơn {name_list(names, more)} đã tặng quà ạ!"}
+        self._send(msg)
+        return msg
 
     def on_purchase(self, name: str, product: str, qty: int) -> None:
         if not self.scene.owner_enabled:
@@ -143,6 +180,9 @@ class Leaderboard:
     def __init__(self, c: AppContainer) -> None:
         self.c = c
         self.data: dict[str, Any] = {"session": None, "gifts": {}, "purchases": []}
+        self._pub_last = -1e9
+        self._pub_timer: asyncio.TimerHandle | None = None
+        self._dirty = False
         raw = c.get_setting(BOARD_KEY)
         if raw:
             try:
@@ -155,9 +195,34 @@ class Leaderboard:
 
     # ------------------------------------------------------------------ helpers
     def _save(self) -> None:
-        self.c.set_setting(BOARD_KEY, json.dumps(self.data, ensure_ascii=False), secret=False)
+        # a gift storm changes the board hundreds of times a second: it is written at most
+        # once a second (with the screen update), and once more when the app stops
+        self._dirty = True
+
+    def flush(self) -> None:
+        if self._dirty:
+            self._dirty = False
+            self.c.set_setting_later(BOARD_KEY, json.dumps(self.data, ensure_ascii=False), secret=False)
 
     def _publish(self) -> None:
+        """At most once a second (a gift storm changes it hundreds of times); the last change
+        is never lost."""
+        now = time.monotonic()
+        if now - self._pub_last >= BOARD_PUBLISH_GAP_S:
+            self._publish_now()
+            return
+        if self._pub_timer is None:
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                self._publish_now()
+                return
+            self._pub_timer = loop.call_later(BOARD_PUBLISH_GAP_S - (now - self._pub_last), self._publish_now)
+
+    def _publish_now(self) -> None:
+        self._pub_timer = None
+        self._pub_last = time.monotonic()
+        self.flush()
         view = self.view()
         self.c.hub.send_game({"type": "LEADERBOARD", "board": view})
         self.c.hub.send_dashboard({"type": "LEADERBOARD", "board": view})
