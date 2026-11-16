@@ -15,7 +15,17 @@ export type AnimState =
   | "exit"
   | "dance"
   | "celebrate"
-  | "sit";
+  | "sit"
+  | "look"
+  | "stretch"
+  | "nod"
+  | "browse"
+  | "lookup"
+  | "pose"
+  | "spin"
+  | "surprise"
+  | "think"
+  | "point";
 
 /** Max seconds per state (Infinity = until the controller changes it). */
 export const MAX_DURATION: Record<AnimState, number> = {
@@ -33,6 +43,17 @@ export const MAX_DURATION: Record<AnimState, number> = {
   dance: 3,
   celebrate: 1.6,
   sit: 60,
+  // autonomous / direct-command animations: the controller ends them; these are safety caps
+  look: 6,
+  stretch: 3,
+  nod: 4,
+  browse: 8,
+  lookup: 6,
+  pose: 3,
+  spin: 2.5,
+  surprise: 2,
+  think: 4,
+  point: 4,
 };
 
 const ALLOWED: Record<AnimState, AnimState[]> = {
@@ -50,6 +71,16 @@ const ALLOWED: Record<AnimState, AnimState[]> = {
   dance: ["idle", "walk"],
   celebrate: ["idle", "walk"],
   sit: ["idle", "walk", "wave"],
+  look: ["idle", "walk"],
+  stretch: ["idle", "walk"],
+  nod: ["idle", "walk"],
+  browse: ["idle", "walk", "nod"],
+  lookup: ["idle", "walk"],
+  pose: ["idle", "walk"],
+  spin: ["idle", "walk"],
+  surprise: ["idle", "walk"],
+  think: ["idle", "walk"],
+  point: ["idle", "walk"],
 };
 
 export class AnimationFSM {

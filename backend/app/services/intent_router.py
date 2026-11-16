@@ -19,6 +19,13 @@ QUESTION_PHRASES = (
 QUESTION_ENDINGS = {"khong", "ko", "k", "hok", "hong", "hem", "chua", "ha", "a ha"}
 GREETING_WORDS = ("chao", "hello", "hi", "xin chao", "alo")
 DANCE_WORDS = ("nhay", "dance", "quay")
+# direct commands for the viewer's own Chibi (spec V3 §8); short comments only, so ordinary
+# sentences ("hàng về chưa", "người nhà ngồi xem") never move anybody
+LEAVE_PHRASES = ("ve thoi", "ve day", "ve nha", "ve nhe", "ve nhen", "di ve", "tam biet", "bye", "bye bye",
+                 "bai bai", "pp", "goodbye", "out thoi", "chao tam biet")  # bare "về" only as the whole comment
+EXPLORE_PHRASES = ("di dao", "dao mot vong", "di vong vong", "di choi", "dao choi")
+SIT_PHRASES = ("ngoi", "ngoi nghi", "nghi ngoi", "ngoi xuong", "nghi chut")
+POSE_PHRASES = ("tao dang", "chup anh", "pose", "tao kieu")
 _URL = re.compile(r"(https?://|www\.|\.(com|net|vn|xyz|top)\b)", re.I)
 
 
@@ -28,6 +35,10 @@ class IntentKind(StrEnum):
     AMBIGUOUS = "AMBIGUOUS"
     GREETING = "GREETING"
     DANCE = "DANCE"
+    LEAVE = "LEAVE"
+    EXPLORE = "EXPLORE"
+    SIT = "SIT"
+    POSE = "POSE"
     SPAM = "SPAM"
     NONE = "NONE"
 
@@ -78,6 +89,17 @@ class CommentIntentRouter:
             return Intent(IntentKind.AMBIGUOUS, None, m.confidence, m.tier, m.candidates, m.normalized)
         if is_question:
             return Intent(IntentKind.QUESTION, normalized=m.normalized)
+        short = len(tokens) <= 5
+        if short and any(folded == p or folded.startswith(p + " ") for p in LEAVE_PHRASES):
+            return Intent(IntentKind.LEAVE, normalized=m.normalized)
+        if folded == "ve" or folded in ("ve a", "ve nha shop", "ve nhe shop"):
+            return Intent(IntentKind.LEAVE, normalized=m.normalized)
+        if short and _has_phrase(folded, EXPLORE_PHRASES):
+            return Intent(IntentKind.EXPLORE, normalized=m.normalized)
+        if short and _has_phrase(folded, SIT_PHRASES):
+            return Intent(IntentKind.SIT, normalized=m.normalized)
+        if short and _has_phrase(folded, POSE_PHRASES):
+            return Intent(IntentKind.POSE, normalized=m.normalized)
         if _has_phrase(folded, GREETING_WORDS):
             return Intent(IntentKind.GREETING, normalized=m.normalized)
         if _has_phrase(folded, DANCE_WORDS):

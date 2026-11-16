@@ -15,6 +15,7 @@ import type {
 } from "../types/protocol";
 import { DEFAULT_SCENE, type LeaderboardView } from "../types/protocol";
 import { TeaHouse, teaSpot, type TeaSpot } from "./teahouse";
+import { benchSpots, DEFAULT_BEHAVIOR, type Bench, type BehaviorConfig } from "./behaviors";
 import { AvatarController, type Vec3, type WorldQuery } from "./AvatarController";
 import { NavGrid } from "./Navigation";
 
@@ -76,8 +77,51 @@ export class GameEngine {
       },
       rand: () => this.rand(),
       door: { x: 0, z: 7.4 },
+      behavior: () => this.behavior,
+      shelves: () => [...this.shelves.values()],
+      seats: () => this.benches.flatMap((b) => b.seats),
+      seatFree: (id) => !this.seatHolders.has(id),
+      claimSeat: (id, who) => {
+        const h = this.seatHolders.get(id);
+        if (h && h !== who) return false;
+        this.seatHolders.set(id, who);
+        return true;
+      },
+      releaseSeat: (id, who) => {
+        if (this.seatHolders.get(id) === who) this.seatHolders.delete(id);
+      },
+      readSpots: () => this.readSpots,
+      partners: (selfId, pos) => {
+        const out: { id: string; pos: Point2 }[] = [];
+        for (const a of this.avatars.values()) {
+          if (a.info.avatar_id === selfId || a.busy || a.topState !== "IDLE") continue;
+          if (a.now - a.socialAt < 40) continue;
+          if (Math.hypot(a.pos.x - pos.x, a.pos.z - pos.z) < 3.2) out.push({ id: a.info.avatar_id, pos: a.pos });
+        }
+        return out;
+      },
+      socialReply: (partnerId, from) => this.avatars.get(partnerId)?.socialReply(from) ?? false,
+      cameraBusy: () => this.camera.mode === "follow" && !!this.camera.commandId,
+      spotFree: (p, selfId) => {
+        for (const a of this.avatars.values()) {
+          if (a.info.avatar_id === selfId) continue;
+          if (Math.hypot(a.pos.x - p.x, a.pos.z - p.z) < 0.6) return false;
+          const h = a.heading;
+          if (h && Math.hypot(h.x - p.x, h.z - p.z) < 0.6) return false;
+        }
+        return true;
+      },
     };
   }
+
+  /** screen positions of Chibi heads, filled only when the debug overlay is on */
+  debugScreens = new Map<string, { x: number; y: number; on: boolean }>();
+  /** autonomous-life settings (spec §5); the server may send its own */
+  behavior: BehaviorConfig = DEFAULT_BEHAVIOR;
+  /** benches for REST_* and who sits on which seat */
+  benches: Bench[] = [];
+  private seatHolders = new Map<string, string>();
+  private readSpots: { pos: Point2; yaw: number }[] = [];
 
   private emit = (m: ClientGameMessage): void => {
     this.sent.push(m);
@@ -107,8 +151,14 @@ export class GameEngine {
   private rebuildNav(): void {
     if (!this.layout) return;
     this.spot = this.scene.owner_enabled ? teaSpot(this.layout) : null;
-    this.nav = new NavGrid(this.layout, this.spot ? [this.spot.obstacle] : []);
+    this.benches = benchSpots(this.layout);
+    this.nav = new NavGrid(this.layout, [...(this.spot ? [this.spot.obstacle] : []), ...this.benches.map((b) => b.obstacle)]);
     this.world.nav = this.nav;
+    // READ_SIGN: in front of the counter, looking at the LED screen / sign on the back wall
+    const c = this.layout.store.counter;
+    this.readSpots = [-2.2, 2.2]
+      .map((dx) => ({ pos: { x: c.x + dx, z: c.z + c.d / 2 + 1.0 }, yaw: Math.PI }))
+      .filter((r) => this.nav!.isPointFree(r.pos));
   }
 
   /** Products shown on the banner/posters: the chosen ones, else every product with a photo. */
@@ -245,15 +295,22 @@ export class GameEngine {
   }
 
   step(dt: number): void {
-    const clamped = Math.min(dt, 0.1); // tab switches must not teleport characters
-    for (const [id, a] of this.avatars) {
-      a.update(clamped);
-      if (a.removed) {
-        this.avatars.delete(id);
-        this.version++;
+    // A slow PC (or a busy OBS) may render only a few frames a second: the simulation still
+    // runs in real time, in small sub-steps so nobody skips through a shelf. A long pause
+    // (tab in background) is capped so characters never teleport.
+    let left = Math.min(dt, 0.5);
+    while (left > 1e-4) {
+      const h = Math.min(left, 0.1);
+      left -= h;
+      for (const [id, a] of this.avatars) {
+        a.update(h);
+        if (a.removed) {
+          this.avatars.delete(id);
+          this.version++;
+        }
       }
+      this.tea.update(h, this.spot);
     }
-    this.tea.update(clamped, this.spot);
   }
 
   focused(): AvatarController | null {
@@ -300,7 +357,14 @@ export class GameEngine {
         pos: { x: +a.pos.x.toFixed(2), z: +a.pos.z.toFixed(2) },
         completed: [...a.completed],
         lastFailure: a.lastFailure,
+        top: a.topState,
+        behavior: a.behaviorId,
+        history: a.history.slice(-12),
+        directQueue: a.direct.map((d) => d.kind),
+        emote: a.emote?.icon ?? null,
+        seat: a.sittingOnBench?.id ?? null,
       })),
+      seats: Object.fromEntries([...this.benches.flatMap((b) => b.seats)].map((s) => [s.id, this.world.seatFree?.(s.id) === false])),
       sent: this.sent.slice(-80),
     };
   }

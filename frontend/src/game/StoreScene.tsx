@@ -2,6 +2,7 @@ import { useContext, useMemo } from "react";
 import * as THREE from "three";
 import type { ProductInfo, SceneConfig, ShelfLayout, StoreLayout } from "../types/protocol";
 import { EDGE_MAT, RenderContext, toon } from "./palette";
+import { benchSpots, type Bench } from "./behaviors";
 import { LED_WALL_HEIGHT, ledOn } from "./LedWall";
 import { themeOf, type ShopTheme } from "./themes";
 import { ProductBoxMesh } from "./ProductBox";
@@ -414,6 +415,24 @@ function TeaSet({ position }: { position: [number, number, number] }) {
   );
 }
 
+/** Wooden bench against a side wall (REST_BENCH / REST_DRINK). */
+function BenchMesh({ b, theme }: { b: Bench; theme: ShopTheme }) {
+  const { shadows } = useContext(RenderContext);
+  const wood = theme.id === "herbal" ? "#9a6a3c" : "#f4c58f";
+  const dark = theme.id === "herbal" ? "#6b4424" : "#d99a5e";
+  return (
+    <group position={[b.x, 0, b.z]}>
+      <OutlinedBox args={[b.depth, 0.05, b.len]} position={[0, 0.22, 0]} color={wood} />
+      <OutlinedBox args={[0.06, 0.34, b.len]} position={[(b.yaw > 0 ? -1 : 1) * (b.depth / 2 - 0.03), 0.42, 0]} color={wood} />
+      {[-1, 1].map((k) => (
+        <mesh key={k} material={toon(dark)} position={[0, 0.1, k * (b.len / 2 - 0.08)]} castShadow={shadows}>
+          <boxGeometry args={[b.depth - 0.06, 0.2, 0.06]} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
 /** Framed photo of a product on the back wall. */
 function Poster({ product, theme, position, size }: { product: ProductInfo; theme: ShopTheme; position: [number, number, number]; size: number }) {
   const url = product.card_image_url || product.image_url || "";
@@ -585,6 +604,9 @@ export function StoreScene({ layout, scene, posters }: { layout: StoreLayout; sc
           </group>
         ))
       )}
+      {benchSpots(layout).map((b) => (
+        <BenchMesh key={`${b.x}`} b={b} theme={theme} />
+      ))}
       {layout.shelves.map((s) => (
         <ShelfMesh key={`${s.code}-${layout.version}`} shelf={s} products={products} theme={theme} />
       ))}

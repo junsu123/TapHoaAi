@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     max_visible_avatars: int = 60
     # TikTok sends no "viewer left" event: a Chibi leaves after this long without any
     # interaction (comment, like, gift, follow, share, join). Adjustable in the dashboard.
-    avatar_idle_exit_seconds: int = 300
+    avatar_idle_exit_seconds: int = 360  # spec V3: 4–7 minutes without any event
     command_cooldown_seconds: float = 5.0
     max_pending_per_viewer: int = 2
     show_seconds: float = 8.0

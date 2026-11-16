@@ -594,3 +594,10 @@ label.check.big { font-size: 15px; }
 .board-placer { display: grid; gap: 8px; }
 .board-placer-frame { display: grid; gap: 6px; justify-items: start; }
 .board-placer-frame iframe { width: 338px; height: 600px; border: 1px solid var(--line-strong); border-radius: var(--r); background: #1b2a23; }
+
+/* behaviour debug overlay (?overlay=1) */
+.bdo { position: absolute; inset: 0; pointer-events: none; z-index: 6; font: 600 10px/1.25 ui-monospace, Menlo, Consolas, monospace; }
+.bdo-panel { position: absolute; right: 1%; top: 1%; background: rgba(10, 20, 16, .82); color: #d8f3e3; padding: 6px 8px; border-radius: 6px; }
+.bdo-tag { position: absolute; transform: translate(-50%, -100%); background: rgba(10, 20, 16, .78); color: #e8fff1; padding: 2px 5px; border-radius: 4px; white-space: nowrap; text-align: center; }
+.bdo-tag.fail { outline: 1px solid #ff8a7a; }
+.bdo-state { color: #9fe0b8; }

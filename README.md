@@ -127,6 +127,21 @@ Trên màn hình LIVE (đổi trong thẻ **Không gian cửa hàng & banner s�
 - Các câu của chủ quán sửa được, dùng `{ten}`, `{qua}`, `{san_pham}`.
 - **Đặt bảng vàng ở đâu cũng được:** trong phần Bảng vàng, bấm **Kéo thả bảng vàng tới chỗ muốn đặt** — một khung xem trước màn hình LIVE mở ra; kéo bảng vàng tới chỗ muốn đặt, kéo chấm vàng ở góc để phóng to/thu nhỏ (60–180%). Thả tay là lưu, màn hình OBS đổi ngay. **Về góc mặc định** đưa bảng về góc đã chọn.
 
+## Hành vi Chibi (V3)
+
+Mỗi Chibi đại diện cho **một người xem thật** (khóa theo id TikTok, không theo nickname). Không có lệnh thì Chibi tự sống: xem kệ, xem giá, dạo quanh, đứng nghỉ, vẫy/gật đầu với Chibi bên cạnh, ngồi ghế dài uống trà, thỉnh thoảng nhảy hoặc tạo dáng. Không làm một việc 3 lần liền, không chen chỗ đứng, không đi xuyên kệ.
+
+| Người xem bình luận | Chibi làm |
+| --- | --- |
+| Tên sản phẩm (“trà cà gai leo”) | Đi tới kệ, lấy hộp, giới thiệu, trả hộp về kệ |
+| “chào”, “nhảy”, “đi dạo”, “ngồi nghỉ”, “tạo dáng” | Làm ngay; đang bận thì xếp hàng làm sau |
+| “về thôi”, “tạm biệt” | Vẫy tay ra về; bình luận lại thì quay lại |
+| “thành phần có gì?” khi đang cầm hộp | Chỉ vào hộp, trợ lý trả lời đúng sản phẩm đó |
+| “trà” (mơ hồ) | Gãi đầu “?”, không lấy bừa |
+| Thả tim, chia sẻ | Biểu cảm nhỏ, tối đa 1 lần / 8 giây |
+
+Chỉ bình luận ngắn (≤ 5 từ) mới là lệnh; câu dài vẫn hiện và được trợ lý đọc nhưng không điều khiển Chibi. Quà tặng không cho lợi thế mua hàng; đơn hàng không bao giờ được đoán từ bình luận. Mở `/game/live?overlay=1` để xem trạng thái từng Chibi.
+
 ## Trợ lý AI & giọng đọc (Claude + Vbee)
 
 Dashboard → **Trợ lý AI & giọng đọc**:

@@ -9,6 +9,7 @@ import { LabelRegistryContext, RenderContext, type LabelEntry } from "./palette"
 import { LedWall, ledOn } from "./LedWall";
 import { StoreScene } from "./StoreScene";
 import { TeaCorner } from "./TeaCorner";
+import { DebugProjector } from "./BehaviorDebugOverlay";
 import { themeOf } from "./themes";
 
 export type Quality = "low" | "medium" | "high";
@@ -247,7 +248,7 @@ function Lights({ engine, q }: { engine: GameEngine; q: (typeof QUALITY)[Quality
   );
 }
 
-export function World({ engine, quality, onFps }: { engine: GameEngine; quality: Quality; onFps: (fps: number) => void }) {
+export function World({ engine, quality, onFps, debugOverlay = false }: { engine: GameEngine; quality: Quality; onFps: (fps: number) => void; debugOverlay?: boolean }) {
   const q = QUALITY[quality];
   const opts = useMemo(() => ({ outlines: q.outlines, shadows: q.shadows }), [q.outlines, q.shadows]);
   const labelRegistry = useMemo(() => new Map<string, LabelEntry>(), []);
@@ -272,6 +273,7 @@ export function World({ engine, quality, onFps }: { engine: GameEngine; quality:
         <LabelRegistryContext.Provider value={labelRegistry}>
           <Avatars engine={engine} />
           <Tea engine={engine} />
+          {debugOverlay && <DebugProjector engine={engine} />}
           <LabelLayoutSystem registry={labelRegistry} />
         </LabelRegistryContext.Provider>
         <CameraRig engine={engine} />

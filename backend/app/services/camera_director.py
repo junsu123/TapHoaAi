@@ -50,6 +50,16 @@ class CameraDirector:
         self.queue.append(Shot(avatar_id, command_id, priority, now, max_seconds=max_seconds))
         self.tick()
 
+    def limit(self, avatar_id: str, command_id: str, priority: int, seconds: float) -> None:
+        """The close-up moment (box presented): keep this shot at most `seconds` from now."""
+        now = self.clock()
+        cur = self.current
+        if cur and cur.command_id == command_id:
+            cur.done = False
+            cur.max_seconds = (now - cur.started_at) + seconds
+            return
+        self.request(avatar_id, command_id, priority, max_seconds=seconds)
+
     def release(self, command_id: str) -> None:
         if self.current and self.current.command_id == command_id:
             self.current.done = True

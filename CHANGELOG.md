@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.16.0 — 2026-11-16 — Hành vi Chibi V3 (P0)
+
+- **Chibi tự sống khi không có lệnh:** bộ chọn hành vi có trọng số (xem kệ 30%, dạo quanh 25%, đứng nghỉ 20%, giao lưu 10%, ngồi ghế 10%, vui nhộn 5%), có thời gian hồi, không làm một việc 3 lần liền, tự giảm hành vi ồn ào khi camera đang quay người khác. Hành vi mới: xem kệ, xem giá, đọc biển, vươn vai, nhìn quanh, vẫy/gật đầu với Chibi bên cạnh, ngồi ghế dài uống trà, nhảy, tạo dáng, xoay vòng.
+- **Hai ghế dài** trong quán (4 chỗ); mỗi chỗ chỉ một Chibi, đứng dậy là trả chỗ.
+- **Trạng thái rõ ràng** cho mỗi Chibi (IDLE, NAVIGATING, BROWSING, PICKING, PRESENTING, RETURNING_ITEM, RESTING, LEAVING, ERROR_RECOVERY…) và mốc tiến trình lệnh sản phẩm (PATH_FOUND → REACHED_SHELF → PICKED → PRESENTED → RETURNED) gửi về máy chủ.
+- **Lệnh trực tiếp từ bình luận ngắn:** “chào”, “nhảy”, “đi dạo”, “ngồi nghỉ”, “tạo dáng”, “về thôi / tạm biệt”. Câu dài bình thường không điều khiển Chibi. Lệnh đến khi Chibi đang bận được xếp hàng (tối đa 2, hết hạn sau 30 giây), làm sau khi trả hộp về kệ. Lặp lại trong 4 giây bị bỏ qua.
+- **“Về thôi”:** Chibi vẫy tay đi ra cửa, hủy lệnh đang chờ, trả chỗ kệ/ghế; bình luận lại thì đúng Chibi đó (cùng ngoại hình) quay lại.
+- Hỏi “thành phần có gì?” khi Chibi đang cầm hộp → Chibi chỉ vào hộp và trợ lý biết đang hỏi sản phẩm nào. Tên mơ hồ (“trà”) → Chibi gãi đầu “?”, không lấy bừa; sản phẩm chưa đặt lên kệ → Chibi ngạc nhiên “!”.
+- Tim/chia sẻ dồn lại: 1 biểu cảm mỗi 8 giây cho mỗi người, không làm gián đoạn việc đang làm.
+- Camera theo Chibi đi tới kệ tối đa 20 giây; cận cảnh hộp sản phẩm tối đa 5 giây rồi trả về toàn cảnh, kể cả khi Chibi còn đang giới thiệu hộp.
+- Máy yếu chỉ vẽ được vài khung hình/giây thì Chibi vẫn đi và làm việc đúng tốc độ thật (chia nhỏ bước mô phỏng), không chậm lại.
+- Chibi kẹt đường → tự đi bộ tới chỗ trống gần nhất (không dịch chuyển tức thời). Chibi rảnh rời quán sau 6 phút (trước là 3 phút).
+- Lớp gỡ lỗi `?overlay=1` trên trang game: FPS, số Chibi theo trạng thái, nhãn trạng thái/hành vi/đích đến trên đầu từng Chibi.
+
 ## 0.15.2 — 2026-11-15 — Kéo thả bảng vàng
 
 - Bảng vàng **kéo thả tới bất kỳ chỗ nào** trên màn hình LIVE và **đổi cỡ** (60–180%) bằng chấm ở góc, ngay trong khung xem trước ở trang Game 3D & OBS; thả tay là lưu, OBS đổi ngay. Nút **Về góc mặc định**.

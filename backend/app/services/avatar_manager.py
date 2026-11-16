@@ -113,6 +113,15 @@ class AvatarManager:
         if av:
             av.last_active = self.clock()
 
+    def leave(self, avatar_id: str) -> bool:
+        """The viewer asked to leave ("về thôi"): the Chibi waves and walks out. A later
+        comment from the same viewer brings the same Chibi (same look) back."""
+        av = self._by_id.get(avatar_id)
+        if not av or not av.visible:
+            return False
+        self._hide(av, "user_leave")
+        return True
+
     def exit_all(self, reason: str) -> list[str]:
         """Everyone leaves the store (LIVE ended)."""
         gone = [a.avatar_id for a in self.visible()]
