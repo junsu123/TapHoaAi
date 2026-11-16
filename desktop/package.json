@@ -18,11 +18,32 @@
   "build": {
     "appId": "vn.chibilive.game",
     "productName": "Chibi Live Game",
-    "artifactName": "ChibiLiveGame-${version}-${arch}-${target}.${ext}",
-    "directories": { "output": "dist", "buildResources": "build" },
-    "files": ["main.js", "preload.js", "settings.js", "pages/**", "build/icon.png"],
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "settings.js",
+      "pages/**",
+      "build/icon.png"
+    ],
     "win": {
-      "target": [{ "target": "nsis", "arch": ["x64"] }, { "target": "portable", "arch": ["x64"] }],
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
       "icon": "build/icon.png",
       "signAndEditExecutable": true
     },
@@ -30,7 +51,11 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "shortcutName": "Chibi Live Game"
+      "shortcutName": "Chibi Live Game",
+      "artifactName": "ChibiLiveGame-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "ChibiLiveGame-Portable-${version}.${ext}"
     }
   }
 }

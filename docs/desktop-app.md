@@ -7,8 +7,8 @@ Cửa sổ này là màn hình game chính: nó nhận lệnh Chibi, đọc gi�
 
 **Cách 1 — bản cài sẵn (khuyên dùng):** trên GitHub, mở *Actions → desktop-windows → lần chạy mới nhất →
 Artifacts → ChibiLiveGame-windows*. Trong đó có:
-- `ChibiLiveGame-…-x64-nsis.exe` — bộ cài (tạo biểu tượng trên màn hình nền);
-- `ChibiLiveGame-…-x64-portable.exe` — chạy thẳng, không cần cài.
+- `ChibiLiveGame-Setup-….exe` — bộ cài (tạo biểu tượng trên màn hình nền);
+- `ChibiLiveGame-Portable-….exe` — chạy thẳng, không cần cài.
 
 Windows có thể hỏi “Windows protected your PC” vì phần mềm chưa ký số: bấm *More info → Run anyway*.
 
