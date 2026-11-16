@@ -92,6 +92,15 @@ def events(request: Request, admin: CurrentAdmin = AdminDep, limit: int = Query(
 
 
 # ---------------------------------------------------------------- demo (LIVE-07)
+async def _drop_dead_live(c) -> None:
+    """A real LIVE attempt that already ended (not live, unsupported, offline) must not block
+    the Demo: it is closed first."""
+    from app.services.live_session import TERMINAL_STATUSES
+
+    if c.live.provider is not None and not c.live.is_demo and c.live.status in TERMINAL_STATUSES:
+        await c.live.stop()
+
+
 def _require_demo(request: Request) -> None:
     if not request.app.state.container.settings.demo_enabled:
         raise HTTPException(403, detail={"code": "demo_disabled", "message": "Chế độ Demo đang tắt."})
@@ -112,6 +121,7 @@ async def demo_events(body: DemoEventIn, request: Request, admin: CurrentAdmin =
     c = request.app.state.container
     if not request.app.state.demo_limiter.allow(str(admin.id)):
         raise HTTPException(429, detail={"code": "rate_limited", "message": "Gửi sự kiện demo quá nhanh."})
+    await _drop_dead_live(c)
     if c.live.provider is not None and not c.live.is_demo:
         raise HTTPException(409, detail={"code": "live_active", "message":
                             "Đang có phiên LIVE thật. Ngắt kết nối trước khi dùng Demo."})
@@ -138,9 +148,10 @@ def game_perf(request: Request, admin: CurrentAdmin = AdminDep) -> dict:
     return v
 
 
-def _demo_only(request: Request) -> None:
+async def _demo_only(request: Request) -> None:
     _require_demo(request)
     c = request.app.state.container
+    await _drop_dead_live(c)
     if c.live.provider is not None and not c.live.is_demo:
         raise HTTPException(409, detail={"code": "live_active", "message":
                             "Chỉ đo thử khi chạy Demo — đang có phiên LIVE thật."})
@@ -149,7 +160,7 @@ def _demo_only(request: Request) -> None:
 @router.post("/game/benchmark")
 async def game_benchmark(body: BenchmarkIn, request: Request, admin: CurrentAdmin = AdminDep) -> dict:
     """Fill the shop with demo Chibis up to `count` and measure the OBS page for 20 seconds."""
-    _demo_only(request)
+    await _demo_only(request)
     c = request.app.state.container
     if not c.hub.has_primary():
         raise HTTPException(409, detail={"code": "no_game_page", "message":
@@ -174,9 +185,9 @@ async def game_benchmark(body: BenchmarkIn, request: Request, admin: CurrentAdmi
 
 
 @router.post("/game/benchmark/clear")
-def game_benchmark_clear(request: Request, admin: CurrentAdmin = AdminDep) -> dict:
+async def game_benchmark_clear(request: Request, admin: CurrentAdmin = AdminDep) -> dict:
     """Demo only: every Chibi waves goodbye and leaves (to measure again from an empty shop)."""
-    _demo_only(request)
+    await _demo_only(request)
     c = request.app.state.container
     gone = c.avatars.exit_all("benchmark_clear")
     for avatar_id in gone:
@@ -198,7 +209,7 @@ def system_health(request: Request, admin: CurrentAdmin = AdminDep) -> dict:
 @router.post("/game/loadtest")
 async def game_loadtest(body: LoadTestIn, request: Request, admin: CurrentAdmin = AdminDep) -> dict:
     """Demo only: simulate a very busy LIVE (rate events/s for `seconds`) to check this PC copes."""
-    _demo_only(request)
+    await _demo_only(request)
     c = request.app.state.container
     if not c.live.is_demo:
         await c.live.start(DemoProvider())

@@ -1,0 +1,37 @@
+name: desktop-windows
+# Builds the 9:16 game window for Windows (installer + portable .exe) on a real Windows machine
+# and checks that it starts. Download: Actions → desktop-windows → Artifacts → ChibiLiveGame-windows.
+on:
+  push:
+    paths: ["desktop/**", ".github/workflows/desktop.yml"]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - name: Unit tests + build installer and portable exe
+        working-directory: desktop
+        run: |
+          npm ci
+          npm test
+          npx electron-builder --win nsis portable dir --publish never
+      - name: The app starts on Windows and shows its waiting screen
+        working-directory: desktop
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem dist\\win-unpacked\\*.exe | Select-Object -First 1
+          $env:CHIBI_DESKTOP_USERDATA = "$env:RUNNER_TEMP\\chibi-ud"
+          $p = Start-Process -FilePath $exe.FullName -ArgumentList "--server=http://127.0.0.1:9", "--no-server" -PassThru
+          Start-Sleep -Seconds 12
+          if ($p.HasExited) { throw "Chibi Live Game exited with code $($p.ExitCode)" }
+          $cfgDir = Test-Path "$env:RUNNER_TEMP\\chibi-ud"
+          Write-Host "running, pid $($p.Id), user data created: $cfgDir"
+          Stop-Process -Id $p.Id -Force
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ChibiLiveGame-windows
+          path: |
+            desktop/dist/*.exe

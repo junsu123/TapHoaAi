@@ -948,14 +948,24 @@ function GameSetupPage() {
         <Card title="Không gian cửa hàng & banner sản phẩm">
           <SceneSettings />
         </Card>
-        <Card title="Mở màn hình LIVE 9:16">
-          <p>
+        <Card title="Màn hình game 9:16 trên Windows" desc="Game hiện trong cửa sổ phần mềm riêng, luôn đúng tỉ lệ 9:16." >
+          <ol className="steps" data-testid="desktop-app-card">
+            <li>
+              Cài <b>Chibi Live Game</b> (bộ cài hoặc bản chạy thẳng trong mục Actions → desktop-windows của kho mã), hoặc chạy{" "}
+              <code>scripts\dev_windows.ps1 -GameApp</code> để mở máy chủ và cửa sổ game cùng lúc.
+            </li>
+            <li>Cửa sổ tự kết nối tới máy chủ này ({location.origin}). Chuột phải trong cửa sổ để chọn cỡ 1080 × 1920, toàn màn hình, ẩn viền.</li>
+            <li>
+              OBS: <b>Window Capture</b> → chọn cửa sổ Chibi Live Game; âm thanh giọng đọc: <b>Application Audio Capture</b>.
+            </li>
+          </ol>
+          <p className="muted small">
+            Chỉ mở một màn hình game chính: cửa sổ Chibi Live Game <i>hoặc</i> trang{" "}
             <a href="/game/live" target="_blank" rel="noreferrer">
               {liveUrl}
-            </a>
+            </a>{" "}
+            trong OBS (Browser Source) — nó nhận và xác nhận mọi lệnh Chibi. Chất lượng: thêm ?quality=low|medium|high (mặc định tự giảm khi FPS &lt; 24).
           </p>
-          <p className="muted">Mở đúng một cửa sổ này trên PC phát LIVE — nó là cửa sổ game chính, xác nhận mọi lệnh Chibi.</p>
-          <p className="muted">Chất lượng: thêm ?quality=low|medium|high (mặc định tự giảm khi FPS &lt; 24).</p>
         </Card>
         <Card title="Hiệu năng màn hình game">
           <PerfCard />
@@ -965,7 +975,7 @@ function GameSetupPage() {
         </Card>
         <Card title="OBS Studio">
           <ol>
-            <li>Thêm nguồn Browser Source, URL: {liveUrl}, kích thước 1080 × 1920, 30 FPS.</li>
+            <li>Thêm nguồn Window Capture (cửa sổ Chibi Live Game, cách chụp “Windows 10 (1903 and up)”) — hoặc Browser Source, URL: {liveUrl}, kích thước 1080 × 1920, 30 FPS.</li>
             <li>Cảnh “Shop LIVE”: webcam + mic người thật là chính, game là lớp phụ.</li>
             <li>Không dùng điện thoại quay màn hình máy tính (gây sọc moiré).</li>
           </ol>

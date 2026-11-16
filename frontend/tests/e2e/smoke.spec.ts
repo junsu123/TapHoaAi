@@ -344,9 +344,11 @@ test("M3 connect page: real TikTok attempt never shows a fake connection; failur
     await page.waitForTimeout(250);
   }
   expect([...seen].some((s) => s.includes("Đã kết nối"))).toBe(false);
-  await expect(pill).toContainText(/Mất kết nối|Đang kết nối|Đang kiểm tra/);
+  // no route to TikTok (sandbox) or TikTok answers "not live / not supported" (CI): never a fake success
+  await expect(pill).toContainText(/Mất kết nối|Đang kết nối|Đang kiểm tra|Không hỗ trợ|Không phát LIVE|Đã kết thúc/);
   await page.screenshot({ path: `${SHOTS}/M3-connect-page.png`, fullPage: true });
-  await page.getByRole("button", { name: "Ngắt kết nối" }).click();
+  await page.request.post("/api/v1/live/disconnect", { headers: { "X-CSRF-Token": csrf } });
+  await page.reload();
   await expect(pill).toContainText("Chưa kết nối");
 });
 

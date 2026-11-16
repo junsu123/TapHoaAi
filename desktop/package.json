@@ -1,0 +1,36 @@
+{
+  "name": "chibi-live-game",
+  "productName": "Chibi Live Game",
+  "version": "0.19.0",
+  "description": "Cửa sổ game Chibi 9:16 cho Windows (OBS: Window Capture)",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.mjs",
+    "dist": "electron-builder --win nsis portable",
+    "dist:dir": "electron-builder --win dir"
+  },
+  "devDependencies": {
+    "electron": "^45.3.2",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "vn.chibilive.game",
+    "productName": "Chibi Live Game",
+    "artifactName": "ChibiLiveGame-${version}-${arch}-${target}.${ext}",
+    "directories": { "output": "dist", "buildResources": "build" },
+    "files": ["main.js", "preload.js", "settings.js", "pages/**", "build/icon.png"],
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64"] }, { "target": "portable", "arch": ["x64"] }],
+      "icon": "build/icon.png",
+      "signAndEditExecutable": true
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "Chibi Live Game"
+    }
+  }
+}
