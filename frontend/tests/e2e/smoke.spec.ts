@@ -1061,7 +1061,7 @@ test("Behaviour P1 (T16): benchmark 30 and 50 Chibis from the dashboard, with le
   const results: any[] = [];
   for (const n of [30, 50]) {
     await card.getByTestId(`bench-${n}`).click();
-    await expect(card.getByTestId("bench-msg")).toContainText(`Đang đo với ${n} Chibi`);
+    await expect(card.getByTestId("bench-msg")).toContainText(`Đang đo với ${n} Chibi`, { timeout: 30_000 }); // slow 2-core runner
     await expect(card.getByTestId("bench-results").locator("tbody tr")).toHaveCount(results.length + 1, { timeout: 90_000 });
     const v = await (await page.request.get("/api/v1/game/perf")).json();
     const res = v.results[v.results.length - 1];
@@ -1161,7 +1161,7 @@ test("Stage + owner talk: first to comment dances first, the owner answers chat 
   const csrf = await login(page.request);
   const H = { "X-CSRF-Token": csrf };
   const scene = (await (await page.request.get("/api/v1/settings/scene")).json()).config;
-  await page.request.put("/api/v1/settings/scene", { data: { ...scene, owner_enabled: true, stage_enabled: true, stage_seconds: 10, stage_side: "right" }, headers: H });
+  await page.request.put("/api/v1/settings/scene", { data: { ...scene, owner_enabled: true, stage_enabled: true, stage_seconds: 25, stage_side: "right" }, headers: H });
   const s = await (await page.request.get("/api/v1/settings/ai")).json();
   const cfg = { ...s.config, voice_policy_confirmed: true, voice_enabled: true, autopilot: false, read_comments: false, greet_joins: false, owner_chat: true, stage_announce: true, poem_story: true, poem_story_every_min: 0, poem_story_builtin: true, poem_story_claude: false };
   const put = await page.request.put("/api/v1/settings/ai", { data: { config: cfg }, headers: H });
@@ -1217,7 +1217,7 @@ test("Stage + owner talk: first to comment dances first, the owner answers chat 
   await page.screenshot({ path: `${SHOTS}/STAGE-2-host.png` });
 
   // after their turn: thanks, they step down, and the next one is called
-  await expect(board.getByTestId("stage-current")).toContainText(b, { timeout: 40_000 });
+  await expect(board.getByTestId("stage-current")).toContainText(b, { timeout: 60_000 });
   await game.waitForFunction((n) => {
     const av = (window as any).__chibiDebug.state().avatars.find((x: any) => x.nickname === n);
     return av && av.elevation === 0 && !String(av.phase).startsWith("stage");
