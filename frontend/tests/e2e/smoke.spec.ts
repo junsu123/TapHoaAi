@@ -971,7 +971,8 @@ test("Behaviour P1: missing dance clip falls back (T12), Chibis keep living calm
   const csrf = await login(page.request);
   const H = { "X-CSRF-Token": csrf };
   const scene = (await (await page.request.get("/api/v1/settings/scene")).json()).config;
-  await page.request.put("/api/v1/settings/scene", { data: { ...scene, stage_enabled: false }, headers: H }); // "nhảy" = dance in place
+  // "nhảy" = dance in place; no level-up lines on the voice (this test counts voices)
+  await page.request.put("/api/v1/settings/scene", { data: { ...scene, stage_enabled: false, level_voice: false }, headers: H });
   const game = await context.newPage();
   // a fake computer voice that talks for 6 s; counts how many voices / audio clips play at once
   await game.addInitScript(() => {
@@ -1193,7 +1194,7 @@ test("Stage + owner talk: first to comment dances first, the owner answers chat 
   const csrf = await login(page.request);
   const H = { "X-CSRF-Token": csrf };
   const scene = (await (await page.request.get("/api/v1/settings/scene")).json()).config;
-  await page.request.put("/api/v1/settings/scene", { data: { ...scene, owner_enabled: true, stage_enabled: true, stage_seconds: 25, stage_side: "center" }, headers: H });
+  await page.request.put("/api/v1/settings/scene", { data: { ...scene, owner_enabled: true, stage_enabled: true, stage_seconds: 25, stage_side: "center", levels_enabled: false }, headers: H });
   const s = await (await page.request.get("/api/v1/settings/ai")).json();
   const cfg = { ...s.config, voice_policy_confirmed: true, voice_enabled: true, autopilot: false, read_comments: false, greet_joins: false, owner_chat: true, stage_announce: true, poem_story: true, poem_auto: false, poem_story_builtin: true, poem_story_claude: false };
   const put = await page.request.put("/api/v1/settings/ai", { data: { config: cfg }, headers: H });

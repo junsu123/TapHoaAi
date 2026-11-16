@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 ITEMS = ("nón lá", "áo choàng", "vương miện")
 VERBS = ("được đội nón lá", "được khoác áo choàng", "được đội vương miện")
 PUBLISH_S = 5.0  # progress bars on the game: at most every 5 s
-VOICE_GAP_S = 25.0  # owner's level lines on the voice: at most one every 25 s
+VOICE_GAP_S = 45.0  # owner's level lines on the voice: at most one every 45 s (a busy LIVE levels up often)
 REMIND_GAP_S = 90.0  # "1 phút nữa…": at most one every 90 s
 REMIND_WINDOW = (40.0, 75.0)  # seconds before the next level
 REMIND_ACTIVE_S = 180.0  # only viewers who did something in the last 3 minutes are reminded
