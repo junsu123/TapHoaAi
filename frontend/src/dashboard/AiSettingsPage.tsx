@@ -40,6 +40,15 @@ export interface AiConfig {
   welcome_many_template: string;
   welcome_batch: number;
   read_comments: boolean;
+  owner_chat: boolean;
+  owner_chat_claude: boolean;
+  stage_announce: boolean;
+  poem_story: boolean;
+  poem_story_every_min: number;
+  poem_story_claude: boolean;
+  poem_story_builtin: boolean;
+  custom_poems: string[];
+  custom_stories: string[];
 }
 
 export interface AiStatus {
@@ -462,6 +471,8 @@ export function AiSettingsPage() {
             </div>
           </div>
 
+          <OwnerTalkCard cfg={cfg} set={set} />
+
           <div className="card">
             <h2>Tự động hoàn toàn</h2>
             <div className="stack">
@@ -583,5 +594,89 @@ export function AiSettingsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+/** Chủ quán trò chuyện: answer small talk itself, call Claude only when it cannot, recite a poem or tell a story now and then. */
+function OwnerTalkCard({ cfg, set }: { cfg: AiConfig; set: <K extends keyof AiConfig>(k: K, v: AiConfig[K]) => void }) {
+  const [msg, setMsg] = useState<string | null>(null);
+  const now = async (kind: "poem" | "story") => {
+    setMsg(null);
+    try {
+      const r = await api.post<{ outcome: string; message: string }>("/talk/now", { kind });
+      setMsg(r.message);
+    } catch (x) {
+      setMsg(x instanceof ApiError ? x.message : String(x));
+    }
+  };
+  return (
+    <div className="card" data-testid="owner-talk-card">
+      <h2>Chủ quán trò chuyện</h2>
+      <div className="stack">
+        <label className="check big">
+          <input type="checkbox" checked={cfg.owner_chat} onChange={(e) => set("owner_chat", e.target.checked)} aria-label="Chủ quán trả lời bình luận" />
+          <span>
+            <b>Chủ quán đọc bình luận và trả lời</b> — câu chào hỏi, khen, hỏi thăm thì chủ quán tự trả lời ngay (không tốn tiền Claude). Không cần bật Tự động hoàn toàn.
+          </span>
+        </label>
+        <label className="check">
+          <input type="checkbox" checked={cfg.owner_chat_claude} disabled={!cfg.owner_chat} onChange={(e) => set("owner_chat_claude", e.target.checked)} aria-label="Gọi Claude khi chủ quán không trả lời được" />
+          Chủ quán không trả lời được → gọi Claude (câu trả lời vẫn qua bộ lọc an toàn; câu về bệnh, giá lạ vẫn chờ người trực)
+        </label>
+        <label className="check">
+          <input type="checkbox" checked={cfg.stage_announce} onChange={(e) => set("stage_announce", e.target.checked)} aria-label="Chủ quán mời lên sân khấu" />
+          Chủ quán đọc to “Mời bạn … lên sân khấu!” khi tới lượt nhảy
+        </label>
+        <label className="check big">
+          <input type="checkbox" checked={cfg.poem_story} onChange={(e) => set("poem_story", e.target.checked)} aria-label="Làm thơ, kể chuyện" />
+          <span>
+            <b>Làm thơ, kể chuyện</b> — khách bình luận “làm thơ”, “kể chuyện” thì chủ quán đọc tặng; lúc LIVE vắng thì thỉnh thoảng tự đọc.
+          </span>
+        </label>
+        <Field label={cfg.poem_story_every_min ? `Tự đọc khi LIVE vắng: ${cfg.poem_story_every_min} phút một lần` : "Tự đọc khi LIVE vắng: tắt (chỉ đọc khi khách xin)"} hint="Chỉ đọc khi không còn câu nào chờ đọc. Mỗi khách xin tối đa 1 lần mỗi 3 phút.">
+          <input type="range" min={0} max={60} step={1} value={cfg.poem_story_every_min} disabled={!cfg.poem_story} onChange={(e) => set("poem_story_every_min", Number(e.target.value))} aria-label="Phút giữa các bài thơ" />
+        </Field>
+        <label className="check">
+          <input type="checkbox" checked={cfg.poem_story_builtin} disabled={!cfg.poem_story} onChange={(e) => set("poem_story_builtin", e.target.checked)} aria-label="Dùng thơ truyện có sẵn" />
+          Dùng các bài thơ, truyện ngắn có sẵn (8 bài thơ, 8 truyện)
+        </label>
+        <label className="check">
+          <input type="checkbox" checked={cfg.poem_story_claude} disabled={!cfg.poem_story} onChange={(e) => set("poem_story_claude", e.target.checked)} aria-label="Claude làm thơ tặng khách" />
+          Claude làm thơ mới tặng riêng khách xin thơ (tốn một ít tiền Claude; thơ có nói về bệnh/chữa trị sẽ bị bỏ)
+        </label>
+        <Field label="Thơ của shop (mỗi bài cách nhau một dòng trống)" hint="Được đọc trước các bài có sẵn. Tối đa 50 bài.">
+          <BlocksInput value={cfg.custom_poems} onChange={(v) => set("custom_poems", v)} label="Thơ của shop" rows={5} />
+        </Field>
+        <Field label="Truyện của shop (mỗi truyện cách nhau một dòng trống)" hint="Truyện ngắn, đọc khoảng 30–60 giây là vừa.">
+          <BlocksInput value={cfg.custom_stories} onChange={(v) => set("custom_stories", v)} label="Truyện của shop" rows={5} />
+        </Field>
+        <div className="row">
+          <button type="button" className="btn" onClick={() => now("poem")} disabled={!cfg.poem_story}>Đọc thơ ngay</button>
+          <button type="button" className="btn" onClick={() => now("story")} disabled={!cfg.poem_story}>Kể chuyện ngay</button>
+          {msg && <span className="muted" data-testid="talk-now-msg">{msg}</span>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Several multi-line texts in one textarea, separated by a blank line. */
+function BlocksInput({ value, onChange, label, rows }: { value: string[]; onChange: (v: string[]) => void; label: string; rows: number }) {
+  const join = (v: string[]) => v.join("\n\n");
+  const split = (t: string) => t.split(/\n\s*\n/).map((x) => x.trim()).filter(Boolean);
+  const [text, setText] = useState(join(value));
+  useEffect(() => {
+    setText((t) => (join(split(t)) === join(value) ? t : join(value)));
+  }, [value]);
+  return (
+    <textarea
+      rows={rows}
+      value={text}
+      aria-label={label}
+      onChange={(e) => {
+        setText(e.target.value);
+        onChange(split(e.target.value));
+      }}
+    />
   );
 }

@@ -9,6 +9,7 @@ import { LabelRegistryContext, RenderContext, type LabelEntry } from "./palette"
 import { LedWall, ledOn } from "./LedWall";
 import { StoreScene } from "./StoreScene";
 import { TeaCorner } from "./TeaCorner";
+import { StageMesh } from "./StageMesh";
 import { DebugProjector } from "./BehaviorDebugOverlay";
 import { themeOf } from "./themes";
 import { LOD, lodPolicy } from "./lod";
@@ -83,6 +84,13 @@ function CameraRig({ engine }: { engine: GameEngine }) {
       goalLook.set(T.x, 0.45 + lift, T.z);
       goalPos.set(T.x, 3.1 + lift * 0.6, T.z + 5.0);
       shot = "tea";
+    } else if (engine.stageSpot && engine.stageShot()) {
+      // someone is dancing on the stage: frame the stage (with a bit of the shop around it)
+      const S = engine.stageSpot;
+      const lift = overlayBanner(engine) ? 0.6 : 0;
+      goalLook.set(S.center.x * 0.85, S.height + 0.75 + lift, S.center.z - lift * 0.5);
+      goalPos.set(S.center.x * 0.55, S.height + 3.4 + lift * 0.6, S.center.z + 5.6 + lift * 0.5);
+      shot = "stage";
     } else {
       const o = overviewOf(engine);
       goalLook.copy(o.look);
@@ -295,6 +303,16 @@ function Tea({ engine }: { engine: GameEngine }) {
   return engine.spot ? <TeaCorner key={v} engine={engine} spot={engine.spot} /> : null;
 }
 
+/** The dance stage (rebuilt when the layout, the shop look or the stage settings change). */
+function Stage({ engine }: { engine: GameEngine }) {
+  const [v, setV] = useState(-1);
+  useFrame(() => {
+    const k = engine.sceneVersion * 100000 + (engine.layout?.version ?? 0) * 100 + (engine.layoutVersion % 100);
+    if (k !== v) setV(k);
+  });
+  return engine.stageSpot ? <StageMesh key={v} engine={engine} spot={engine.stageSpot} /> : null;
+}
+
 /** Lights and sky follow the shop theme. */
 function Lights({ engine, q }: { engine: GameEngine; q: (typeof QUALITY)[Quality] }) {
   const [v, setV] = useState(-1);
@@ -365,6 +383,7 @@ export function World({
         <LabelRegistryContext.Provider value={labelRegistry}>
           <Avatars engine={engine} />
           <Tea engine={engine} />
+          <Stage engine={engine} />
           {debugOverlay && <DebugProjector engine={engine} />}
           <LabelLayoutSystem registry={labelRegistry} />
         </LabelRegistryContext.Provider>

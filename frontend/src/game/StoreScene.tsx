@@ -217,7 +217,7 @@ const UNIT_BOX = new THREE.BoxGeometry(1, 1, 1);
 const UNIT_EDGES = new THREE.EdgesGeometry(UNIT_BOX);
 
 /** Box with crisp dark edges (cartoon look). */
-function OutlinedBox({ args, position, color, receive = false }: { args: [number, number, number]; position: [number, number, number]; color: string; receive?: boolean }) {
+export function OutlinedBox({ args, position, color, receive = false }: { args: [number, number, number]; position: [number, number, number]; color: string; receive?: boolean }) {
   const { outlines, shadows } = useContext(RenderContext);
   return (
     <group position={position} scale={args}>

@@ -169,7 +169,12 @@ function OwnerChibi({ engine, spot }: { engine: GameEngine; spot: TeaSpot }) {
     let rSide = -0.15;
     let lArm = -0.65;
     let lSide = 0.15;
-    if (tea.pose === "brew") {
+    if (tea.pose === "brew" && tea.talking) {
+      // talking to the viewers: an open hand moving with the words, a little nod
+      rArm = -1.05 + Math.sin(t * 3.1) * 0.22;
+      rSide = -0.35 - Math.max(0, Math.sin(t * 1.7)) * 0.25;
+      lArm = -0.7;
+    } else if (tea.pose === "brew") {
       const pour = t % 7 < 1.6;
       rArm = pour ? -1.25 : -0.85 + Math.sin(t * 1.3) * 0.05;
       lArm = -0.7;
@@ -189,7 +194,8 @@ function OwnerChibi({ engine, spot }: { engine: GameEngine; spot: TeaSpot }) {
     }
     armL.current.rotation.set(lArm, 0, lSide);
     armR.current.rotation.set(rArm, 0, rSide);
-    head.current.rotation.x = bow * 0.3;
+    head.current.rotation.x = bow * 0.3 + (tea.talking ? Math.sin(t * 5.2) * 0.05 : 0);
+    head.current.rotation.y = tea.talking ? Math.sin(t * 0.9) * 0.18 : 0;
     const dist = camera.position.distanceTo(root.current.position);
     const sc = THREE.MathUtils.clamp(dist * 0.045, 0.34, 1.7);
     label.current.scale.set(sc * aspect * 0.42, sc * 0.42, 1);

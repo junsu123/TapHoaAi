@@ -98,7 +98,7 @@ export function ChibiAvatar({
     const t = state.clock.elapsedTime + (ctl.info.appearance_seed % 100) * 0.1;
     // the pose drawn: the state's own clip, or the nearest one this rig has (T12)
     const st = ctl.pose;
-    root.current.position.set(ctl.pos.x, 0, ctl.pos.z);
+    root.current.position.set(ctl.pos.x, ctl.elevation, ctl.pos.z);
     root.current.rotation.y = ctl.yaw;
 
     // ---- level of detail (T16): never reduce the focused Chibi or one carrying a box

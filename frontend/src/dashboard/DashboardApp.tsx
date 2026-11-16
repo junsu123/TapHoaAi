@@ -13,7 +13,8 @@ import { BOX_FACE_LABEL, PdfFacePicker, type RenderedFaces } from "./PdfFacePick
 import { PerfCard } from "./PerfCard";
 import { SceneSettings } from "./SceneSettings";
 import { BoardCard, type PurchasePrefill } from "./BoardCard";
-import type { LeaderboardView } from "../types/protocol";
+import { StageCard } from "./StageCard";
+import type { LeaderboardView, StageView } from "../types/protocol";
 import { Brand, OnAirTile, PageHeader, SideNav, UserFoot } from "./Shell";
 import { ShelfEditor } from "./ShelfEditor";
 import { VoiceCheck, type VoiceTraceEntry } from "./VoiceCheck";
@@ -394,8 +395,10 @@ function HostPage({
   ai,
   voiceTrace,
   board,
+  stage,
 }: {
   board: LeaderboardView | null;
+  stage: StageView | null;
   comments: CommentRecord[];
   skipped: number;
   host: HostItem[];
@@ -457,6 +460,9 @@ function HostPage({
               <QuestionCard key={h.event_id} h={h} />
             ))}
           </ul>
+        </Card>
+        <Card title="Sân khấu" desc="Khách bình luận “nhảy” được xếp hàng — ai bình luận trước lên nhảy trước.">
+          <StageCard stage={stage} />
         </Card>
         <Card title="Bảng vàng" desc="Top khách tặng quà và mua hàng — hiện trên màn hình LIVE.">
           <BoardCard board={board} prefill={prefill} />
@@ -1122,7 +1128,7 @@ export function DashboardApp() {
         <Routes>
           <Route index element={<Overview live={feed.live} metrics={feed.metrics} ai={feed.ai} />} />
           <Route path="connect" element={<ConnectPage live={feed.live} />} />
-          <Route path="host" element={<HostPage comments={feed.comments} skipped={feed.skipped} host={feed.host} aiPaused={feed.aiPaused} setAiPaused={feed.setAiPaused} speech={feed.speech} ai={feed.ai} voiceTrace={feed.voiceTrace} board={feed.board} />} />
+          <Route path="host" element={<HostPage comments={feed.comments} skipped={feed.skipped} host={feed.host} aiPaused={feed.aiPaused} setAiPaused={feed.setAiPaused} speech={feed.speech} ai={feed.ai} voiceTrace={feed.voiceTrace} board={feed.board} stage={feed.stage} />} />
           <Route path="ai" element={<AiSettingsPage />} />
           <Route path="knowledge" element={<KnowledgePage />} />
           <Route path="logs" element={<LogsPage live={feed.liveLogs} stats={feed.logStats} onSeen={feed.setLogStats} />} />

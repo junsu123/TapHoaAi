@@ -61,3 +61,61 @@ def reset_board(request: Request, admin: CurrentAdmin = AdminDep) -> dict:
     with c.db.session() as s:
         s.add(AuditLog(admin_id=admin.id, action="leaderboard_reset", resource="leaderboard", detail={}))
     return c.board.view()
+
+
+# ---------------------------------------------------------------------- dance stage
+class StageRemoveIn(BaseModel):
+    key: str = Field(min_length=1, max_length=200)
+
+
+@router.get("/stage")
+def stage(request: Request, admin: CurrentAdmin = AdminDep) -> dict:
+    return request.app.state.container.stage.view()
+
+
+@router.post("/stage/skip")
+def stage_skip(request: Request, admin: CurrentAdmin = AdminDep) -> dict:
+    c = request.app.state.container
+    c.stage.skip()
+    c.stage.tick()
+    return c.stage.view()
+
+
+@router.post("/stage/remove")
+def stage_remove(body: StageRemoveIn, request: Request, admin: CurrentAdmin = AdminDep) -> dict:
+    c = request.app.state.container
+    if not c.stage.remove(body.key):
+        raise HTTPException(404, detail={"code": "not_in_line", "message": "Người này không còn trong hàng chờ."})
+    c.stage.tick()
+    return c.stage.view()
+
+
+@router.post("/stage/clear")
+def stage_clear(request: Request, admin: CurrentAdmin = AdminDep) -> dict:
+    c = request.app.state.container
+    c.stage.clear()
+    c.stage.tick()
+    return c.stage.view()
+
+
+# ---------------------------------------------------------------------- owner: poem / story now
+class TalkIn(BaseModel):
+    kind: str = Field(pattern="^(poem|story)$")
+
+
+@router.get("/talk")
+def talk(request: Request, admin: CurrentAdmin = AdminDep) -> dict:
+    return request.app.state.container.talk.view()
+
+
+@router.post("/talk/now")
+async def talk_now(body: TalkIn, request: Request, admin: CurrentAdmin = AdminDep) -> dict:
+    """The host asks the owner for a poem / a story right now (for everyone watching)."""
+    c = request.app.state.container
+    if not c.assistant.voice_ready()[0]:
+        raise HTTPException(409, detail={"code": "voice_off", "message": "Bật “Phát trên LIVE” trước (Trợ lý AI & giọng đọc)."})
+    c.talk._last_any = -1e9  # the host decides: no waiting
+    out = c.talk.request(body.kind, None, None)
+    what = "bài thơ" if body.kind == "poem" else "câu chuyện"
+    msg = f"Chủ quán sắp đọc {what} trên LIVE." if out.endswith("_queued") else "Đang tắt Làm thơ, kể chuyện." if out.endswith("_off") else "Chưa đọc được, thử lại sau ít giây."
+    return {"outcome": out, "message": msg}

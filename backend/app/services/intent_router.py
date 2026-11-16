@@ -18,7 +18,10 @@ QUESTION_PHRASES = (
 # Vietnamese yes/no questions end with a particle: "còn không", "có ship ko", "được chưa"
 QUESTION_ENDINGS = {"khong", "ko", "k", "hok", "hong", "hem", "chua", "ha", "a ha"}
 GREETING_WORDS = ("chao", "hello", "hi", "xin chao", "alo")
-DANCE_WORDS = ("nhay", "dance", "quay")
+DANCE_WORDS = ("nhay", "dance", "quay", "san khau", "len san khau", "dang ky nhay", "dk nhay")
+# the shop owner recites a poem / tells a short story (short comments only)
+POEM_PHRASES = ("lam tho", "doc tho", "ngam tho", "tho di", "tho nao", "xin bai tho", "lam bai tho", "doc bai tho")
+STORY_PHRASES = ("ke chuyen", "ke truyen", "doc truyen", "doc chuyen", "ke chuyen di", "ke truyen di", "nghe chuyen")
 # direct commands for the viewer's own Chibi (spec V3 §8); short comments only, so ordinary
 # sentences ("hàng về chưa", "người nhà ngồi xem") never move anybody
 LEAVE_PHRASES = ("ve thoi", "ve day", "ve nha", "ve nhe", "ve nhen", "di ve", "tam biet", "bye", "bye bye",
@@ -39,6 +42,8 @@ class IntentKind(StrEnum):
     EXPLORE = "EXPLORE"
     SIT = "SIT"
     POSE = "POSE"
+    POEM = "POEM"
+    STORY = "STORY"
     SPAM = "SPAM"
     NONE = "NONE"
 
@@ -100,6 +105,10 @@ class CommentIntentRouter:
             return Intent(IntentKind.SIT, normalized=m.normalized)
         if short and _has_phrase(folded, POSE_PHRASES):
             return Intent(IntentKind.POSE, normalized=m.normalized)
+        if len(tokens) <= 7 and _has_phrase(folded, POEM_PHRASES):
+            return Intent(IntentKind.POEM, normalized=m.normalized)
+        if len(tokens) <= 7 and _has_phrase(folded, STORY_PHRASES):
+            return Intent(IntentKind.STORY, normalized=m.normalized)
         if _has_phrase(folded, GREETING_WORDS):
             return Intent(IntentKind.GREETING, normalized=m.normalized)
         if _has_phrase(folded, DANCE_WORDS):

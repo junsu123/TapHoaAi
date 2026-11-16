@@ -79,6 +79,20 @@ export interface GameSnapshot {
   settings: { show_seconds: number };
   scene?: SceneConfig;
   board?: LeaderboardView;
+  stage?: StageView;
+}
+
+/** The dance stage (whoever comments "nhảy" first dances first). */
+export interface StageView {
+  enabled: boolean;
+  seconds: number;
+  max_queue: number;
+  current: { name: string; avatar_id: string | null; phase: "calling" | "dancing"; token: string; sent: boolean; seconds_left: number | null } | null;
+  queue: { name: string; key?: string }[];
+  waiting: number;
+  performed: number;
+  skipped: number;
+  history?: { name: string; skipped: boolean; reason: string; at: number }[];
 }
 
 export interface SceneConfig {
@@ -116,6 +130,10 @@ export interface SceneConfig {
   chibi_w_rest: number;
   chibi_w_fun: number;
   chibi_max_visible: number;
+  stage_enabled: boolean;
+  stage_seconds: number;
+  stage_max_queue: number;
+  stage_side: "right" | "left";
 }
 
 export interface LeaderboardView {
@@ -160,11 +178,15 @@ export const DEFAULT_SCENE: SceneConfig = {
   chibi_w_rest: 10,
   chibi_w_fun: 5,
   chibi_max_visible: 60,
+  stage_enabled: true,
+  stage_seconds: 15,
+  stage_max_queue: 30,
+  stage_side: "right",
 };
 
 export interface SpeechClip {
   id: string;
-  kind: "question" | "answer" | "test" | "comment" | "greeting" | "product" | "welcome";
+  kind: "question" | "answer" | "test" | "comment" | "greeting" | "product" | "welcome" | "stage" | "poem" | "story";
   label: string;
   text: string;
   url: string | null;
@@ -189,6 +211,10 @@ export type ServerGameMessage =
   | { type: "OWNER_GREET"; sequence: number; text: string; names: string[]; more: number }
   | { type: "OWNER_TEA"; sequence: number; avatar_id: string | null; name: string; text: string }
   | { type: "OWNER_THANKS"; sequence: number; text: string }
+  | { type: "OWNER_SAY"; sequence: number; text: string; kind: string }
+  | { type: "STAGE_STATE"; sequence: number; stage: StageView }
+  | { type: "STAGE_PERFORM"; sequence: number; avatar_id: string; token: string; name: string; seconds: number }
+  | { type: "STAGE_END"; sequence: number; avatar_id: string; token: string }
   | { type: "LEADERBOARD"; sequence: number; board: LeaderboardView }
   | { type: "LIVE_STATUS"; sequence: number; status: string; is_demo: boolean }
   | { type: "SESSION"; sequence: number; session_id: string | null; is_demo: boolean }
@@ -205,6 +231,7 @@ export type ClientGameMessage =
   | { type: "FPS_REPORT"; fps: number; quality: string; avatars: number }
   | ({ type: "PERF_REPORT" } & PerfReport)
   | { type: "SPEECH_STARTED" | "SPEECH_ENDED"; id: string }
+  | { type: "STAGE_PROGRESS"; token: string; phase: "on_stage" | "failed" }
   | { type: "SPEECH_FAILED"; id: string; reason: string }
   | {
       type: "PLAYER_INFO";

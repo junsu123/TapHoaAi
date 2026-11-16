@@ -81,6 +81,21 @@ class AiConfig(BaseModel):
     welcome_batch: int = Field(6, ge=1, le=15)  # names per line (doubled when many are waiting)
     read_comments: bool = True  # read every comment aloud (not spam, banned words, links, phones)
     chat_template: str = Field("Bạn {ten} nói: {binh_luan}", max_length=120)
+    # --- the shop owner talks with viewers ------------------------------------------------------
+    owner_chat: bool = True  # the owner reads ordinary comments and answers them (own answers first)
+    owner_chat_claude: bool = True  # …and asks Claude when it has no answer of its own
+    stage_announce: bool = True  # "Mời bạn … lên sân khấu!" out loud
+    poem_story: bool = True  # recite a poem / tell a short story (on request, and now and then)
+    poem_story_every_min: int = Field(8, ge=0, le=60)  # when the LIVE is quiet; 0 = only on request
+    poem_story_claude: bool = False  # let Claude write a new poem (costs a little); always checked
+    poem_story_builtin: bool = True  # use the built-in poems and stories too (besides your own)
+    custom_poems: list[str] = Field(default_factory=list, max_length=50)
+    custom_stories: list[str] = Field(default_factory=list, max_length=50)
+
+    @field_validator("custom_poems", "custom_stories")
+    @classmethod
+    def _texts(cls, v: list[str]) -> list[str]:
+        return [t.strip()[:1200] for t in v if t and t.strip()]
 
 
 def check_voice_code(v: str | None) -> str | None:

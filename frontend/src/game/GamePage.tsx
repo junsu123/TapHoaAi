@@ -41,6 +41,7 @@ export function GamePage() {
     if (missing.length) engine.setMissingClips(missing);
   }, [engine, params]);
   const [speech, setSpeech] = useState<SpeechView>({ clip: null, held: false, blocked: false });
+  const talkingClip = useRef<string | null>(null);
   const player = useMemo(
     () =>
       new SpeechPlayer({
@@ -49,6 +50,14 @@ export function GamePage() {
         onChange: (v) => {
           // while the voice talks the Chibis keep moving, just calmer (no fun animations) — T15
           engine.setSpeaking(!!v.clip && !v.held);
+          // the voice is the shop owner's: every line shows in the owner's bubble while it plays
+          if (v.clip && v.clip.id !== talkingClip.current) {
+            talkingClip.current = v.clip.id;
+            if (engine.scene.owner_enabled) engine.tea.talk(v.clip.text, v.clip.kind);
+          } else if (!v.clip && talkingClip.current) {
+            talkingClip.current = null;
+            engine.tea.stopTalk();
+          }
           setSpeech(v);
         },
       }),

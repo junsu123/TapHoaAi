@@ -23,7 +23,7 @@ MIN_STAY_S = 40.0
 VIP_MIN_STAY_S = 15.0  # a buyer / gift giver may take the place of a Chibi that has been here this long
 QUIET_S = 20.0  # only Chibis whose viewer said nothing for this long make room
 OVERFLOW_MAX = 300
-PRIORITY = ("product", "gift")  # in this order
+PRIORITY = ("product", "stage", "gift")  # in this order (stage = their turn on the dance stage)
 PRIORITY_TTL_S = 30.0
 KEEP_VIEWERS = 5000
 FORGET_AFTER_S = 600.0

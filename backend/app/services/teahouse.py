@@ -168,6 +168,12 @@ class OwnerHost:
         self._send(msg)
         return msg
 
+    def say(self, text: str, kind: str = "talk") -> None:
+        """A line in the owner's speech bubble (stage calls, thanks…), no voice by itself."""
+        if not self.scene.owner_enabled or not text:
+            return
+        self._send({"type": "OWNER_SAY", "text": text[:200], "kind": kind})
+
     def on_purchase(self, name: str, product: str, qty: int) -> None:
         if not self.scene.owner_enabled:
             return

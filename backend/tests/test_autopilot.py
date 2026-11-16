@@ -62,9 +62,9 @@ def test_greeting_product_question_and_chat_are_answered_without_the_host(admin_
         play(ws, a)
 
         # small talk: Claude answers; comment and answer are read together
-        c.post("/api/v1/demo/events", json={"raw": "@vy: live hôm nay vui quá"})
+        c.post("/api/v1/demo/events", json={"raw": "@vy: hôm nay mình đi làm về muộn"})
         cm = next_speech(ws)
-        assert cm["kind"] == "comment" and cm["text"] == "Bạn vy nói: live hôm nay vui quá"
+        assert cm["kind"] == "comment" and cm["text"] == "Bạn vy nói: hôm nay mình đi làm về muộn"
         play(ws, cm)
         ans = next_speech(ws)
         assert ans["kind"] == "answer" and ans["text"] == "Dạ shop cảm ơn bạn nhiều ạ!"

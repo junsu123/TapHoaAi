@@ -13,8 +13,9 @@ import type {
   ShelfLayout,
   StoreLayout,
 } from "../types/protocol";
-import { DEFAULT_SCENE, type LeaderboardView } from "../types/protocol";
+import { DEFAULT_SCENE, type LeaderboardView, type StageView } from "../types/protocol";
 import { TeaHouse, teaSpot, type TeaSpot } from "./teahouse";
+import { stageSpot, type StageSpot } from "./stage";
 import { benchSpots, DEFAULT_BEHAVIOR, type Bench, type BehaviorConfig } from "./behaviors";
 import { AvatarController, type Vec3, type WorldQuery } from "./AvatarController";
 import { ClipLibrary, PROCEDURAL_CLIPS } from "./clips";
@@ -53,6 +54,9 @@ export class GameEngine {
   spot: TeaSpot | null = null;
   tea = new TeaHouse((id) => this.avatars.get(id));
   board: LeaderboardView | null = null;
+  /** the dance stage: where it stands, and who dances / waits (from the server) */
+  stageSpot: StageSpot | null = null;
+  stage: StageView | null = null;
   /** owner's head on screen (0..1), written by the renderer, read by the speech bubble */
   ownerScreen: { x: number; y: number; visible: boolean } = { x: 0.5, y: 0.4, visible: false };
   /** what the LED wall shows (written by the renderer; tests read it) */
@@ -176,9 +180,11 @@ export class GameEngine {
 
   setScene(scene: SceneConfig): void {
     const ownerWas = this.scene.owner_enabled;
+    const stageWas = `${this.scene.stage_enabled}|${this.scene.stage_side}`;
     this.scene = { ...DEFAULT_SCENE, ...scene };
     this.behavior = behaviorFromScene(this.scene);
-    if (this.layout && ownerWas !== this.scene.owner_enabled) this.rebuildNav();
+    if (this.layout && (ownerWas !== this.scene.owner_enabled || stageWas !== `${this.scene.stage_enabled}|${this.scene.stage_side}`))
+      this.rebuildNav();
     this.sceneVersion++;
     this.version++;
   }
@@ -188,7 +194,12 @@ export class GameEngine {
     if (!this.layout) return;
     this.spot = this.scene.owner_enabled ? teaSpot(this.layout) : null;
     this.benches = benchSpots(this.layout);
-    this.nav = new NavGrid(this.layout, [...(this.spot ? [this.spot.obstacle] : []), ...this.benches.map((b) => b.obstacle)]);
+    this.stageSpot = this.scene.stage_enabled ? stageSpot(this.layout, this.scene.stage_side) : null;
+    this.nav = new NavGrid(this.layout, [
+      ...(this.spot ? [this.spot.obstacle] : []),
+      ...this.benches.map((b) => b.obstacle),
+      ...(this.stageSpot ? [this.stageSpot.obstacle] : []),
+    ]);
     this.world.nav = this.nav;
     // READ_SIGN: in front of the counter, looking at the LED screen / sign on the back wall
     const c = this.layout.store.counter;
@@ -255,7 +266,25 @@ export class GameEngine {
       else if (ctl) this.emit({ type: "ACK", command_id: cmd.command_id });
     }
     this.camera = { mode: s.camera.mode, avatarId: s.camera.avatar_id ?? null, commandId: s.camera.command_id ?? null };
+    if (s.stage !== undefined) this.setStage(s.stage ?? null, true);
     this.version++;
+  }
+
+  /** Stage line from the server; after a reload the dancer goes back up. */
+  /** The camera frames the stage while a Chibi is up there dancing. */
+  stageShot(): boolean {
+    const cur = this.stage?.current;
+    if (!this.stageSpot || !cur?.avatar_id) return false;
+    const a = this.avatars.get(cur.avatar_id);
+    return !!a && !a.removed && (a.phase === "stage_dance" || a.phase === "stage_up");
+  }
+
+  private setStage(v: StageView | null, resume = false): void {
+    this.stage = v;
+    const cur = v?.current;
+    if (resume && cur?.sent && cur.avatar_id && this.stageSpot) {
+      this.avatars.get(cur.avatar_id)?.goOnStage(this.stageSpot, cur.token, v!.seconds);
+    }
   }
 
   handle(m: ServerGameMessage): void {
@@ -309,6 +338,21 @@ export class GameEngine {
         break;
       case "OWNER_THANKS":
         if (this.scene.owner_enabled) this.tea.thanks(m.text);
+        break;
+      case "OWNER_SAY":
+        if (this.scene.owner_enabled) this.tea.line(m.text, m.kind === "stage" ? "stage" : "talk");
+        break;
+      case "STAGE_STATE":
+        this.setStage(m.stage);
+        break;
+      case "STAGE_PERFORM": {
+        const ctl = this.avatars.get(m.avatar_id);
+        if (!ctl || !this.stageSpot || !ctl.goOnStage(this.stageSpot, m.token, m.seconds))
+          this.emit({ type: "STAGE_PROGRESS", token: m.token, phase: "failed" });
+        break;
+      }
+      case "STAGE_END":
+        this.avatars.get(m.avatar_id)?.leaveStage(m.token);
         break;
       case "LEADERBOARD":
         this.board = m.board;
@@ -376,6 +420,7 @@ export class GameEngine {
         queue: this.tea.queue.length,
         cupFull: this.tea.guestCupFull,
         teaShot: this.tea.cameraOnTable(),
+        stageShot: this.stageShot(),
         spot: this.spot ? { x: this.spot.table.x, z: this.spot.table.z } : null,
         history: this.tea.history.slice(-10),
       },
@@ -400,8 +445,12 @@ export class GameEngine {
         emote: a.emote?.icon ?? null,
         seat: a.sittingOnBench?.id ?? null,
         pose: a.pose,
+        elevation: +a.elevation.toFixed(2),
       })),
       clipWarnings: [...this.clips.warnings],
+      stage: this.stage ? { current: this.stage.current, waiting: this.stage.waiting, queue: this.stage.queue.map((q) => q.name) } : null,
+      stageSpot: this.stageSpot ? { x: this.stageSpot.center.x, z: this.stageSpot.center.z } : null,
+      ownerTalking: this.tea.talking,
       hostSpeaking: this.hostSpeaking,
       behaviorConfig: this.behavior,
       lod: { ...this.lod, level: this.lodLevel },

@@ -42,7 +42,7 @@ export type OwnerPose = "brew" | "rise" | "bow" | "stand" | "sit" | "serve" | "o
 
 export interface Bubble {
   text: string;
-  kind: "greet" | "tea" | "thanks";
+  kind: "greet" | "tea" | "thanks" | "talk" | "stage" | "poem" | "story";
   until: number;
 }
 
@@ -62,7 +62,9 @@ const POSE_SECONDS: Record<OwnerPose, number> = {
   serve: 2.4,
   offer: 2.2,
 };
-export const BUBBLE_SECONDS = { greet: 4.2, tea: 6, thanks: 4.5 };
+export const BUBBLE_SECONDS = { greet: 4.2, tea: 6, thanks: 4.5, talk: 30, stage: 4.5, poem: 40, story: 40 };
+/** a short owner line said while the voice was talking is shown when it stops, if still this fresh */
+const LINE_WAIT_S = 20;
 export const GUEST_SIT_SECONDS = 12;
 const GUEST_WAIT_MAX = 25; // give up inviting a busy / vanished Chibi after this long
 const QUEUE_MAX = 6;
@@ -83,9 +85,12 @@ export class TeaHouse {
   bubble: Bubble | null = null;
   guest: (TeaGuest & { seatedAt: number | null; served: boolean }) | null = null;
   queue: TeaGuest[] = [];
+  /** the LIVE voice is speaking right now (the owner talks: head and hands move) */
+  talking = false;
   /** cups on the table: the guest's cup is filled when served */
   guestCupFull = false;
   private pendingGreet: string[] = [];
+  private pendingLine: { text: string; kind: "stage" | "talk"; at: number } | null = null;
   private now = 0;
   history: { kind: string; text: string; at: number }[] = [];
 
@@ -100,6 +105,37 @@ export class TeaHouse {
     }
     this.say(text, "greet");
     if (this.pose === "brew") this.setPose("rise");
+  }
+
+  /** A short line in the bubble (stage calls, thanks…) without standing up. */
+  line(text: string, kind: "stage" | "talk" = "talk"): void {
+    if (this.talking) {
+      // the voice is speaking: its words stay in the bubble; this line follows right after
+      this.pendingLine = { text, kind, at: this.now };
+      return;
+    }
+    this.say(text, kind === "stage" ? "stage" : "thanks");
+  }
+
+  /** The owner speaks (every line of the LIVE voice): the bubble shows it while it plays. */
+  talk(text: string, kind: string): void {
+    this.talking = true;
+    const k: Bubble["kind"] = kind === "poem" ? "poem" : kind === "story" ? "story" : kind === "stage" ? "stage" : "talk";
+    this.say(bubbleText(text, k), k);
+  }
+
+  /** The voice line ended. */
+  stopTalk(): void {
+    if (!this.talking) return;
+    this.talking = false;
+    const next = this.pendingLine;
+    this.pendingLine = null;
+    if (next && this.now - next.at <= LINE_WAIT_S) {
+      this.say(next.text, next.kind === "stage" ? "stage" : "thanks");
+      return;
+    }
+    if (this.bubble && (this.bubble.kind === "talk" || this.bubble.kind === "poem" || this.bubble.kind === "story" || this.bubble.kind === "stage"))
+      this.bubble.until = Math.min(this.bubble.until, this.now + 1.2); // fade out shortly after
   }
 
   thanks(text: string): void {
@@ -238,4 +274,17 @@ export class TeaHouse {
     const k = this.poseT / POSE_SECONDS.bow;
     return Math.sin(Math.min(1, k) * Math.PI) * 0.75;
   }
+}
+
+/** What the speech bubble shows for a spoken line: poems keep their lines; long lines are cut. */
+export function bubbleText(text: string, kind: Bubble["kind"]): string {
+  const t = text.trim();
+  if (kind === "poem") return t.split("\n").slice(0, 6).join("\n");
+  if (kind === "story") {
+    const lines = t.split("\n");
+    const body = lines.length > 1 ? lines.slice(1).join(" ") : t;
+    const first = body.split(/(?<=[.!?])\s/)[0] ?? body;
+    return `📖 ${first.length > 110 ? first.slice(0, 108) + "…" : first}`;
+  }
+  return t.length > 140 ? t.slice(0, 138).replace(/\s+\S*$/, "") + "…" : t;
 }

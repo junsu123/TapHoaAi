@@ -85,7 +85,7 @@ ST_DUPLICATE = "Trùng câu hỏi"
 ST_SIMPLE = "Đã trả lời tự động"
 
 SOURCE_LABEL = {"claude": "AI đề xuất", "cache": "AI đề xuất (dùng lại)", "template": "Câu mẫu từ danh mục",
-                "memory": "Câu đã học (không gọi Claude)"}
+                "memory": "Câu đã học (không gọi Claude)", "owner": "Chủ quán tự trả lời (không gọi Claude)"}
 
 
 class FakeClaude:
@@ -94,6 +94,9 @@ class FakeClaude:
     async def complete(self, *, api_key: str, model: str, system: str, user: str, schema: dict[str, Any],
                        max_tokens: int) -> Completion:
         await asyncio.sleep(0.05)
+        if "text" in schema["properties"]:  # a poem
+            poem = "Quán nhỏ nằm giữa phố đông,\nChén trà thơm ngát ấm lòng người xa.\nCảm ơn bạn ghé chơi nhà,\nMai này nhớ lại chén trà hôm nay."
+            return Completion(json.dumps({"text": poem}, ensure_ascii=False), 300, 80)
         enum = schema["properties"]["product_id"]["anyOf"][0]["enum"]
         hint = user.split("<goi_y_san_pham>")[-1].split("</goi_y_san_pham>")[0].strip() if "<goi_y_san_pham>" in user else ""
         pid = hint if hint in enum else None
@@ -563,6 +566,13 @@ class Assistant:
                              source="memory", knowledge_id=hit.entry.id, match_score=round(hit.score, 2)), None
             if template:
                 return template, None
+        # the shop owner's own answer (small talk, thanks, how to buy…): no Claude call
+        if cfg.owner_chat and template is None and intent.product_id is None:
+            own = self.c.talk.reply(item["text"], item.get("nickname") or item.get("unique_id"))
+            if own:
+                return Draft("OTHER", None, 0.9, own, False, [], source="owner"), None
+        if item.get("chat") and not (cfg.owner_chat_claude or (cfg.autopilot and cfg.auto_chat)):
+            return None, "Chủ quán chưa có câu trả lời (không gọi Claude)."
         key = self.api_key()
         if not key:
             return template, "Chưa cài Claude API key."
@@ -616,7 +626,7 @@ class Assistant:
             self._update(item, status=ST_DRAFTING)
         draft, why = await self.make_draft(item, intent)
         cfg = self.config
-        if draft is not None and draft.source in ("memory", "template") and why is None:
+        if draft is not None and draft.source in ("memory", "template", "owner") and why is None:
             await self._answer_simple(item, draft, cfg)
             return
         if draft is None:
@@ -635,7 +645,7 @@ class Assistant:
             if other.get("duplicate_of") == item["event_id"]:
                 self._update(other, suggestion=draft.reply)
         ok, _ = self.voice_ready()
-        auto = cfg.answer_mode == "auto" or cfg.autopilot
+        auto = cfg.answer_mode == "auto" or cfg.autopilot or (bool(item.get("chat")) and cfg.owner_chat)
         if auto and not draft.needs_review and ok and self._speak_chat_then(item) and self._speak_answer(item, draft.reply):
             self._update(item, status=ST_AUTO, final_answer=draft.reply, answered_by="auto", spoken=True)
             if draft.source in ("claude", "cache"):
@@ -648,7 +658,8 @@ class Assistant:
         if draft.knowledge_id:
             self._spawn(asyncio.to_thread(self.memory.mark_used, draft.knowledge_id))
         ok, why = self.voice_ready()
-        if (cfg.simple_auto_speak or cfg.autopilot) and ok and self._speak_chat_then(item) \
+        if (cfg.simple_auto_speak or cfg.autopilot or (draft.source == "owner" and cfg.owner_chat)) and ok \
+                and self._speak_chat_then(item) \
                 and self._speak_answer(item, draft.reply):
             self._update(item, status=ST_SIMPLE, final_answer=draft.reply, answered_by=draft.source, spoken=True,
                          hint="Câu đơn giản — tự trả lời, không gọi Claude.", **common)
@@ -659,7 +670,7 @@ class Assistant:
     # ------------------------------------------------------------------ "Tự động hoàn toàn"
     def _social_ok(self, kind: str, gap: float, viewer_key: str | None, now: float) -> bool:
         cfg = self.config
-        if not cfg.autopilot or self.c.ai_paused or not self.voice_ready()[0]:
+        if not (cfg.autopilot or (kind == "chat" and cfg.owner_chat)) or self.c.ai_paused or not self.voice_ready()[0]:
             return False
         if now - self._kind_last.get(kind, -1e9) < gap:
             return False
@@ -670,7 +681,7 @@ class Assistant:
     def wants_chat(self, intent: Intent, viewer_key: str | None) -> bool:
         """An ordinary comment (not a question/product/greeting) that autopilot should answer."""
         cfg = self.config
-        if intent.kind != IntentKind.NONE or not (cfg.autopilot and cfg.auto_chat):
+        if intent.kind != IntentKind.NONE or not ((cfg.autopilot and cfg.auto_chat) or cfg.owner_chat):
             return False
         if self.c.health.busy:
             self.c.health.skip()  # small talk is the first thing to go when the server is busy
@@ -703,6 +714,18 @@ class Assistant:
             self._viewer_social[item["viewer_key"]] = now
         item["question_read"] = True
         return True
+
+    def announce(self, kind: str, text: str) -> bool:
+        """A line of the shop owner on the LIVE (stage calls): spoken when the voice is on."""
+        cfg = self.config
+        if kind == "stage" and not cfg.stage_announce:
+            return False
+        if not self.voice_ready()[0]:
+            return False
+        clip = self.c.speech.enqueue(kind, text, droppable=True, busy_limit=cfg.busy_limit + 1)  # type: ignore[arg-type]
+        self._trace(kind, None, text, clip is not None,
+                    "Chủ quán đọc trên LIVE." if clip else "Đang có nhiều câu chờ đọc — bỏ qua.")
+        return clip is not None
 
     def on_other(self, record: dict[str, Any], intent: Intent, viewer_key: str | None) -> None:
         """Greetings and product-name comments in autopilot: one short spoken line, no Claude."""
