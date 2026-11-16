@@ -174,6 +174,10 @@ def test_poem_written_by_claude_is_checked(admin_client):
 def test_now_and_then_when_quiet(admin_client):
     c = admin_client
     cont = c.app.state.container
+    # a long time with the voice off is not "quiet time": switching it on never starts with a poem
+    cont.talk._last_auto = time.monotonic() - 3600
+    assert cont.talk.tick() is False
+    assert time.monotonic() - cont.talk._last_auto < 5
     _voice_on(c)
     c.post("/api/v1/demo/start")
     t = cont.talk

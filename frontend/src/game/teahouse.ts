@@ -63,6 +63,8 @@ const POSE_SECONDS: Record<OwnerPose, number> = {
   offer: 2.2,
 };
 export const BUBBLE_SECONDS = { greet: 4.2, tea: 6, thanks: 4.5, talk: 30, stage: 4.5, poem: 40, story: 40 };
+/** a short owner line said while the voice was talking is shown when it stops, if still this fresh */
+const LINE_WAIT_S = 20;
 export const GUEST_SIT_SECONDS = 12;
 const GUEST_WAIT_MAX = 25; // give up inviting a busy / vanished Chibi after this long
 const QUEUE_MAX = 6;
@@ -88,6 +90,7 @@ export class TeaHouse {
   /** cups on the table: the guest's cup is filled when served */
   guestCupFull = false;
   private pendingGreet: string[] = [];
+  private pendingLine: { text: string; kind: "stage" | "talk"; at: number } | null = null;
   private now = 0;
   history: { kind: string; text: string; at: number }[] = [];
 
@@ -106,7 +109,11 @@ export class TeaHouse {
 
   /** A short line in the bubble (stage calls, thanks…) without standing up. */
   line(text: string, kind: "stage" | "talk" = "talk"): void {
-    if (this.talking) return; // the voice is speaking: its words stay in the bubble
+    if (this.talking) {
+      // the voice is speaking: its words stay in the bubble; this line follows right after
+      this.pendingLine = { text, kind, at: this.now };
+      return;
+    }
     this.say(text, kind === "stage" ? "stage" : "thanks");
   }
 
@@ -121,6 +128,12 @@ export class TeaHouse {
   stopTalk(): void {
     if (!this.talking) return;
     this.talking = false;
+    const next = this.pendingLine;
+    this.pendingLine = null;
+    if (next && this.now - next.at <= LINE_WAIT_S) {
+      this.say(next.text, next.kind === "stage" ? "stage" : "thanks");
+      return;
+    }
     if (this.bubble && (this.bubble.kind === "talk" || this.bubble.kind === "poem" || this.bubble.kind === "story" || this.bubble.kind === "stage"))
       this.bubble.until = Math.min(this.bubble.until, this.now + 1.2); // fade out shortly after
   }

@@ -300,13 +300,15 @@ class OwnerTalk:
         """When the LIVE is quiet: a poem or a story every `poem_story_every_min` minutes."""
         cfg = self.cfg
         every = cfg.poem_story_every_min
-        if not cfg.poem_story or every <= 0 or self._busy or not self.c.live.session_id:
-            return False
         now = self.clock()
+        if (not cfg.poem_story or every <= 0 or self._busy or not self.c.live.session_id
+                or self.c.speech.pending() > 0 or not self.c.assistant.voice_ready()[0]):
+            # not quiet (or the voice is off): the quiet time starts again from now —
+            # never a poem the moment the voice is switched on, never one over an answer
+            self._last_auto = now
+            return False
         if now - self._last_auto < every * 60 or now - self._last_any < 60:
             return False
-        if self.c.speech.pending() > 0 or not self.c.assistant.voice_ready()[0]:
-            return False  # someone is being answered: never interrupt for a poem
         self._last_auto = now
         kind = "poem" if len(self.history) % 2 == 0 else "story"
         self._start(kind, None)

@@ -100,9 +100,15 @@ describe("the owner talks", () => {
     expect(t.bubble?.kind).toBe("talk");
     t.line("Mời bạn An lên sân khấu!", "stage"); // a short line waits for the voice to finish
     expect(t.bubble?.text).toBe("Dạ cảm ơn Lan nhiều ạ!");
+    t.update(1, null);
+    t.stopTalk(); // … then shows right after
+    expect(t.bubble?.text).toBe("Mời bạn An lên sân khấu!");
+    t.update(6, null);
+    expect(t.bubble).toBeNull();
+    t.talk("Câu khác", "answer");
     t.stopTalk();
     t.update(2, null);
-    expect(t.bubble).toBeNull();
+    expect(t.bubble).toBeNull(); // the voice line fades shortly after it ends
   });
 
   it("poems keep their lines; a story shows its first sentence", () => {
