@@ -78,6 +78,7 @@ class SpeechQueue:
         self.current: Clip | None = None
         self.history: deque[Clip] = deque(maxlen=30)
         self._ids = itertools.count(1)
+        self.last_activity = time.monotonic()  # last clip queued or started (owner's "quiet time")
         self._wake = asyncio.Event()
         self._task: asyncio.Task | None = None
         self.on_chars: Callable[[int], None] = lambda n: None
@@ -158,6 +159,7 @@ class SpeechQueue:
         if self.muted or (droppable and self.pending() >= busy_limit):
             return None
         clip = Clip(id=f"s{next(self._ids)}", kind=kind, text=text, ref=ref, ttl=ttl)
+        self.last_activity = time.monotonic()
         prio = PRIORITY[kind]
         idx = len(self.queue)
         for i, other in enumerate(self.queue):
@@ -328,5 +330,6 @@ class SpeechQueue:
         clip.started = now
         clip.status = "đang gửi tới OBS"
         self.current = clip
+        self.last_activity = time.monotonic()
         self.hub.send_game({"type": "SPEECH", "clip": clip.wire()})
         self._publish()
