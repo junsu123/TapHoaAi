@@ -26,20 +26,21 @@ from app.services.assistant import Assistant
 from app.services.avatar_manager import AvatarManager
 from app.services.camera_director import CameraDirector
 from app.services.catalog import build_catalog
-from app.services.error_log import ErrorLog, ErrorRecord
-from app.services.intent_router import CommentIntentRouter
-from app.services.live_session import LiveSessionService
-from app.services.orchestrator import Orchestrator
-from app.services.product_matcher import ProductMatcher
 from app.services.db_writer import DbWriter
+from app.services.error_log import ErrorLog, ErrorRecord
 from app.services.health import ServerHealth
+from app.services.intent_router import CommentIntentRouter
+from app.services.levels import LevelService
+from app.services.live_session import LiveSessionService
 from app.services.loadgen import LoadGenerator
-from app.services.perf import PerfMonitor
-from app.services.scene_config import apply_avatar_cap, load_scene
-from app.services.teahouse import Leaderboard, OwnerHost
+from app.services.orchestrator import Orchestrator
 from app.services.owner_talk import OwnerTalk
+from app.services.perf import PerfMonitor
+from app.services.product_matcher import ProductMatcher
+from app.services.scene_config import apply_avatar_cap, load_scene
 from app.services.speech_queue import SpeechQueue
 from app.services.stage import StageService
+from app.services.teahouse import Leaderboard, OwnerHost
 from app.websocket.hub import Hub
 
 log = logging.getLogger("chibi")
@@ -95,6 +96,8 @@ class AppContainer:
         self.board = Leaderboard(self)
         self.stage = StageService(self)
         self.talk = OwnerTalk(self)
+        self.levels = LevelService(self)
+        self.avatars.level_of = self.levels.level_of
         self.assistant.memory.load(self.catalog)
         self.fps_reports: deque[dict[str, Any]] = deque(maxlen=120)
         self.perf = PerfMonitor()
@@ -137,6 +140,7 @@ class AppContainer:
                 self._persist_command(cmd)
         self.avatars.reset(session_id)
         self.stage.reset()
+        self.levels.reset(session_id)
         self.avatars.viewer_cap = None
         self.actions.reset(session_id)
         self.camera.current = None
@@ -209,6 +213,7 @@ class AppContainer:
 
     # ------------------------------------------------------------------ snapshot
     def game_snapshot(self) -> dict[str, Any]:
+        self.levels._sent.clear()  # a (re)connected game gets every progress bar again
         return {
             "type": "SNAPSHOT", "schema_version": 1, "sequence": self.hub.game.sequence,
             "session_id": self.live.session_id, "live_status": self.live.status.value,
@@ -331,6 +336,7 @@ class AppContainer:
                 self.actions.tick()
                 self.avatars.tick()
                 self.stage.tick()
+                self.levels.tick()
                 self.camera.tick()
             except Exception:
                 log.exception("tick failed")

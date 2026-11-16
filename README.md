@@ -136,6 +136,10 @@ Hình trên điện thoại chỉ nét khi nguồn game đủ **1080 × 1920 đi
 3. Trong phần mềm LIVE: khung hình 1080 × 1920, nguồn game phủ vừa khít khung (không phóng to), bitrate cao nhất mạng tải lên cho phép.
 4. Kiểm tra: Game 3D & OBS → *Hiệu năng màn hình game* ghi cỡ cửa sổ game và báo nếu chưa đủ 1080 × 1920.
 
+## Chibi lên cấp theo thời gian xem
+
+Người xem ở lại càng lâu, Chibi càng “xịn”: **5 phút nón lá → 15 phút áo choàng → 30 phút vương miện** (chỉnh ở Không gian cửa hàng → *Chibi lên cấp*). Cạnh tên có số cấp, sắp lên cấp thì hiện vạch tiến độ; lên cấp thì Chibi cổ vũ và chủ quán chúc mừng; khoảng 1 phút trước, chủ quán nhắc người đó ở lại. Người xem im lặng vẫn được tính thêm 10 phút sau lần thả tim / bình luận gần nhất (TikTok không báo khi ai rời LIVE). Thẻ **Ở lại lâu nhất** ở trang Người trực; nút **Thử (Demo)** để xem trước phụ kiện.
+
 ## Sân khấu nhảy & chủ quán trò chuyện
 
 - **Sân khấu** (giữa quán — hoặc góc trước nếu chọn): người xem bình luận “nhảy” / “lên sân khấu” / “đăng ký nhảy” được xếp hàng, **ai bình luận trước lên nhảy trước**. Tới lượt, chủ quán mời lên, Chibi bước lên sân khấu nhảy một bài dưới đèn chiếu (mặc định 15 giây), camera quay sân khấu; xong thì cúi chào, bước xuống và người kế tiếp được mời. Bảng *Sân khấu* trên màn hình LIVE cho biết ai đang nhảy, ai kế tiếp — kéo thả tới chỗ khác và đổi cỡ được (Không gian cửa hàng → “Kéo thả bảng vàng và ô Sân khấu…”). Người trực xem/sửa hàng chờ ở thẻ **Sân khấu** (trang Người trực); cài đặt ở Game 3D & OBS → *Sân khấu*. Tắt sân khấu thì “nhảy” lại là nhảy tại chỗ như trước.

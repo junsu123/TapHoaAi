@@ -73,8 +73,24 @@ class SceneConfig(BaseModel):
     stage_board_x: float | None = Field(None, ge=0.0, le=0.95)
     stage_board_y: float | None = Field(None, ge=0.0, le=0.95)
     stage_board_scale: float = Field(1.0, ge=0.6, le=1.8)
+    # Chibis level up with watch time: minutes for nón lá / áo choàng / vương miện; a silent viewer
+    # keeps counting for level_presence_min minutes after their last like/comment/gift
+    levels_enabled: bool = True
+    level_minutes: list[int] = Field(default_factory=lambda: [5, 15, 30])
+    level_presence_min: int = Field(10, ge=2, le=60)
+    level_voice: bool = True
     # a viewer's comment (and the owner's reply to it) is only read aloud: no bubble, no caption text
     chat_on_screen: bool = False
+
+    @field_validator("level_minutes", mode="before")
+    @classmethod
+    def _levels(cls, v):
+        """Three increasing minute marks, 1–240 each (bad input: the defaults)."""
+        try:
+            m = sorted({max(1, min(240, int(x))) for x in v})
+        except (TypeError, ValueError):
+            return [5, 15, 30]
+        return m if len(m) == 3 else [5, 15, 30]
 
     @field_validator("sign_text", "tagline", "owner_name", "owner_greet_template", "owner_tea_template",
                      "owner_buy_template")

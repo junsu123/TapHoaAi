@@ -52,6 +52,8 @@ export interface AvatarInfo {
   unique_id: string | null;
   appearance_seed: number;
   is_demo: boolean;
+  /** watch-time level: 0, 1 nón lá, 2 áo choàng, 3 vương miện */
+  level?: number;
 }
 
 export interface CharacterAction {
@@ -140,6 +142,10 @@ export interface SceneConfig {
   stage_board_scale: number;
   /** show a viewer's comment (and the owner's reply) as text on screen; off = only read aloud */
   chat_on_screen: boolean;
+  levels_enabled: boolean;
+  level_minutes: number[];
+  level_presence_min: number;
+  level_voice: boolean;
 }
 
 export interface LeaderboardView {
@@ -193,11 +199,15 @@ export const DEFAULT_SCENE: SceneConfig = {
   stage_board_y: null,
   stage_board_scale: 1,
   chat_on_screen: false,
+  levels_enabled: true,
+  level_minutes: [5, 15, 30],
+  level_presence_min: 10,
+  level_voice: true,
 };
 
 export interface SpeechClip {
   id: string;
-  kind: "question" | "answer" | "test" | "comment" | "greeting" | "product" | "welcome" | "stage" | "poem" | "story";
+  kind: "question" | "answer" | "test" | "comment" | "greeting" | "product" | "welcome" | "stage" | "poem" | "story" | "level";
   label: string;
   text: string;
   url: string | null;
@@ -211,6 +221,9 @@ export type ServerGameMessage =
   | (CharacterAction & { sequence: number })
   | { type: "AVATAR_SPAWN"; sequence: number; avatar: AvatarInfo }
   | { type: "AVATAR_UPDATE"; sequence: number; avatar: AvatarInfo }
+  | { type: "AVATAR_LEVEL"; sequence: number; avatar_id: string; level: number; up: boolean; item: string }
+  /** [avatar_id, level, progress 0…1 towards the next level or null (not counting / top level)] */
+  | { type: "LEVEL_PROGRESS"; sequence: number; items: [string, number, number | null][] }
   | { type: "AVATAR_EXIT"; sequence: number; avatar_id: string; reason: string }
   | { type: "PREEMPT"; sequence: number; command_id: string; avatar_id: string }
   | { type: "WAIT_NEAR_SHELF"; sequence: number; command_id: string; avatar_id: string; shelf_id: string; wait_index: number }

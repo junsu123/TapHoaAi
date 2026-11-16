@@ -1357,3 +1357,59 @@ test("Sharp LIVE picture: 'Nét nhất' draws twice the pixels; the dashboard sa
   await game.screenshot({ path: `${SHOTS}/SHARP-3-medium-1080x1920.png` });
   await game.close();
 });
+
+test("Chibi levels: staying longer dresses up the Chibi (nón lá → áo choàng → vương miện), the owner congratulates", async ({ page, context }) => {
+  test.setTimeout(150_000);
+  const csrf = await login(page.request);
+  const H = { "X-CSRF-Token": csrf };
+  const scene = (await (await page.request.get("/api/v1/settings/scene")).json()).config;
+  await page.request.put("/api/v1/settings/scene", { data: { ...scene, owner_enabled: true, levels_enabled: true, level_minutes: [5, 15, 30], stage_enabled: true }, headers: H });
+  const who = `lenCap${RUN}`;
+  await inject(page, csrf, `@${who}: chào shop`);
+  const game = await context.newPage();
+  await game.setViewportSize({ width: 540, height: 960 });
+  await game.goto("/game/live?debug=1&quality=high");
+  await game.waitForFunction((n) => (window as any).__chibiDebug?.state().avatars.some((a: any) => a.nickname === n), who, { timeout: 30_000 });
+  // viewers are told how it works (shown a quarter of every minute)
+  await expect(game.getByTestId("level-hint")).toContainText("5 phút: nón lá");
+  await expect(game.getByTestId("level-hint")).toContainText("30 phút: vương miện");
+
+  await page.setViewportSize({ width: 1360, height: 1200 });
+  await page.goto("/dashboard/host");
+  const card = page.getByTestId("levels-card");
+  await expect(card).toContainText("cấp 1 sau 5 phút (nón lá)");
+  const bubble = game.getByTestId("owner-bubble");
+  const levelOf = () => game.evaluate((n) => (window as any).__chibiDebug.state().avatars.find((a: any) => a.nickname === n)?.level, who);
+  const shot = async (name: string) => {
+    await game.waitForTimeout(1200);
+    const box = await game.evaluate((n) => {
+      const st = (window as any).__chibiDebug.state();
+      const id = st.avatars.find((a: any) => a.nickname === n)?.id;
+      return (window as any).__chibiLabels?.boxes.find((b: any) => b.id === id) ?? null;
+    }, who);
+    const clip = box ? { x: Math.max(0, box.x - 90), y: Math.max(0, box.y - 40), width: 180, height: 200 } : undefined;
+    await game.screenshot({ path: `${SHOTS}/${name}.png`, clip });
+  };
+  await shot("LEVEL-0");
+  const items = ["nón lá", "áo choàng", "vương miện"];
+  for (let lvl = 1; lvl <= 3; lvl++) {
+    const r = await page.request.post("/api/v1/levels/try", { data: { name: who }, headers: H });
+    expect(r.ok(), await r.text()).toBeTruthy();
+    await expect.poll(levelOf, { timeout: 15_000 }).toBe(lvl);
+    await expect(bubble).toContainText(`Chibi được ${lvl === 2 ? "khoác" : "đội"} ${items[lvl - 1]}`, { timeout: 10_000 });
+    await shot(`LEVEL-${lvl}`);
+    await game.waitForTimeout(lvl < 3 ? 5500 : 0); // let the bubble go before the next one
+  }
+  await expect(card).toContainText(who, { timeout: 15_000 });
+  await expect(card.locator(".lv-badge.lv3")).toHaveCount(1);
+  await card.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${SHOTS}/LEVEL-host.png` });
+  // with the crown and the cape on the stage (close-up)
+  await page.request.post("/api/v1/stage/clear", { headers: H });
+  await page.request.post("/api/v1/stage/skip", { headers: H });
+  await inject(page, csrf, `@${who}: nhảy`);
+  await expect(game.getByTestId("stage-current")).toHaveAttribute("data-phase", "dancing", { timeout: 45_000 });
+  await game.waitForTimeout(2500);
+  await game.screenshot({ path: `${SHOTS}/LEVEL-stage.png` });
+  await game.close();
+});

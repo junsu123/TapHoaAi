@@ -30,13 +30,13 @@ log = logging.getLogger("chibi.voice")
 STALE_SECONDS = 90.0
 CHARS_PER_SECOND = 12.0  # Vietnamese TTS at speed 1.0, a little slow on purpose (timeout only)
 CACHE_KEEP_DAYS = 3
-Kind = Literal["question", "answer", "test", "comment", "greeting", "product", "welcome", "stage", "poem", "story"]
+Kind = Literal["question", "answer", "test", "comment", "greeting", "product", "welcome", "stage", "poem", "story", "level"]
 LABELS = {"question": "Câu hỏi của khách", "answer": "Trợ lý AI", "test": "Thử giọng", "comment": "Bình luận của khách",
           "greeting": "Trợ lý AI", "product": "Trợ lý AI", "welcome": "Trợ lý AI", "stage": "Sân khấu",
-          "poem": "Chủ quán làm thơ", "story": "Chủ quán kể chuyện"}
+          "poem": "Chủ quán làm thơ", "story": "Chủ quán kể chuyện", "level": "Chibi lên cấp"}
 # lower plays first; an answer still waits for the reading of its own question (same ref)
 PRIORITY = {"answer": 0, "test": 0, "question": 1, "welcome": 2, "product": 2, "stage": 2, "comment": 3, "greeting": 3,
-            "poem": 4, "story": 4}
+            "poem": 4, "story": 4, "level": 3}
 TTS_COOLDOWN_S = 60.0  # after Vbee refuses (key, voice, credit, network): captions only for a minute
 
 

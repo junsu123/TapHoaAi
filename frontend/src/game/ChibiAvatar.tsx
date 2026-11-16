@@ -54,7 +54,14 @@ export function ChibiAvatar({
   const { outlines: outlinesAllowed } = useContext(RenderContext);
 
   const look = useMemo(() => appearanceFromSeed(ctl.info.appearance_seed), [ctl.info.appearance_seed]);
-  const { texture, aspect } = useMemo(() => nameTexture(ctl.info.nickname, ctl.info.is_demo), [ctl.info.nickname, ctl.info.is_demo]);
+  // watch-time level (nón lá / áo choàng / vương miện): re-render only when it changes
+  const [level, setLevel] = useState(ctl.level);
+  const { texture, aspect } = useMemo(() => nameTexture(ctl.info.nickname, ctl.info.is_demo, level), [ctl.info.nickname, ctl.info.is_demo, level]);
+  const gear = useRef<THREE.Group>(null);
+  const bar = useRef<THREE.Sprite>(null!);
+  const barMat = useMemo(() => new THREE.SpriteMaterial({ depthTest: false, transparent: true }), []);
+  const barStep = useRef(-1);
+  useEffect(() => () => barMat.dispose(), [barMat]);
   // re-render only when the carried product changes (not every frame)
   const [heldId, setHeldId] = useState<string | null>(ctl.held?.productId ?? null);
   const heldProduct = heldId ? products.get(heldId) : undefined;
@@ -328,6 +335,27 @@ export function ChibiAvatar({
     label.current.visible = !(focused && dist < 3.2);
     const sc = THREE.MathUtils.clamp(dist * 0.045, 0.34, 1.7);
     label.current.scale.set(sc * aspect * 0.42, sc * 0.42, 1);
+
+    // ---- level: new gear pops in; a thin bar under the name when the next level is near
+    if (ctl.level !== level) setLevel(ctl.level);
+    if (gear.current) {
+      const since = ctl.sinceLevelUp;
+      const pop = since >= 0 && since < 1.5 ? 1 + 0.45 * Math.exp(-since * 4) * Math.abs(Math.sin(since * 9)) : 1;
+      gear.current.scale.setScalar(pop);
+    }
+    const p = ctl.levelProgress;
+    const showBar = p != null && p >= 0.5 && label.current.visible;
+    bar.current.visible = showBar;
+    if (showBar) {
+      const step = Math.round(p * 20);
+      if (step !== barStep.current) {
+        barStep.current = step;
+        barMat.map = barTexture(step / 20, ctl.level);
+        barMat.needsUpdate = true;
+      }
+      bar.current.position.set(label.current.position.x, label.current.position.y - sc * 0.28, 0);
+      bar.current.scale.set(sc * 0.62, sc * 0.62 * 0.16, 1);
+    }
   }, -1);
 
   const skin = toon(look.skin);
@@ -351,6 +379,7 @@ export function ChibiAvatar({
           </group>
           {/* torso */}
           <Part geometry={GEO.body} material={shirt} position={[0, 0.36, 0]} />
+          {level >= 2 && <Cape />}
           {/* arms: pivot at the shoulder; hand socket at the end of the right arm */}
           <group ref={armL} position={[-0.2, 0.47, 0]}>
             <Part geometry={GEO.arm} material={shirt} position={[0, -0.13, 0]} />
@@ -380,14 +409,20 @@ export function ChibiAvatar({
                 <Part geometry={GEO.bun} material={hairM} position={[0.22, 0.22, -0.05]} />
               </>
             )}
-            {look.hairStyle === 2 && (
+            {look.hairStyle === 2 && level === 0 && (
               <>
                 <Part geometry={GEO.hairCap} material={toon("#ffffff")} position={[0, 0.05, 0]} scale={1.04} rotation={[-0.2, 0, 0]} outlineScale={1.03} />
                 <Part geometry={GEO.capBrim} material={toon("#ffffff")} position={[0, 0.12, 0.22]} rotation={[0.25, 0, 0]} />
               </>
             )}
-            {look.hairStyle === 3 &&
+            {look.hairStyle === 3 && level === 0 &&
               [-0.15, 0, 0.15].map((x) => <Part key={x} geometry={GEO.spike} material={hairM} position={[x, 0.3, -0.02]} />)}
+            {/* watch-time gear: nón lá (1–2), vương miện (3) */}
+            {level > 0 && (
+              <group ref={gear}>
+                {level < 3 ? <NonLa /> : <Crown />}
+              </group>
+            )}
             {/* big shiny eyes + smile */}
             {[-1, 1].map((sx) => (
               <group key={sx} position={[sx * 0.1, -0.01, 0.262]}>
@@ -405,6 +440,7 @@ export function ChibiAvatar({
           </group>
         </group>
         <sprite ref={label} material={labelMat} position={[0, LABEL_Y, 0]} renderOrder={10} />
+        <sprite ref={bar} material={barMat} position={[0, LABEL_Y - 0.2, 0]} renderOrder={10} visible={false} />
         <sprite ref={emote} material={emoteMat} position={[0.34, 1.12, 0]} renderOrder={11} visible={false} />
       </group>
       {/* the carried visual copy lives in world space so it can fly from the slot to the hand */}
@@ -476,4 +512,105 @@ export function Part({
       {outlines && <mesh geometry={geometry} material={OUTLINE_MAT} scale={outlineScale} />}
     </group>
   );
+}
+
+// ---------------------------------------------------------------- watch-time gear
+// Seen mostly from above (the shop camera looks down), so each piece has a clear top silhouette.
+const HAT_GEO = new THREE.ConeGeometry(0.44, 0.24, 28, 1);
+const HAT_BAND = new THREE.TorusGeometry(0.3, 0.018, 6, 28);
+const CROWN_BASE = new THREE.CylinderGeometry(0.22, 0.2, 0.11, 20);
+const CROWN_TIP = new THREE.ConeGeometry(0.05, 0.14, 8);
+const CROWN_BALL = new THREE.SphereGeometry(0.03, 10, 8);
+const GEM = new THREE.SphereGeometry(0.032, 10, 8);
+const CAPE_GEO = new THREE.CylinderGeometry(0.17, 0.3, 0.46, 20, 1, true, Math.PI - 1.55, 3.1);
+const COLLAR = new THREE.TorusGeometry(0.15, 0.03, 8, 24);
+const GEM_COLOURS = ["#e2365b", "#3b8fe0", "#38b26a"];
+
+/** Nón lá: the Vietnamese palm-leaf hat (level 1 and 2). */
+function NonLa() {
+  const straw = useMemo(() => {
+    const m = toon("#f1d98f").clone();
+    m.side = THREE.DoubleSide;
+    return m;
+  }, []);
+  return (
+    <group position={[0, 0.37, -0.01]} rotation={[-0.12, 0, 0]}>
+      <Part geometry={HAT_GEO} material={straw} outlineScale={1.04} />
+      {/* ribbed straw lines seen from above + a red band */}
+      {[0.16, 0.28].map((r) => (
+        <mesh key={r} position={[0, -0.12 + (0.24 * (1 - r / 0.44)), 0]} rotation={[Math.PI / 2, 0, 0]} material={toon("#c9a95a")}>
+          <torusGeometry args={[r, 0.008, 4, 28]} />
+        </mesh>
+      ))}
+      <mesh geometry={HAT_BAND} material={toon("#d8434c")} position={[0, -0.045, 0]} rotation={[Math.PI / 2, 0, 0]} />
+    </group>
+  );
+}
+
+/** Vương miện: a gold crown with jewels (level 3). */
+function Crown() {
+  const gold = toon("#ffcc33");
+  return (
+    <group position={[0, 0.33, -0.01]} rotation={[-0.1, 0, 0]}>
+      <Part geometry={CROWN_BASE} material={gold} outlineScale={1.05} />
+      {[0, 1, 2, 3, 4].map((i) => {
+        const a = (i / 5) * Math.PI * 2;
+        const x = Math.sin(a) * 0.19;
+        const z = Math.cos(a) * 0.19;
+        return (
+          <group key={i} position={[x, 0.11, z]}>
+            <Part geometry={CROWN_TIP} material={gold} outlineScale={1.12} />
+            <mesh geometry={CROWN_BALL} position={[0, 0.08, 0]}>
+              <meshBasicMaterial color={GEM_COLOURS[i % 3]} toneMapped={false} />
+            </mesh>
+          </group>
+        );
+      })}
+      <mesh geometry={GEM} position={[0, 0, 0.21]} scale={1.4}>
+        <meshBasicMaterial color="#e2365b" toneMapped={false} />
+      </mesh>
+    </group>
+  );
+}
+
+/** Áo choàng: a red cape over the back with a gold collar (level 2 and 3). */
+function Cape() {
+  const red = useMemo(() => {
+    const m = toon("#c8323c").clone();
+    m.side = THREE.DoubleSide;
+    return m;
+  }, []);
+  return (
+    <group position={[0, 0.36, -0.02]}>
+      <mesh geometry={CAPE_GEO} material={red} />
+      <mesh geometry={COLLAR} material={toon("#f2c14e")} position={[0, 0.21, 0.01]} rotation={[Math.PI / 2, 0, 0]} />
+      <mesh geometry={GEM} position={[0, 0.2, 0.16]}>
+        <meshBasicMaterial color="#f2c14e" toneMapped={false} />
+      </mesh>
+    </group>
+  );
+}
+
+const barCache = new Map<string, THREE.CanvasTexture>();
+/** Progress towards the next level: a small rounded bar (cached per 5 % step). */
+function barTexture(p: number, level: number): THREE.CanvasTexture {
+  const key = `${level}|${p.toFixed(2)}`;
+  const hit = barCache.get(key);
+  if (hit) return hit;
+  const c = document.createElement("canvas");
+  c.width = 256;
+  c.height = 40;
+  const g = c.getContext("2d")!;
+  g.fillStyle = "rgba(40,20,32,.75)";
+  g.beginPath();
+  g.roundRect(2, 2, 252, 36, 18);
+  g.fill();
+  g.fillStyle = ["#7cc576", "#e2565f", "#f2c14e"][Math.min(2, level)];
+  g.beginPath();
+  g.roundRect(6, 6, Math.max(28, 244 * p), 28, 14);
+  g.fill();
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  barCache.set(key, t);
+  return t;
 }

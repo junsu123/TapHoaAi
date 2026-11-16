@@ -115,6 +115,14 @@ export interface HeldItem {
 
 export class AvatarController {
   info: AvatarInfo;
+  /** watch-time level (0 … 3) and progress towards the next one (null: not counting / at the top) */
+  level = 0;
+  levelProgress: number | null = null;
+  levelUpAt = -1e9;
+  /** seconds since the level-up (for the little "pop" of the new gear) */
+  get sinceLevelUp(): number {
+    return this.clockT - this.levelUpAt;
+  }
   pos: Point2;
   yaw = Math.PI; // facing the shelves (−z) initially
   targetYaw = Math.PI;
@@ -163,6 +171,7 @@ export class AvatarController {
   history: string[] = [];
 
   constructor(info: AvatarInfo, spawn: Point2, private world: WorldQuery, private emit: (m: ClientGameMessage) => void) {
+    this.level = info.level ?? 0;
     this.info = info;
     this.pos = { ...spawn };
     this.lastCheckPos = { ...spawn };
@@ -450,6 +459,15 @@ export class AvatarController {
     }
     if (this.direct.length >= MAX_DIRECT_PENDING) this.direct.shift();
     this.direct.push({ kind, at: now });
+  }
+
+  /** Reached a new level (stayed longer on the LIVE): a star and a little cheer. */
+  levelUp(level: number): void {
+    this.level = level;
+    this.levelUpAt = this.clockT;
+    this.levelProgress = 0;
+    this.effect("cheer");
+    this.setEmote("★", 2.5);
   }
 
   setEmote(icon: string, seconds: number): void {
