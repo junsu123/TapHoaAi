@@ -181,11 +181,20 @@ class Orchestrator:
         elif av and intent.kind == IntentKind.LEAVE:
             # "về thôi": put things back, wave, walk out (spec LEAVE_WAVE); a later comment brings them back
             outcome = "leave"
+            self.c.stage.remove(av.viewer_key)
             self.c.actions.cancel_avatar(av.avatar_id, "user_leave")
             self.c.camera.forget_avatar(av.avatar_id)
             self.c.avatars.leave(av.avatar_id)
+        elif av and intent.kind == IntentKind.DANCE and self.c.scene.stage_enabled:
+            # the dance stage: whoever comments first dances first
+            name = (ev.user.nickname or ev.user.unique_id) if ev.user else "bạn"
+            outcome = "stage_" + self.c.stage.register(ev.user, name, is_demo)
         elif av and intent.kind in DIRECT_EFFECTS:
             outcome = self._direct(av.avatar_id, DIRECT_EFFECTS[intent.kind])
+        elif intent.kind in (IntentKind.POEM, IntentKind.STORY):
+            name = (ev.user.nickname or ev.user.unique_id) if ev.user else None
+            viewer = ev.user.identity_key if ev.user else None
+            outcome = self.c.talk.request("poem" if intent.kind == IntentKind.POEM else "story", name, viewer)
         elif av and intent.kind == IntentKind.AMBIGUOUS:
             self._direct(av.avatar_id, "think")  # waits, a "?" over the head — never a random product
         elif av and intent.kind == IntentKind.QUESTION and intent.product_id is None:

@@ -76,7 +76,8 @@ def test_huge_crowd_folds_late_names_into_a_count(admin_client):
 
 def test_ordinary_comments_are_read_aloud(admin_client):
     c = admin_client
-    setup(c, ScriptedClaude({}), **ON)  # autopilot off: reading does not need it
+    # autopilot off: reading does not need it; the owner's own replies off: only reading here
+    setup(c, ScriptedClaude({}), **ON, owner_chat=False)
     with game_ws(c) as ws:
         ws.receive_json()
         c.post("/api/v1/demo/events", json={"raw": "@vy: hôm nay shop đẹp quá"})

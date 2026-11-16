@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.20.0 — 2026-11-16 — Sân khấu nhảy & chủ quán trò chuyện
+
+- **Sân khấu:** sân khấu gỗ có rèm, biển “SÂN KHẤU” và hai đèn chiếu ở phía trước quán (chọn bên phải/trái). Người xem bình luận “nhảy”, “lên sân khấu”, “đăng ký nhảy”… được xếp hàng — **ai bình luận trước lên nhảy trước**; bình luận lại không mất chỗ cũng không chen thêm lượt. Tới lượt, chủ quán mời “Mời bạn {tên} lên sân khấu!”, Chibi của người đó đi tới, bước lên và nhảy một bài (8–60 giây, mặc định 15), đèn chiếu đổi màu, camera quay sân khấu suốt lượt nhảy; hết lượt cúi chào, bước xuống, chủ quán cảm ơn rồi mời người kế tiếp. Ai đã nhảy chờ 1 phút mới đăng ký lại; người rời LIVE (“về thôi”) tự ra khỏi hàng; Chibi không tới được trong 30 giây thì qua lượt người sau.
+- Bảng **Sân khấu** trên màn hình LIVE: ai đang nhảy (còn mấy giây), 4 người kế tiếp, “+N bạn nữa”, hướng dẫn cách đăng ký. Trang Người trực có thẻ **Sân khấu**: xem hàng chờ, bỏ một người, xóa hàng chờ, cho người đang nhảy xuống. Cài đặt ở Game 3D & OBS → Không gian cửa hàng → *Sân khấu* (bật/tắt, thời gian mỗi lượt, hàng chờ tối đa, vị trí).
+- **Chủ quán trò chuyện:** chủ quán đọc bình luận của khách (“Bạn {tên} nói: …”) và tự trả lời các câu chào hỏi, khen, cảm ơn, hỏi thăm, thời tiết… ngay, không tốn tiền Claude; câu chủ quán không trả lời được thì gọi Claude (vẫn qua bộ lọc an toàn — câu về bệnh, giá lạ vẫn chờ người trực). Lời chủ quán nói hiện trong bong bóng trên đầu chủ quán, chủ quán khoa tay, gật đầu khi nói. Không cần bật *Tự động hoàn toàn*.
+- **Làm thơ, kể chuyện:** khách bình luận “làm thơ đi”, “kể chuyện đi” thì chủ quán đọc tặng (mỗi khách tối đa 1 lần/3 phút); LIVE vắng thì thỉnh thoảng tự đọc (mặc định 8 phút một lần, chỉ khi không còn câu nào chờ đọc). Có sẵn 8 bài thơ lục bát và 8 truyện ngắn tự viết, không nói về công dụng chữa bệnh; shop thêm thơ/truyện của mình; tùy chọn để Claude làm thơ mới tặng riêng khách. Nút **Đọc thơ ngay** / **Kể chuyện ngay** ở Trợ lý AI & giọng đọc → *Chủ quán trò chuyện*. API: `GET /api/v1/stage`, `POST /api/v1/stage/skip|remove|clear`, `GET /api/v1/talk`, `POST /api/v1/talk/now`.
+- Chữ chạy dưới màn hình (giọng đọc) tối đa 4 dòng, không che bảng vàng khi đọc truyện dài.
+
 ## 0.19.0 — 2026-11-16 — Cửa sổ game 9:16 cho Windows
 
 - **Chibi Live Game**: game hiện trong cửa sổ phần mềm Windows riêng (không phải tab trình duyệt), luôn giữ tỉ lệ **9:16** khi kéo đổi cỡ. Cỡ có sẵn: vừa màn hình, 540 × 960, 720 × 1280, **1080 × 1920** điểm ảnh (tính cả màn hình phóng to 125–150 %); toàn màn hình (F11), luôn nằm trên cùng, ẩn viền cho OBS *Window Capture*, chuyển màn hình; nhớ vị trí và cài đặt.

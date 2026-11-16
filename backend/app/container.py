@@ -37,7 +37,9 @@ from app.services.loadgen import LoadGenerator
 from app.services.perf import PerfMonitor
 from app.services.scene_config import apply_avatar_cap, load_scene
 from app.services.teahouse import Leaderboard, OwnerHost
+from app.services.owner_talk import OwnerTalk
 from app.services.speech_queue import SpeechQueue
+from app.services.stage import StageService
 from app.websocket.hub import Hub
 
 log = logging.getLogger("chibi")
@@ -71,11 +73,13 @@ class AppContainer:
             reservation_ttl=settings.reservation_ttl_seconds, ack_timeout=settings.ack_timeout_seconds,
             action_timeout=settings.action_timeout_seconds, persist=self._persist_command,
         )
-        self.avatars.is_busy = self.actions.is_busy
+        # busy = showing a product, or in line / on the dance stage: never sent away to make room
+        self.avatars.is_busy = lambda a: self.actions.is_busy(a) or self.stage.involves(a)
         saved_idle = self.get_setting("avatar_idle_exit_seconds")
         if saved_idle and saved_idle.isdigit():
             self.avatars.idle_exit_seconds = int(saved_idle)
-        self.actions.is_avatar_visible = self._avatar_visible
+        # no product command for a Chibi that is dancing on the stage (it is shown afterwards)
+        self.actions.is_avatar_visible = lambda a: self._avatar_visible(a) and not self.stage.holds(a)
         self.actions.on_update = lambda c: self.hub.send_dashboard({"type": "ACTION_UPDATE", "action": c.summary()})
         self.hub.on_primary_changed = self.actions.on_primary_changed
         self.live = LiveSessionService(self.db, self.bus, self.deduper, self._on_session_change, self._on_live_status)
@@ -89,6 +93,8 @@ class AppContainer:
         apply_avatar_cap(self)
         self.owner = OwnerHost(self)
         self.board = Leaderboard(self)
+        self.stage = StageService(self)
+        self.talk = OwnerTalk(self)
         self.assistant.memory.load(self.catalog)
         self.fps_reports: deque[dict[str, Any]] = deque(maxlen=120)
         self.perf = PerfMonitor()
@@ -130,6 +136,7 @@ class AppContainer:
                 cmd.reason = "session_ended"
                 self._persist_command(cmd)
         self.avatars.reset(session_id)
+        self.stage.reset()
         self.avatars.viewer_cap = None
         self.actions.reset(session_id)
         self.camera.current = None
@@ -212,6 +219,7 @@ class AppContainer:
             "settings": {"show_seconds": self.settings.show_seconds},
             "scene": self.scene.model_dump(),
             "board": self.board.view(),
+            "stage": self.stage.view(),
         }
 
     def dashboard_snapshot(self) -> dict[str, Any]:
@@ -222,6 +230,7 @@ class AppContainer:
             "speech": self.speech.state(), "ai": self.assistant.status(),
             "voice_trace": list(self.assistant.trace)[-30:],
             "board": self.board.view(),
+            "stage": self.stage.view(),
             "logs": self.errors.stats(self.error_seen_id()),
         }
 
@@ -283,6 +292,7 @@ class AppContainer:
         self.speech.start()
         self.assistant.start()
         self.owner.start()
+        self.talk.start()
         self._tasks = [
             asyncio.create_task(self.orchestrator.run(), name="orchestrator"),
             asyncio.create_task(self._ticker(), name="ticker"),
@@ -297,6 +307,7 @@ class AppContainer:
         await self.speech.stop()
         await self.assistant.stop()
         await self.owner.stop()
+        await self.talk.stop()
         for t in self._tasks:
             t.cancel()
         for t in self._tasks:
@@ -319,6 +330,7 @@ class AppContainer:
             try:
                 self.actions.tick()
                 self.avatars.tick()
+                self.stage.tick()
                 self.camera.tick()
             except Exception:
                 log.exception("tick failed")

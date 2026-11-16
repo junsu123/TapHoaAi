@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { VoiceTraceEntry } from "./VoiceCheck";
-import type { LeaderboardView } from "../types/protocol";
+import type { LeaderboardView, StageView } from "../types/protocol";
 import { SequencedSocket, wsUrl } from "../lib/ws";
 import type { AiStatus } from "./AiSettingsPage";
 import type { LogRecord, LogStats } from "./LogsPage";
@@ -85,6 +85,7 @@ interface Snap {
   logs?: LogStats;
   voice_trace?: VoiceTraceEntry[];
   board?: LeaderboardView;
+  stage?: StageView;
 }
 
 type Msg =
@@ -95,6 +96,7 @@ type Msg =
   | { type: "AI_STATUS"; sequence: number; ai: AiStatus }
   | { type: "VOICE_TRACE"; sequence: number; entry: VoiceTraceEntry }
   | { type: "LEADERBOARD"; sequence: number; board: LeaderboardView }
+  | { type: "STAGE_STATE"; sequence: number; stage: StageView }
   | { type: "ALERT"; sequence: number; code: string; message: string }
   | { type: "LOG"; sequence: number; record: LogRecord; new: boolean }
   | { type: "LOG_STATS"; sequence: number; stats: LogStats }
@@ -118,6 +120,7 @@ export function useDashboardFeed(enabled: boolean) {
   const [liveLogs, setLiveLogs] = useState<LogRecord[]>([]);
   const [voiceTrace, setVoiceTrace] = useState<VoiceTraceEntry[]>([]);
   const [board, setBoard] = useState<LeaderboardView | null>(null);
+  const [stage, setStage] = useState<StageView | null>(null);
   const [connected, setConnected] = useState(false);
   const [skipped, setSkipped] = useState(0);
   const sockRef = useRef<SequencedSocket<Snap, Msg> | null>(null);
@@ -135,6 +138,7 @@ export function useDashboardFeed(enabled: boolean) {
         if (s.logs) setLogStats(s.logs);
         if (s.voice_trace) setVoiceTrace(s.voice_trace.slice().reverse());
         if (s.board) setBoard(s.board);
+        if (s.stage) setStage(s.stage);
       },
       onMessage: (m) => {
         if (m.type === "COMMENT") setComments((c) => [m.comment, ...c].slice(0, 200));
@@ -146,6 +150,7 @@ export function useDashboardFeed(enabled: boolean) {
         else if (m.type === "AI_STATUS") setAi(m.ai);
         else if (m.type === "VOICE_TRACE") setVoiceTrace((t) => [m.entry, ...t].slice(0, 60));
         else if (m.type === "LEADERBOARD") setBoard(m.board);
+        else if (m.type === "STAGE_STATE") setStage(m.stage);
         else if (m.type === "LOG") {
           setLiveLogs((l) => [m.record, ...l.filter((x) => x.id !== m.record.id)].slice(0, 200));
           if (m.new && m.record.level !== "INFO")
@@ -166,5 +171,5 @@ export function useDashboardFeed(enabled: boolean) {
     return () => sock.stop();
   }, [enabled]);
 
-  return { comments, skipped, host, live, metrics, aiPaused, setAiPaused, connected, speech, ai, alerts, logStats, setLogStats, liveLogs, voiceTrace, board };
+  return { comments, skipped, host, live, metrics, aiPaused, setAiPaused, connected, speech, ai, alerts, logStats, setLogStats, liveLogs, voiceTrace, board, stage };
 }

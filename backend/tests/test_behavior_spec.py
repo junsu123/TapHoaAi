@@ -52,6 +52,8 @@ def test_product_names_still_win(router):
 def test_spam_is_debounced_and_likes_are_batched(admin_client):
     """T08: 100 identical comments in a burst → one dance; 50 likes → one heart."""
     c = admin_client
+    cont = c.app.state.container
+    cont.scene = cont.scene.model_copy(update={"stage_enabled": False})  # dance in place (no stage)
     with game_ws(c) as ws:
         ws.receive_json()
         for _ in range(100):

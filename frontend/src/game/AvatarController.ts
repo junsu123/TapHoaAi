@@ -8,6 +8,7 @@ import { mulberry, pickBehavior, type AutoPlan, type BehaviorConfig, type Partne
 import type { ClipLibrary } from "./clips";
 import type { NavGrid } from "./Navigation";
 import type { TeaSpot } from "./teahouse";
+import { STAGE_MOVE_SECONDS, STAGE_MOVES, type StageSpot } from "./stage";
 
 export const WALK_SPEED = 1.5; // m/s
 const ARRIVE_EPS = 0.06;
@@ -98,7 +99,11 @@ export type Phase =
   | "tea_up"
   | "auto" // an autonomous activity (spec §3.2)
   | "direct" // a direct command animation: wave, dance, … (spec §3.6)
-  | "recover"; // walking to a safe spot after a failure (spec §6.4)
+  | "recover" // walking to a safe spot after a failure (spec §6.4)
+  | "to_stage" // walking to the dance stage (their turn)
+  | "stage_up"
+  | "stage_dance"
+  | "stage_down";
 
 export interface HeldItem {
   productId: string;
@@ -152,6 +157,8 @@ export class AvatarController {
   emote: { icon: string; until: number } | null = null;
   private entering = true;
   private recoverT = 0;
+  /** on the dance stage: where, which turn (token), until when (safety) */
+  stage: { spot: StageSpot; token: string; seconds: number; danceT: number; bowT: number } | null = null;
   /** behaviour ids, most recent last (debug overlay, tests) */
   history: string[] = [];
 
@@ -209,6 +216,12 @@ export class AvatarController {
         return this.directDef?.state ?? "IDLE";
       case "recover":
         return "ERROR_RECOVERY";
+      case "to_stage":
+        return "NAVIGATING";
+      case "stage_up":
+      case "stage_dance":
+      case "stage_down":
+        return "PLAYING";
       default:
         return this.entering ? "ENTERING" : "IDLE";
     }
@@ -248,6 +261,11 @@ export class AvatarController {
         return this.directId ?? "IDLE_BREATHE";
       case "recover":
         return "ERROR_RECOVERY";
+      case "to_stage":
+      case "stage_up":
+      case "stage_dance":
+      case "stage_down":
+        return "STAGE_DANCE";
       default:
         return this.entering ? "ARRIVE_ENTER" : "IDLE_BREATHE";
     }
@@ -310,6 +328,57 @@ export class AvatarController {
     this.path = [];
     this.fsm.force("idle");
     this.wanderIn = 2;
+  }
+
+  // ------------------------------------------------------------------ dance stage
+  get onStage(): boolean {
+    return this.phase === "to_stage" || this.phase === "stage_up" || this.phase === "stage_dance" || this.phase === "stage_down";
+  }
+
+  /** How high the Chibi stands (on the stage platform, half-way on the steps). */
+  get elevation(): number {
+    const st = this.stage;
+    if (!st || (this.phase !== "stage_up" && this.phase !== "stage_dance" && this.phase !== "stage_down")) return 0;
+    if (this.phase === "stage_dance") return st.spot.height;
+    // on the steps: height grows with the distance walked from the foot of the steps
+    const a = st.spot.approach;
+    const along = Math.abs(this.pos.x - a.x);
+    return st.spot.height * Math.min(1, along / Math.max(0.01, Math.abs(st.spot.stepsX - a.x)));
+  }
+
+  /** Their turn on the stage: walk over, climb up, dance until STAGE_END. */
+  goOnStage(spot: StageSpot, token: string, seconds: number): boolean {
+    if (this.removed || this.phase === "goodbye" || this.phase === "exiting") return false;
+    if (this.stage?.token === token) return true; // already going (a resent message)
+    if (this.cmd) return false; // the server waits for products to finish; just in case
+    if (this.atTea) this.phase = "none";
+    this.stopActivity();
+    this.direct = [];
+    this.stage = { spot, token, seconds, danceT: 0, bowT: 0 };
+    if (!this.walkTo(spot.approach)) {
+      this.stage = null;
+      this.emit({ type: "STAGE_PROGRESS", token, phase: "failed" });
+      return false;
+    }
+    this.phase = "to_stage";
+    this.note("STAGE_DANCE");
+    return true;
+  }
+
+  /** The music stops: bow, step down, back to the shop. */
+  leaveStage(token: string): void {
+    if (!this.stage || this.stage.token !== token) return;
+    if (this.phase === "to_stage") {
+      this.stage = null;
+      this.phase = "none";
+      this.fsm.force("idle");
+      this.wanderIn = 1;
+      return;
+    }
+    this.phase = "stage_down";
+    this.stage.bowT = 0;
+    this.targetYaw = 0;
+    this.fsm.force("nod"); // a little bow to the audience first
   }
 
   // ------------------------------------------------------------------ tea table (gift givers)
@@ -511,6 +580,10 @@ export class AvatarController {
 
   /** Interrupt whatever activity / direct animation is running (no-op otherwise). */
   private stopActivity(): void {
+    if (this.onStage) {
+      this.stage = null;
+      this.phase = "none";
+    }
     if (this.phase === "auto") {
       this.endActivity(false);
       this.phase = "none";
@@ -927,6 +1000,59 @@ export class AvatarController {
           this.wanderIn = this.direct.length ? 0.2 : this.idleDelay();
         }
         break;
+      case "to_stage": {
+        const st = this.stage;
+        if (!st) {
+          this.phase = "none";
+          break;
+        }
+        if (expired || this.checkStuck(dt)) {
+          this.emit({ type: "STAGE_PROGRESS", token: st.token, phase: "failed" });
+          this.stage = null;
+          this.phase = "none";
+          this.fsm.force("idle");
+        } else if (this.move(dt)) {
+          this.phase = "stage_up";
+          this.fsm.force("walk");
+        }
+        break;
+      }
+      case "stage_up": {
+        const st = this.stage!;
+        if (this.moveDirect(st.spot.top, dt) || expired) {
+          this.phase = "stage_dance";
+          st.danceT = 0;
+          this.targetYaw = 0; // face the audience
+          this.fsm.force(STAGE_MOVES[0]);
+          this.setEmote("♪", 2);
+          this.emit({ type: "STAGE_PROGRESS", token: st.token, phase: "on_stage" });
+        }
+        break;
+      }
+      case "stage_dance": {
+        const st = this.stage!;
+        st.danceT += dt;
+        this.targetYaw = 0;
+        const move = STAGE_MOVES[Math.floor(st.danceT / STAGE_MOVE_SECONDS) % STAGE_MOVES.length];
+        if (this.fsm.state !== move || this.fsm.elapsed > STAGE_MOVE_SECONDS) this.fsm.force(move);
+        if (!this.emote) this.setEmote(st.danceT % 4 < 2 ? "♪" : "★", 1.6);
+        // the server ends the turn; a lost message must not leave a dancer up there forever
+        if (st.danceT > st.seconds + 12) this.leaveStage(st.token);
+        break;
+      }
+      case "stage_down": {
+        const st = this.stage!;
+        st.bowT += dt;
+        if (st.bowT < 1.2) break; // bowing
+        if (this.fsm.state !== "walk") this.fsm.force("walk");
+        if (this.moveDirect(st.spot.approach, dt) || st.bowT > 6) {
+          this.stage = null;
+          this.phase = "none";
+          this.fsm.force("wave");
+          this.wanderIn = 1.5;
+        }
+        break;
+      }
       case "recover":
         this.recoverT += dt;
         if (this.move(dt) || expired || this.recoverT > 12 || (this.path.length === 0 && this.recoverT > 1.5)) {

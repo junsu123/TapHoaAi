@@ -182,6 +182,53 @@ function OwnerBubble({ engine }: { engine: GameEngine }) {
   );
 }
 
+/** The dance stage line: who dances now, who is next — and how to join. */
+function StageBoard({ engine, safe }: { engine: GameEngine; safe: SafeArea }) {
+  const [v, setV] = useState(engine.stage);
+  const [enabled, setEnabled] = useState(engine.scene.stage_enabled);
+  const tvTop = () => engine.scene.banner_enabled; // TV frame on top or the LED wall screen: stay below it
+  const [belowTv, setBelowTv] = useState(tvTop());
+  useEffect(() => {
+    let last = "";
+    const id = setInterval(() => {
+      const st = engine.stage;
+      const key = JSON.stringify([engine.scene.stage_enabled, tvTop(), st?.current?.name, st?.current?.phase, st?.current?.seconds_left, st?.queue.map((q) => q.name), st?.waiting]);
+      if (key !== last) {
+        last = key;
+        setV(st);
+        setEnabled(engine.scene.stage_enabled);
+        setBelowTv(tvTop());
+      }
+    }, 250);
+    return () => clearInterval(id);
+  }, [engine]);
+  if (!enabled) return null;
+  const cur = v?.current ?? null;
+  const next = v?.queue.slice(0, 4) ?? [];
+  const more = Math.max(0, (v?.waiting ?? 0) - next.length);
+  return (
+    <div className="stage-board" data-testid="stage-board" style={{ top: `${(safe.top + (belowTv ? 0.36 : 0.075)) * 100}%`, right: `${(safe.right + 0.02) * 100}%` }}>
+      <div className="stage-board-title">🎤 Sân khấu</div>
+      {cur ? (
+        <div className="stage-now" data-testid="stage-current" data-phase={cur.phase}>
+          <span>{cur.phase === "dancing" ? "Đang nhảy" : "Mời lên"}</span>
+          <b>{cur.name}</b>
+          {cur.phase === "dancing" && cur.seconds_left !== null && <i>{cur.seconds_left}s</i>}
+        </div>
+      ) : null}
+      {next.length > 0 && (
+        <ol className="stage-next" data-testid="stage-next">
+          {next.map((q, i) => (
+            <li key={`${i}-${q.name}`}>{q.name}</li>
+          ))}
+          {more > 0 && <li className="more">+{more} bạn nữa</li>}
+        </ol>
+      )}
+      <div className="stage-hint">Bình luận “nhảy” để lên sân khấu</div>
+    </div>
+  );
+}
+
 const MEDAL = ["gold", "silver", "bronze"];
 
 /** "Bảng vàng": top gift givers and top buyers, taking turns. Placed in a corner, or wherever
@@ -371,6 +418,7 @@ export function LiveOverlay({
       {banner && <ProductBanner engine={engine} scene={st.scene} showcase={st.product} nickname={st.nickname} />}
       {(st.scene.board_enabled || editBoard) && <HonourBoard board={st.board} scene={st.scene} hidden={st.teaShot} editable={editBoard} />}
       <OwnerBubble engine={engine} />
+      <StageBoard engine={engine} safe={safe} />
       <div className="overlay-bottom">
         {speech?.blocked && (
           <button
@@ -390,7 +438,8 @@ export function LiveOverlay({
             <span className="speech-label">
               {speech.clip.label === "Trợ lý AI" ? "🤖" : "🔊"} {speech.clip.label}
             </span>
-            <span className="speech-text">{speech.clip.text}</span>
+            {/* a poem / story is already in the owner's bubble: the caption only says what is playing */}
+            {!((speech.clip.kind === "poem" || speech.clip.kind === "story") && engine.scene.owner_enabled) && <span className="speech-text">{speech.clip.text}</span>}
           </div>
         )}
         {st.product && !banner && (

@@ -201,6 +201,42 @@ export function SceneSettings() {
           </label>
         </div>
       )}
+      <h3>Sân khấu</h3>
+      <label className="check">
+        <input type="checkbox" checked={cfg.stage_enabled} onChange={(e) => set({ stage_enabled: e.target.checked })} aria-label="Sân khấu" />
+        Có sân khấu: khách bình luận “nhảy” / “lên sân khấu” được xếp hàng, ai bình luận trước lên nhảy trước
+      </label>
+      {cfg.stage_enabled && (
+        <div className="row wrap">
+          <label>
+            Mỗi lượt nhảy
+            <select value={cfg.stage_seconds} onChange={(e) => set({ stage_seconds: Number(e.target.value) })} aria-label="Thời gian mỗi lượt nhảy">
+              {[8, 10, 15, 20, 30, 45, 60].map((n) => (
+                <option key={n} value={n}>
+                  {n} giây
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Hàng chờ tối đa
+            <select value={cfg.stage_max_queue} onChange={(e) => set({ stage_max_queue: Number(e.target.value) })} aria-label="Hàng chờ sân khấu tối đa">
+              {[5, 10, 20, 30, 50, 100].map((n) => (
+                <option key={n} value={n}>
+                  {n} người
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Đặt sân khấu
+            <select value={cfg.stage_side} onChange={(e) => set({ stage_side: e.target.value as SceneConfig["stage_side"] })} aria-label="Vị trí sân khấu">
+              <option value="right">Phía trước, bên phải</option>
+              <option value="left">Phía trước, bên trái</option>
+            </select>
+          </label>
+        </div>
+      )}
       <ChibiBehaviorFields cfg={cfg} set={set} />
       <div className="row">
         <button className="primary" disabled={busy}>

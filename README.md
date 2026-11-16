@@ -127,6 +127,12 @@ Trên màn hình LIVE (đổi trong thẻ **Không gian cửa hàng & banner s�
 - Các câu của chủ quán sửa được, dùng `{ten}`, `{qua}`, `{san_pham}`.
 - **Đặt bảng vàng ở đâu cũng được:** trong phần Bảng vàng, bấm **Kéo thả bảng vàng tới chỗ muốn đặt** — một khung xem trước màn hình LIVE mở ra; kéo bảng vàng tới chỗ muốn đặt, kéo chấm vàng ở góc để phóng to/thu nhỏ (60–180%). Thả tay là lưu, màn hình OBS đổi ngay. **Về góc mặc định** đưa bảng về góc đã chọn.
 
+## Sân khấu nhảy & chủ quán trò chuyện
+
+- **Sân khấu** (phía trước quán): người xem bình luận “nhảy” / “lên sân khấu” / “đăng ký nhảy” được xếp hàng, **ai bình luận trước lên nhảy trước**. Tới lượt, chủ quán mời lên, Chibi bước lên sân khấu nhảy một bài dưới đèn chiếu (mặc định 15 giây), camera quay sân khấu; xong thì cúi chào, bước xuống và người kế tiếp được mời. Bảng *Sân khấu* trên màn hình LIVE cho biết ai đang nhảy, ai kế tiếp. Người trực xem/sửa hàng chờ ở thẻ **Sân khấu** (trang Người trực); cài đặt ở Game 3D & OBS → *Sân khấu*. Tắt sân khấu thì “nhảy” lại là nhảy tại chỗ như trước.
+- **Chủ quán trò chuyện** (Trợ lý AI & giọng đọc → *Chủ quán trò chuyện*, cần bật “Phát trên LIVE”): chủ quán đọc bình luận và tự trả lời câu chào hỏi, khen, hỏi thăm (không gọi Claude); câu không tự trả lời được thì gọi Claude nếu bật. Lời chủ quán hiện trong bong bóng trên đầu chủ quán.
+- **Làm thơ, kể chuyện:** khách bình luận “làm thơ đi” / “kể chuyện đi”, hoặc LIVE vắng một lúc, chủ quán đọc một bài thơ hay một truyện ngắn (có sẵn 8 + 8, thêm được của shop, hoặc để Claude làm thơ mới). Nút **Đọc thơ ngay** / **Kể chuyện ngay** để người trực gọi bất cứ lúc nào.
+
 ## Hành vi Chibi (V3)
 
 Mỗi Chibi đại diện cho **một người xem thật** (khóa theo id TikTok, không theo nickname). Không có lệnh thì Chibi tự sống: xem kệ, xem giá, dạo quanh, đứng nghỉ, vẫy/gật đầu với Chibi bên cạnh, ngồi ghế dài uống trà, thỉnh thoảng nhảy hoặc tạo dáng. Không làm một việc 3 lần liền, không chen chỗ đứng, không đi xuyên kệ.
@@ -134,7 +140,9 @@ Mỗi Chibi đại diện cho **một người xem thật** (khóa theo id TikTo
 | Người xem bình luận | Chibi làm |
 | --- | --- |
 | Tên sản phẩm (“trà cà gai leo”) | Đi tới kệ, lấy hộp, giới thiệu, trả hộp về kệ |
-| “chào”, “nhảy”, “đi dạo”, “ngồi nghỉ”, “tạo dáng” | Làm ngay; đang bận thì xếp hàng làm sau |
+| “chào”, “đi dạo”, “ngồi nghỉ”, “tạo dáng” | Làm ngay; đang bận thì xếp hàng làm sau |
+| “nhảy”, “lên sân khấu” | Xếp hàng lên sân khấu (ai trước lên trước); tắt sân khấu thì nhảy tại chỗ |
+| “làm thơ đi”, “kể chuyện đi” | Chủ quán đọc thơ / kể chuyện tặng khách |
 | “về thôi”, “tạm biệt” | Vẫy tay ra về; bình luận lại thì quay lại |
 | “thành phần có gì?” khi đang cầm hộp | Chỉ vào hộp, trợ lý trả lời đúng sản phẩm đó |
 | “trà” (mơ hồ) | Gãi đầu “?”, không lấy bừa |

@@ -62,6 +62,11 @@ class SceneConfig(BaseModel):
     chibi_w_rest: int = Field(10, ge=0, le=100)
     chibi_w_fun: int = Field(5, ge=0, le=100)
     chibi_max_visible: int = Field(60, ge=10, le=80)
+    # dance stage: viewers sign up by commenting "nhảy" / "lên sân khấu"; first come, first served
+    stage_enabled: bool = True
+    stage_seconds: int = Field(15, ge=8, le=60)  # each performer dances this long
+    stage_max_queue: int = Field(30, ge=5, le=100)
+    stage_side: Literal["right", "left"] = "right"
 
     @field_validator("sign_text", "tagline", "owner_name", "owner_greet_template", "owner_tea_template",
                      "owner_buy_template")
