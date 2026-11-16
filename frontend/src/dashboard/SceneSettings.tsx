@@ -261,6 +261,51 @@ export function SceneSettings() {
           </label>
         </div>
       )}
+      <h3>Chibi lên cấp theo thời gian xem</h3>
+      <label className="check">
+        <input type="checkbox" checked={cfg.levels_enabled} onChange={(e) => set({ levels_enabled: e.target.checked })} aria-label="Chibi lên cấp" />
+        Người xem ở lại càng lâu, Chibi càng “xịn”: nón lá → áo choàng → vương miện, có số cấp cạnh tên và vạch tiến độ khi sắp lên cấp
+      </label>
+      {cfg.levels_enabled && (
+        <>
+          <div className="row wrap">
+            {(["Nón lá", "Áo choàng", "Vương miện"] as const).map((item, i) => (
+              <label key={item}>
+                {item} sau
+                <input
+                  type="number"
+                  className="mini"
+                  min={1}
+                  max={240}
+                  value={cfg.level_minutes[i]}
+                  onChange={(e) => {
+                    const m = [...cfg.level_minutes];
+                    m[i] = Math.max(1, Math.min(240, Number(e.target.value) || 1));
+                    set({ level_minutes: m });
+                  }}
+                  aria-label={`Phút để được ${item.toLowerCase()}`}
+                />
+                phút
+              </label>
+            ))}
+          </div>
+          <label>
+            Người xem im lặng vẫn được tính thêm
+            <select value={cfg.level_presence_min} onChange={(e) => set({ level_presence_min: Number(e.target.value) })} aria-label="Thời gian tính khi im lặng">
+              {[5, 10, 15, 20, 30].map((n) => (
+                <option key={n} value={n}>
+                  {n} phút
+                </option>
+              ))}
+            </select>
+            <span className="muted small"> sau lần thả tim / bình luận / tặng quà gần nhất (TikTok không báo khi ai rời LIVE)</span>
+          </label>
+          <label className="check">
+            <input type="checkbox" checked={cfg.level_voice} onChange={(e) => set({ level_voice: e.target.checked })} aria-label="Chủ quán chúc mừng lên cấp" />
+            Chủ quán đọc lời chúc mừng khi lên cấp, và nhắc “còn khoảng 1 phút nữa…” để khách ở lại
+          </label>
+        </>
+      )}
       <ChibiBehaviorFields cfg={cfg} set={set} />
       <div className="row">
         <button className="primary" disabled={busy}>

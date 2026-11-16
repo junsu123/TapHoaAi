@@ -299,7 +299,27 @@ export class GameEngine {
         const a = this.avatars.get(m.avatar.avatar_id);
         if (a) {
           a.info = m.avatar;
+          if (m.avatar.level != null) a.level = m.avatar.level;
           this.version++;
+        }
+        break;
+      }
+      case "AVATAR_LEVEL": {
+        const a = this.avatars.get(m.avatar_id);
+        if (a) {
+          a.info = { ...a.info, level: m.level };
+          if (m.up && m.level > a.level) a.levelUp(m.level);
+          else a.level = m.level;
+          this.version++;
+        }
+        break;
+      }
+      case "LEVEL_PROGRESS": {
+        for (const [id, level, p] of m.items) {
+          const a = this.avatars.get(id);
+          if (!a) continue;
+          a.level = Math.max(a.level, level);
+          a.levelProgress = p;
         }
         break;
       }
@@ -343,7 +363,7 @@ export class GameEngine {
         if (this.scene.owner_enabled) this.tea.thanks(m.text);
         break;
       case "OWNER_SAY":
-        if (this.scene.owner_enabled) this.tea.line(m.text, m.kind === "stage" ? "stage" : "talk");
+        if (this.scene.owner_enabled) this.tea.line(m.text, m.kind === "stage" || m.kind === "level" ? "stage" : "talk");
         break;
       case "STAGE_STATE":
         this.setStage(m.stage);
@@ -449,6 +469,8 @@ export class GameEngine {
         seat: a.sittingOnBench?.id ?? null,
         pose: a.pose,
         elevation: +a.elevation.toFixed(2),
+        level: a.level,
+        levelProgress: a.levelProgress,
       })),
       clipWarnings: [...this.clips.warnings],
       stage: this.stage ? { current: this.stage.current, waiting: this.stage.waiting, queue: this.stage.queue.map((q) => q.name) } : null,

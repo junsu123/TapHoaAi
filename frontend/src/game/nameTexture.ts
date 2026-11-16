@@ -16,9 +16,12 @@ export function sanitizeLabel(raw: string): string {
 
 const cache = new Map<string, { texture: THREE.CanvasTexture; aspect: number }>();
 
-export function nameTexture(name: string, demo: boolean): { texture: THREE.CanvasTexture; aspect: number } {
+/** Level colours: 1 nón lá (green), 2 áo choàng (red), 3 vương miện (gold). */
+const LEVEL_COLOURS = ["#e2779c", "#5aa35a", "#d8434c", "#e0a925"];
+
+export function nameTexture(name: string, demo: boolean, level = 0): { texture: THREE.CanvasTexture; aspect: number } {
   const label = sanitizeLabel(name);
-  const key = `${label}|${demo}`;
+  const key = `${label}|${demo}|${level}`;
   const hit = cache.get(key);
   if (hit) return hit;
   const font = "800 88px system-ui, 'Segoe UI', Roboto, 'Noto Sans', sans-serif";
@@ -27,7 +30,7 @@ export function nameTexture(name: string, demo: boolean): { texture: THREE.Canva
   ctx.font = font;
   const textW = Math.ceil(ctx.measureText(label).width);
   const padX = 44;
-  const badge = demo ? 0 : 0;
+  const badge = level > 0 ? 112 : 0; // a round level badge before the name
   canvas.width = textW + padX * 2 + badge;
   canvas.height = 144;
   ctx.font = font;
@@ -36,12 +39,25 @@ export function nameTexture(name: string, demo: boolean): { texture: THREE.Canva
   ctx.beginPath();
   ctx.roundRect(2, 2, canvas.width - 4, canvas.height - 4, r);
   ctx.fill();
-  ctx.lineWidth = 8;
-  ctx.strokeStyle = "#e2779c";
+  ctx.lineWidth = level > 0 ? 10 : 8;
+  ctx.strokeStyle = LEVEL_COLOURS[Math.min(3, level)];
   ctx.stroke();
+  if (level > 0) {
+    ctx.fillStyle = LEVEL_COLOURS[Math.min(3, level)];
+    ctx.beginPath();
+    ctx.arc(padX + 40, canvas.height / 2, 46, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "900 70px system-ui, 'Segoe UI', Roboto, 'Noto Sans', sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(String(level), padX + 40, canvas.height / 2 + 4);
+    ctx.textAlign = "left";
+    ctx.font = font;
+  }
   ctx.fillStyle = "#4a2b3c";
   ctx.textBaseline = "middle";
-  ctx.fillText(label, padX, canvas.height / 2 + 4);
+  ctx.fillText(label, padX + badge, canvas.height / 2 + 4);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = 4;

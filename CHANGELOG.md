@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.23.0 — 2026-11-16 — Chibi lên cấp theo thời gian xem
+
+- **Ở lại càng lâu, Chibi càng xịn:** sau 5 phút Chibi được đội **nón lá**, 15 phút khoác **áo choàng** đỏ cổ vàng, 30 phút đội **vương miện** vàng gắn ngọc (chỉnh số phút được). Cạnh tên có huy hiệu số cấp (xanh / đỏ / vàng); khi đã đi được nửa chặng tới cấp sau, dưới tên hiện vạch tiến độ.
+- Lúc lên cấp: Chibi cổ vũ, hiện ngôi sao, phụ kiện mới “bật” ra; chủ quán chúc mừng trong bong bóng và bằng giọng (“Chúc mừng Lan ở lại với quán 15 phút, Chibi được khoác áo choàng nè!”). Khoảng 1 phút trước khi lên cấp, chủ quán nhắc người đó: “… còn khoảng 1 phút nữa là Chibi của bạn được đội vương miện đó, ở lại với quán nha!” (mỗi cấp nhắc một lần, tối đa một lời nhắc mỗi 90 giây, không chen ngang câu đang đọc).
+- Trên màn hình LIVE, một ô nhỏ (15 giây mỗi phút) giải thích cho người xem: 5 phút nón lá · 15 phút áo choàng · 30 phút vương miện.
+- Cách tính: từ lúc người xem vào LIVE; vì TikTok không báo khi ai rời đi, người xem im lặng vẫn được tính thêm 10 phút (chỉnh được) sau lần thả tim / bình luận / tặng quà gần nhất — thả tim là đồng hồ chạy tiếp, số phút đã có được giữ. Tính riêng cho từng phiên LIVE.
+- Trang Người trực có thẻ **Ở lại lâu nhất** (10 người xem lâu nhất, cấp, ai vừa lên cấp) và nút **Thử (Demo)** cho một Chibi lên cấp ngay. Cài đặt ở Game 3D & OBS → Không gian cửa hàng → *Chibi lên cấp theo thời gian xem*. API: `GET /api/v1/levels`, `POST /api/v1/levels/try` (chỉ Demo).
+
 ## 0.22.0 — 2026-11-16 — Sân khấu giữa quán, đèn sân khấu & thơ mỗi 10–15 phút
 
 - **Sân khấu ở giữa quán** (mặc định): sân khấu tròn đặt ngay giữa lối đi chính, giữa khung hình — ai xem cũng thấy người nhảy. Hai bên vẫn chừa lối đi; bàn trà của chủ quán lùi về phía quầy để nhường chỗ. Phía sau có giàn đèn với biển “SÂN KHẤU”. Shop nào đã lưu cài đặt trước đây cũng được chuyển ra giữa một lần; muốn để ở góc trước như cũ: Không gian cửa hàng → Sân khấu → *Đặt sân khấu*. Nếu sơ đồ kệ của shop không còn chỗ trống ở giữa, sân khấu tự về góc trước.

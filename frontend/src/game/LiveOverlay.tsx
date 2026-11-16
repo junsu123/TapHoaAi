@@ -244,6 +244,39 @@ function useOverlayDrag(
   return { ref, scale, placedStyle, handlers: editable ? handlers : {}, resizeHandlers };
 }
 
+/** Tells viewers that staying longer dresses up their Chibi (shown 15 s out of every minute). */
+function LevelHint({ safe, minutes }: { safe: SafeArea; minutes: number[] }) {
+  const [on, setOn] = useState(true);
+  useEffect(() => {
+    let n = 0;
+    const id = setInterval(() => {
+      n = (n + 1) % 4; // 4 × 15 s: shown for the first quarter of every minute
+      setOn(n === 0);
+    }, 15000);
+    return () => clearInterval(id);
+  }, []);
+  const [a, b, c] = minutes;
+  return (
+    <div
+      className={`level-hint${on ? "" : " away"}`}
+      data-testid="level-hint"
+      style={{ top: `${(safe.top + 0.36) * 100}%`, left: `${(safe.left + 0.02) * 100}%` }}
+      aria-hidden={!on}
+    >
+      <div className="level-hint-title">Ở lại với quán, Chibi lên cấp</div>
+      <div className="level-hint-row">
+        <span className="lv lv1">1</span> {a} phút: nón lá
+      </div>
+      <div className="level-hint-row">
+        <span className="lv lv2">2</span> {b} phút: áo choàng
+      </div>
+      <div className="level-hint-row">
+        <span className="lv lv3">3</span> {c} phút: vương miện
+      </div>
+    </div>
+  );
+}
+
 /** The dance stage line: who dances now, who is next — and how to join. */
 function StageBoard({ engine, safe, scene, editable }: { engine: GameEngine; safe: SafeArea; scene: SceneConfig; editable: boolean }) {
   const d = useOverlayDrag(editable, { x: scene.stage_board_x, y: scene.stage_board_y, scale: scene.stage_board_scale }, "chibi-stage-board");
@@ -454,6 +487,7 @@ export function LiveOverlay({
       {(st.scene.board_enabled || editBoard) && <HonourBoard board={st.board} scene={st.scene} hidden={st.teaShot} editable={editBoard} />}
       <OwnerBubble engine={engine} />
       <StageBoard engine={engine} safe={safe} scene={st.scene} editable={editBoard} />
+      {st.scene.levels_enabled && <LevelHint safe={safe} minutes={st.scene.level_minutes} />}
       <div className="overlay-bottom">
         {speech?.blocked && (
           <button

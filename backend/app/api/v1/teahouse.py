@@ -119,3 +119,25 @@ async def talk_now(body: TalkIn, request: Request, admin: CurrentAdmin = AdminDe
     what = "bài thơ" if body.kind == "poem" else "câu chuyện"
     msg = f"Chủ quán sắp đọc {what} trên LIVE." if out.endswith("_queued") else "Đang tắt Làm thơ, kể chuyện." if out.endswith("_off") else "Chưa đọc được, thử lại sau ít giây."
     return {"outcome": out, "message": msg}
+
+
+@router.get("/levels")
+def levels(request: Request, admin: CurrentAdmin = AdminDep) -> dict:
+    """Chibi levels: who has stayed longest this LIVE, recent level-ups."""
+    return request.app.state.container.levels.view()
+
+
+class LevelTry(BaseModel):
+    name: str | None = Field(None, max_length=80)
+
+
+@router.post("/levels/try")
+def levels_try(body: LevelTry, request: Request, admin: CurrentAdmin = AdminDep) -> dict:
+    """Demo only: a Chibi on screen goes up one level now (to see the hat, cape and crown)."""
+    c = request.app.state.container
+    if not c.live.is_demo:
+        raise HTTPException(409, "Chỉ thử được khi đang chạy Demo.")
+    r = c.levels.try_next(body.name)
+    if r is None:
+        raise HTTPException(409, "Không có Chibi nào trên màn hình để lên cấp (hoặc tất cả đã có vương miện).")
+    return {"ok": True, "message": f"{r['name']} sắp được {r['next']}.", **r}

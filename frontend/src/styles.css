@@ -651,3 +651,19 @@ ol.steps code { font-size: 12px; background: #eef2f0; padding: 1px 5px; border-r
 .speech-caption.off-screen { display: none; }
 
 input.mini { width: 4.2em; margin: 0 .35em; padding: 2px 4px; display: inline-block; }
+
+/* LIVE: "stay longer, your Chibi levels up" */
+.level-hint { position: absolute; z-index: 2; padding: .7vh 1vh; border-radius: 1.2vh; background: rgba(38, 16, 34, .72); color: #fff;
+  font-size: clamp(9px, 1.2vh, 24px); line-height: 1.45; pointer-events: none; transition: opacity .6s ease, transform .6s ease; }
+.level-hint.away { opacity: 0; transform: translateX(-1vh); }
+.level-hint-title { font-weight: 800; margin-bottom: .3vh; color: #ffe3a3; }
+.level-hint .lv { display: inline-grid; place-items: center; width: 1.6vh; height: 1.6vh; border-radius: 50%; font-weight: 900; font-size: .9em; margin-right: .4vh; }
+.level-hint .lv1 { background: #5aa35a; } .level-hint .lv2 { background: #d8434c; } .level-hint .lv3 { background: #e0a925; }
+@media (prefers-reduced-motion: reduce) { .level-hint { transition: none; } }
+
+/* host: Chibi levels */
+.levels-top { margin: 6px 0 8px; padding-left: 22px; }
+.levels-top li { display: flex; gap: 8px; align-items: center; padding: 2px 0; }
+.lv-badge { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; color: #fff; font-weight: 800; font-size: 12px; background: #b9a7b0; }
+.lv-badge.lv1 { background: #5aa35a; } .lv-badge.lv2 { background: #d8434c; } .lv-badge.lv3 { background: #e0a925; }
+.lv-name { font-weight: 600; }

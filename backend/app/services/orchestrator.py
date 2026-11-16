@@ -101,6 +101,8 @@ class Orchestrator:
             return  # stale event from a previous session
         self._persist_event(ev)
         self.counts[ev.type.value] += 1
+        if ev.type != EventType.VIEWER_COUNT:
+            self.c.levels.seen(ev.user)  # still watching (Chibi levels)
         is_demo = ev.capability == "simulated"
         if ev.type == EventType.COMMENT:
             self._upsert_viewer(ev)
