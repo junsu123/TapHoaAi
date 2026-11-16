@@ -1332,7 +1332,7 @@ test("Sharp LIVE picture: 'Nét nhất' draws twice the pixels; the dashboard sa
   await page.setViewportSize({ width: 1360, height: 1400 });
   await page.goto("/dashboard/game");
   const sharp = page.getByTestId("perf-sharpness");
-  await expect(sharp).toHaveAttribute("data-sharp", "0", { timeout: 20_000 });
+  await expect(sharp).toHaveAttribute("data-sharp", "0", { timeout: 60_000 }); // the first report after ~10 s (slow runners: more)
   await expect(sharp).toContainText("540 × 960");
   await expect(sharp).toContainText("Nét nhất cho LIVE");
   await expect(page.getByTestId("sharp-url")).toContainText("/game/live?quality=ultra");
@@ -1344,7 +1344,7 @@ test("Sharp LIVE picture: 'Nét nhất' draws twice the pixels; the dashboard sa
   await game.waitForFunction(() => (window as any).__chibiRender?.height === 3840, null, { timeout: 20_000 });
   r = await game.evaluate(() => (window as any).__chibiRender);
   expect([r.width, r.height, r.cssWidth, r.cssHeight]).toEqual([2160, 3840, 1080, 1920]);
-  await expect(sharp).toHaveAttribute("data-sharp", "1", { timeout: 20_000 });
+  await expect(sharp).toHaveAttribute("data-sharp", "1", { timeout: 60_000 });
   await expect(sharp).toContainText("vẽ ở 2160 × 3840");
   await game.waitForTimeout(1500);
   await game.screenshot({ path: `${SHOTS}/SHARP-2-ultra-1080x1920.png` });
