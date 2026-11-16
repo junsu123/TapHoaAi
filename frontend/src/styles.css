@@ -652,14 +652,20 @@ ol.steps code { font-size: 12px; background: #eef2f0; padding: 1px 5px; border-r
 
 input.mini { width: 4.2em; margin: 0 .35em; padding: 2px 4px; display: inline-block; }
 
-/* LIVE: "stay longer, your Chibi levels up" */
-.level-hint { position: absolute; z-index: 2; padding: .7vh 1vh; border-radius: 1.2vh; background: rgba(38, 16, 34, .72); color: #fff;
-  font-size: clamp(9px, 1.2vh, 24px); line-height: 1.45; pointer-events: none; transition: opacity .6s ease, transform .6s ease; }
-.level-hint.away { opacity: 0; transform: translateX(-1vh); }
-.level-hint-title { font-weight: 800; margin-bottom: .3vh; color: #ffe3a3; }
-.level-hint .lv { display: inline-grid; place-items: center; width: 1.6vh; height: 1.6vh; border-radius: 50%; font-weight: 900; font-size: .9em; margin-right: .4vh; }
-.level-hint .lv1 { background: #5aa35a; } .level-hint .lv2 { background: #d8434c; } .level-hint .lv3 { background: #e0a925; }
-@media (prefers-reduced-motion: reduce) { .level-hint { transition: none; } }
+/* LIVE: “Sắp diễn ra” */
+.upcoming-board { position: absolute; z-index: 2; width: 23vh; padding: .8vh 1vh .7vh; border-radius: 1.2vh; background: rgba(38, 16, 34, .78); color: #fff;
+  font-size: clamp(9px, 1.2vh, 24px); line-height: 1.35; pointer-events: none; box-shadow: 0 .4vh 1.4vh rgba(0, 0, 0, .25); }
+.upcoming-board.editable { pointer-events: auto; cursor: grab; outline: .3vh dashed #f2b6d8; outline-offset: .6vh; touch-action: none; user-select: none; }
+.upcoming-title { font-weight: 800; color: #ffe3a3; margin-bottom: .35vh; letter-spacing: .02em; }
+.upcoming-row { display: grid; grid-template-columns: 1.7vh 1fr auto; gap: .5vh; align-items: baseline; padding: .2vh 0; }
+.upcoming-row .up-text { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.upcoming-board.away { opacity: 0; transform: translateX(-1vh); }
+.upcoming-board { transition: opacity .5s ease, transform .5s ease; }
+.upcoming-row .up-when { font-weight: 800; color: #ffd27a; font-variant-numeric: tabular-nums; }
+.upcoming-row.up-stage .up-when { color: #9fe3a0; font-weight: 600; }
+.upcoming-tip { margin-top: .5vh; padding-top: .45vh; border-top: 1px solid rgba(255, 255, 255, .18); color: #f6d9e7; animation: up-tip .5s ease; }
+@keyframes up-tip { from { opacity: 0; transform: translateY(.4vh); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .upcoming-tip { animation: none; } }
 
 /* host: Chibi levels */
 .levels-top { margin: 6px 0 8px; padding-left: 22px; }

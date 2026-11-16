@@ -20,6 +20,21 @@ Theme = Literal["herbal", "kawaii"]
 THEMES: dict[str, str] = {"herbal": "Tiệm trà thảo mộc", "kawaii": "Tạp hóa Chibi (hồng)"}
 
 
+class AgendaItem(BaseModel):
+    """One line of the shop's LIVE schedule, e.g. 22:10 "Mini-game đoán giá"."""
+
+    time: str = Field(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+    text: str = Field(min_length=1, max_length=60)
+
+    @field_validator("text")
+    @classmethod
+    def _strip(cls, v: str) -> str:
+        v = " ".join(v.split())
+        if not v:
+            raise ValueError("empty")
+        return v
+
+
 class SceneConfig(BaseModel):
     theme: Theme = "herbal"
     sign_text: str = Field("TIỆM TRÀ THẢO MỘC", max_length=32)
@@ -75,12 +90,30 @@ class SceneConfig(BaseModel):
     stage_board_scale: float = Field(1.0, ge=0.6, le=1.8)
     # Chibis level up with watch time: minutes for nón lá / áo choàng / vương miện; a silent viewer
     # keeps counting for level_presence_min minutes after their last like/comment/gift
+    # "Sắp diễn ra" box on the LIVE screen (next poem, level-ups, stage line, the shop's schedule)
+    upcoming_enabled: bool = True
+    agenda: list[AgendaItem] = Field(default_factory=list, max_length=12)
+    # the clock the schedule is written in (Vietnam: UTC+7, no summer time) — not the server's
+    # own, which may run elsewhere (a cloud machine on UTC)
+    shop_utc_offset: float = Field(7.0, ge=-12.0, le=14.0)
+    upcoming_x: float | None = Field(None, ge=0.0, le=0.95)
+    upcoming_y: float | None = Field(None, ge=0.0, le=0.95)
+    upcoming_scale: float = Field(1.0, ge=0.6, le=1.8)
     levels_enabled: bool = True
     level_minutes: list[int] = Field(default_factory=lambda: [5, 15, 30])
     level_presence_min: int = Field(10, ge=2, le=60)
     level_voice: bool = True
     # a viewer's comment (and the owner's reply to it) is only read aloud: no bubble, no caption text
     chat_on_screen: bool = False
+
+    @field_validator("agenda", mode="before")
+    @classmethod
+    def _agenda(cls, v):
+        """Rows left empty in the editor are dropped (not an error); sorted by time."""
+        if not isinstance(v, list):
+            return v
+        rows = [r for r in v if not (isinstance(r, dict) and not str(r.get("text", "")).strip())]
+        return sorted(rows, key=lambda r: r.get("time", "") if isinstance(r, dict) else getattr(r, "time", ""))
 
     @field_validator("level_minutes", mode="before")
     @classmethod

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.24.0 — 2026-11-17 — Bảng “Sắp diễn ra”
+
+- Trên màn hình LIVE có bảng **Sắp diễn ra** (bên trái, dưới màn hình sản phẩm) cho người xem biết sắp có gì, kèm đếm ngược chạy từng giây: 📜 bài thơ tiếp theo của chủ quán (“14 phút”), 👑 người sắp lên cấp (“Lan sắp đội vương miện · 45 giây”), 🗓 lịch riêng của shop (“Mini-game đoán giá · 20 phút”). Tối đa 4 dòng, việc gần nhất ở trên; dưới cùng là một dòng gợi ý đổi mỗi 6 giây: cách lên cấp, bình luận “nhảy” để lên sân khấu, bình luận “làm thơ”.
+- **Lịch LIVE của shop**: Game 3D & OBS → Không gian cửa hàng → *Bảng “Sắp diễn ra”* → “+ Thêm mục vào lịch” (giờ + việc, tối đa 12 mục). Mục hiện lên bảng khi còn dưới 90 phút và tự ẩn khi qua giờ; giờ tính theo giờ Việt Nam (UTC+7) dù máy chủ đặt ở đâu; LIVE tối qua nửa đêm thì “00:30” là đêm nay.
+- Bảng kéo thả và đổi cỡ được như Bảng vàng và ô Sân khấu (“Kéo thả bảng vàng, ô Sân khấu và bảng Sắp diễn ra…”), tạm ẩn khi camera quay cận cảnh (sân khấu, bàn trà). Ô giải thích lên cấp trước đây nay là một dòng gợi ý trong bảng này.
+
 ## 0.23.0 — 2026-11-16 — Chibi lên cấp theo thời gian xem
 
 - **Ở lại càng lâu, Chibi càng xịn:** sau 5 phút Chibi được đội **nón lá**, 15 phút khoác **áo choàng** đỏ cổ vàng, 30 phút đội **vương miện** vàng gắn ngọc (chỉnh số phút được). Cạnh tên có huy hiệu số cấp (xanh / đỏ / vàng); khi đã đi được nửa chặng tới cấp sau, dưới tên hiện vạch tiến độ.

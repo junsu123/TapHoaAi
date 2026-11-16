@@ -41,6 +41,7 @@ from app.services.scene_config import apply_avatar_cap, load_scene
 from app.services.speech_queue import SpeechQueue
 from app.services.stage import StageService
 from app.services.teahouse import Leaderboard, OwnerHost
+from app.services.upcoming import UpcomingService
 from app.websocket.hub import Hub
 
 log = logging.getLogger("chibi")
@@ -97,6 +98,7 @@ class AppContainer:
         self.stage = StageService(self)
         self.talk = OwnerTalk(self)
         self.levels = LevelService(self)
+        self.upcoming = UpcomingService(self)
         self.avatars.level_of = self.levels.level_of
         self.assistant.memory.load(self.catalog)
         self.fps_reports: deque[dict[str, Any]] = deque(maxlen=120)
@@ -225,6 +227,7 @@ class AppContainer:
             "scene": self.scene.model_dump(),
             "board": self.board.view(),
             "stage": self.stage.view(),
+            "upcoming": self.upcoming.view(),
         }
 
     def dashboard_snapshot(self) -> dict[str, Any]:
@@ -337,6 +340,7 @@ class AppContainer:
                 self.avatars.tick()
                 self.stage.tick()
                 self.levels.tick()
+                self.upcoming.tick()
                 self.camera.tick()
             except Exception:
                 log.exception("tick failed")

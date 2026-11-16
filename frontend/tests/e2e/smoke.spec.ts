@@ -822,7 +822,7 @@ test("Honour board: drag it anywhere on the LIVE screen and resize it from the d
   test.setTimeout(150_000);
   const csrf = await login(page.request);
   const cur = (await (await page.request.get("/api/v1/settings/scene")).json()).config;
-  await page.request.put("/api/v1/settings/scene", { data: { ...cur, board_enabled: true, board_x: null, board_y: null, board_scale: 1, stage_enabled: true, stage_board_x: null, stage_board_y: null, stage_board_scale: 1 }, headers: { "X-CSRF-Token": csrf } });
+  await page.request.put("/api/v1/settings/scene", { data: { ...cur, board_enabled: true, board_x: null, board_y: null, board_scale: 1, stage_enabled: true, stage_board_x: null, stage_board_y: null, stage_board_scale: 1, upcoming_enabled: false }, headers: { "X-CSRF-Token": csrf } });
   const game = await context.newPage();
   await game.setViewportSize({ width: 540, height: 960 });
   await game.goto("/game/live?debug=1&quality=low");
@@ -1364,16 +1364,16 @@ test("Chibi levels: staying longer dresses up the Chibi (nón lá → áo choàn
   const csrf = await login(page.request);
   const H = { "X-CSRF-Token": csrf };
   const scene = (await (await page.request.get("/api/v1/settings/scene")).json()).config;
-  await page.request.put("/api/v1/settings/scene", { data: { ...scene, owner_enabled: true, levels_enabled: true, level_minutes: [5, 15, 30], stage_enabled: true }, headers: H });
+  await page.request.put("/api/v1/settings/scene", { data: { ...scene, owner_enabled: true, levels_enabled: true, level_minutes: [5, 15, 30], stage_enabled: true, upcoming_enabled: true }, headers: H });
   const who = `lenCap${RUN}`;
   await inject(page, csrf, `@${who}: chào shop`);
   const game = await context.newPage();
   await game.setViewportSize({ width: 540, height: 960 });
   await game.goto("/game/live?debug=1&quality=high");
   await game.waitForFunction((n) => (window as any).__chibiDebug?.state().avatars.some((a: any) => a.nickname === n), who, { timeout: 30_000 });
-  // viewers are told how it works (shown a quarter of every minute)
-  await expect(game.getByTestId("level-hint")).toContainText("5 phút: nón lá");
-  await expect(game.getByTestId("level-hint")).toContainText("30 phút: vương miện");
+  // viewers are told how it works (one of the tips under “Sắp diễn ra”, every few seconds)
+  await expect(game.getByTestId("upcoming-tip")).toContainText("Ở lại 5 phút: Chibi đội nón lá", { timeout: 30_000 });
+  await expect(game.getByTestId("upcoming-tip")).toContainText("30 phút: vương miện");
 
   await page.setViewportSize({ width: 1360, height: 1200 });
   await page.goto("/dashboard/host");
@@ -1412,5 +1412,70 @@ test("Chibi levels: staying longer dresses up the Chibi (nón lá → áo choàn
   await expect(game.getByTestId("stage-current")).toHaveAttribute("data-phase", "dancing", { timeout: 45_000 });
   await game.waitForTimeout(2500);
   await game.screenshot({ path: `${SHOTS}/LEVEL-stage.png` });
+  await game.close();
+});
+
+test("Sắp diễn ra: what is coming up, soonest first, with countdowns — and the shop's own schedule from the dashboard", async ({ page, context }) => {
+  test.setTimeout(150_000);
+  const csrf = await login(page.request);
+  const H = { "X-CSRF-Token": csrf };
+  const hhmm = (min: number) => {
+    // the shop's schedule is in Vietnam time (UTC+7), whatever the clock of this machine
+    const d = new Date(Date.now() + min * 60000 + 7 * 3600_000);
+    return `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
+  };
+  const scene = (await (await page.request.get("/api/v1/settings/scene")).json()).config;
+  await page.request.put("/api/v1/settings/scene", {
+    data: { ...scene, upcoming_enabled: true, upcoming_x: null, upcoming_y: null, upcoming_scale: 1, stage_enabled: true, levels_enabled: true, agenda: [{ time: hhmm(20), text: "Mini-game đoán giá" }] },
+    headers: H,
+  });
+  const ai = (await (await page.request.get("/api/v1/settings/ai")).json()).config;
+  await page.request.put("/api/v1/settings/ai", { data: { config: { ...ai, voice_enabled: true, voice_policy_confirmed: true, poem_story: true, poem_auto: true, poem_auto_min: 10, poem_auto_max: 15 } }, headers: H });
+  await page.request.post("/api/v1/voice/unmute", { headers: H });
+  await page.request.post("/api/v1/stage/clear", { headers: H });
+  await page.request.post("/api/v1/stage/skip", { headers: H });
+  for (const n of ["an", "binh", "chi"]) await inject(page, csrf, `@${n}${RUN}: nhảy`);
+
+  const game = await context.newPage();
+  await game.setViewportSize({ width: 540, height: 960 });
+  await game.goto("/game/live?debug=1&quality=medium");
+  const board = game.getByTestId("upcoming-board");
+  await expect(board).toBeVisible({ timeout: 30_000 });
+  await expect(game.getByTestId("stage-board")).toBeVisible();
+  await expect(board.getByTestId("upcoming-agenda")).toContainText("Mini-game đoán giá");
+  await expect(board.getByTestId("upcoming-agenda")).toContainText(/(19|20) phút/);
+  // the owner's next poem: every 10–15 minutes once the voice is on
+  await expect(board.getByTestId("upcoming-poem")).toContainText(/1[0-5] phút/, { timeout: 30_000 });
+  // happening now first, then soonest first: poem (10–15 min) before the mini-game (20 min)
+  const kinds = await board.locator(".upcoming-row").evaluateAll((els) => els.map((e) => e.className.replace("upcoming-row up-", "")));
+  expect(kinds).not.toContain("stage"); // the stage has its own box
+  expect(kinds.indexOf("poem")).toBeGreaterThanOrEqual(0);
+  expect(kinds.indexOf("agenda")).toBeGreaterThan(kinds.indexOf("poem")); // (a Chibi about to level up may sit in between)
+  // the countdown runs on the screen
+  const t1 = await board.getByTestId("upcoming-poem").locator(".up-when").innerText();
+  await expect(board.getByTestId("upcoming-tip")).toBeVisible();
+  await page.request.post("/api/v1/stage/clear", { headers: H });
+  await page.request.post("/api/v1/stage/skip", { headers: H });
+  await game.waitForTimeout(2500);
+  await game.screenshot({ path: `${SHOTS}/UPCOMING-1-live.png` });
+
+  // the shop adds a line to its schedule from the dashboard
+  await page.setViewportSize({ width: 1360, height: 1300 });
+  await page.goto("/dashboard/game");
+  const editor = page.getByTestId("agenda-editor");
+  await editor.getByRole("button", { name: "+ Thêm mục vào lịch" }).click();
+  await editor.getByLabel("Giờ mục 2").fill(hhmm(40));
+  await editor.getByLabel("Nội dung mục 2").fill("Giảm giá giờ vàng");
+  await editor.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${SHOTS}/UPCOMING-2-dashboard.png` });
+  await page.getByRole("button", { name: "Lưu không gian & banner" }).click();
+  await expect(board.getByText("Giảm giá giờ vàng")).toBeVisible({ timeout: 15_000 });
+  expect(t1).toMatch(/phút/);
+
+  // off: gone
+  const cur = (await (await page.request.get("/api/v1/settings/scene")).json()).config;
+  await page.request.put("/api/v1/settings/scene", { data: { ...cur, upcoming_enabled: false, agenda: [] }, headers: H });
+  await expect(board).toHaveCount(0, { timeout: 15_000 });
+  await page.request.put("/api/v1/settings/ai", { data: { config: { ...ai, voice_enabled: false } }, headers: H });
   await game.close();
 });
