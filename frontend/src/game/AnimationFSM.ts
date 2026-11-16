@@ -25,7 +25,10 @@ export type AnimState =
   | "spin"
   | "surprise"
   | "think"
-  | "point";
+  | "point"
+  | "cheer"
+  | "yawn"
+  | "standup";
 
 /** Max seconds per state (Infinity = until the controller changes it). */
 export const MAX_DURATION: Record<AnimState, number> = {
@@ -54,6 +57,9 @@ export const MAX_DURATION: Record<AnimState, number> = {
   surprise: 2,
   think: 4,
   point: 4,
+  cheer: 3,
+  yawn: 3,
+  standup: 1,
 };
 
 const ALLOWED: Record<AnimState, AnimState[]> = {
@@ -81,6 +87,9 @@ const ALLOWED: Record<AnimState, AnimState[]> = {
   surprise: ["idle", "walk"],
   think: ["idle", "walk"],
   point: ["idle", "walk"],
+  cheer: ["idle", "walk"],
+  yawn: ["sit", "idle", "walk"],
+  standup: ["walk", "idle"],
 };
 
 export class AnimationFSM {

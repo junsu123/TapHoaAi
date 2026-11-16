@@ -31,7 +31,8 @@ from app.services.intent_router import CommentIntentRouter
 from app.services.live_session import LiveSessionService
 from app.services.orchestrator import Orchestrator
 from app.services.product_matcher import ProductMatcher
-from app.services.scene_config import load_scene
+from app.services.perf import PerfMonitor
+from app.services.scene_config import apply_avatar_cap, load_scene
 from app.services.teahouse import Leaderboard, OwnerHost
 from app.services.speech_queue import SpeechQueue
 from app.websocket.hub import Hub
@@ -81,10 +82,12 @@ class AppContainer:
         self.speech.on_chars = self.assistant.budget.record_tts
         self.assistant.apply_voice()
         self.scene = load_scene(self)
+        apply_avatar_cap(self)
         self.owner = OwnerHost(self)
         self.board = Leaderboard(self)
         self.assistant.memory.load(self.catalog)
         self.fps_reports: deque[dict[str, Any]] = deque(maxlen=120)
+        self.perf = PerfMonitor()
         self.started_at = time.time()
         self.game_token = self._load_or_create_game_token()
         # TikTok client factory: None = the real TikTokLive client (tests inject a fake)
@@ -222,6 +225,7 @@ class AppContainer:
             "viewer_count": self.orchestrator.viewer_count,  # None = provider does not report it
             "game_clients": {"connected": len(self.hub.game.clients), "primary": self.hub.has_primary()},
             "game_fps": {"last": fps[-1] if fps else None, "min_last_2min": min(fps) if fps else None},
+            "game_perf": self.perf.last,
             "gifts_total": self.gifts.total_gifts,
             "ai": self.assistant.status(),
             "speech": {"muted": self.speech.muted, "hold": self.speech.hold, "queue": len(self.speech.queue)},

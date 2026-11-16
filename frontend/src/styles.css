@@ -601,3 +601,19 @@ label.check.big { font-size: 15px; }
 .bdo-tag { position: absolute; transform: translate(-50%, -100%); background: rgba(10, 20, 16, .78); color: #e8fff1; padding: 2px 5px; border-radius: 4px; white-space: nowrap; text-align: center; }
 .bdo-tag.fail { outline: 1px solid #ff8a7a; }
 .bdo-state { color: #9fe0b8; }
+
+/* Chibi behaviour weights + performance card (spec V3 P1) */
+.scene-form label.weight-row { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(120px, 2fr) 44px; align-items: center; gap: 10px; flex-direction: unset; }
+.weight-name { display: flex; flex-direction: column; font-weight: 500; }
+.weight-name small { font-weight: 400; }
+.weight-pct { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+.chibi-weights { display: flex; flex-direction: column; gap: 6px; }
+.chibi-weights > button { align-self: flex-start; }
+.perf-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+.perf-cell { border: 1px solid var(--line, #dfe5e2); border-radius: 8px; padding: 8px 10px; }
+.perf-cell b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
+.perf-cell span { font-size: 12px; color: var(--muted, #5d6b66); }
+.perf-cell.bad b { color: #b3261e; }
+.perf-cell.ok b { color: #1f7a4d; }
+.perf-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.perf-table th, .perf-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line, #dfe5e2); font-size: 13px; }

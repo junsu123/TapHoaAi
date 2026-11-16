@@ -106,6 +106,16 @@ export interface SceneConfig {
   board_x: number | null; // dragged position: top-left corner, fraction of the frame
   board_y: number | null;
   board_scale: number;
+  // Chibi behaviour (spec V3 §5, §11): autonomous life on/off, weights of each activity group,
+  // how many Chibis may be on screen at once
+  chibi_autonomous: boolean;
+  chibi_w_browse: number;
+  chibi_w_explore: number;
+  chibi_w_idle: number;
+  chibi_w_social: number;
+  chibi_w_rest: number;
+  chibi_w_fun: number;
+  chibi_max_visible: number;
 }
 
 export interface LeaderboardView {
@@ -142,6 +152,14 @@ export const DEFAULT_SCENE: SceneConfig = {
   board_x: null,
   board_y: null,
   board_scale: 1,
+  chibi_autonomous: true,
+  chibi_w_browse: 30,
+  chibi_w_explore: 25,
+  chibi_w_idle: 20,
+  chibi_w_social: 10,
+  chibi_w_rest: 10,
+  chibi_w_fun: 5,
+  chibi_max_visible: 60,
 };
 
 export interface SpeechClip {
@@ -185,6 +203,7 @@ export type ClientGameMessage =
   | { type: "ACTION_COMPLETED"; command_id: string; reason?: string }
   | { type: "ACTION_FAILED"; command_id: string; reason: string }
   | { type: "FPS_REPORT"; fps: number; quality: string; avatars: number }
+  | ({ type: "PERF_REPORT" } & PerfReport)
   | { type: "SPEECH_STARTED" | "SPEECH_ENDED"; id: string }
   | { type: "SPEECH_FAILED"; id: string; reason: string }
   | {
@@ -198,3 +217,17 @@ export type ClientGameMessage =
     }
   | { type: "PING" }
   | { type: "RESYNC" };
+
+/** Game page performance, sent every few seconds by the OBS page (spec V3 §10, T16). */
+export interface PerfReport {
+  fps: number;
+  frame_ms_p95: number; // slowest 5 % of frames
+  sim_ms: number; // Chibi logic per frame (CPU)
+  render_calls: number; // draw calls per frame (GPU load)
+  triangles: number;
+  heap_mb: number | null; // JS memory (Chrome / OBS only)
+  gpu: string | null; // graphics card the browser uses
+  quality: string;
+  avatars: number;
+  lod: { full: number; reduced: number; far: number; hidden: number };
+}

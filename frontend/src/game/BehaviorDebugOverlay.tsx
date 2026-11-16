@@ -37,6 +37,11 @@ export function BehaviorDebugOverlay({ engine, fps }: { engine: GameEngine; fps:
     <div className="bdo" data-testid="behavior-debug">
       <div className="bdo-panel">
         <b>Chibi: {avatars.length}</b> · FPS {f.length ? f[f.length - 1] : "–"}
+        <div>
+          LOD {engine.lodLevel}: đủ {engine.lod.full} · giảm {engine.lod.reduced} · xa {engine.lod.far} · ngoài khung {engine.lod.hidden}
+        </div>
+        {engine.hostSpeaking && <div>🔊 đang đọc: bớt trò vui</div>}
+        {engine.clips.warnings.length > 0 && <div>clip thay thế: {engine.clips.warnings.join(", ")}</div>}
         {[...counts.entries()].sort().map(([k, n]) => (
           <div key={k}>
             {k}: {n}

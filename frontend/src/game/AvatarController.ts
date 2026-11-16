@@ -5,6 +5,7 @@
 import type { AvatarInfo, CharacterAction, ClientGameMessage, Point2, ShelfLayout } from "../types/protocol";
 import { AnimationFSM, type AnimState } from "./AnimationFSM";
 import { mulberry, pickBehavior, type AutoPlan, type BehaviorConfig, type Partner, type Seat, type TopState } from "./behaviors";
+import type { ClipLibrary } from "./clips";
 import type { NavGrid } from "./Navigation";
 import type { TeaSpot } from "./teahouse";
 
@@ -22,6 +23,8 @@ const DUPLICATE_WINDOW = 4; // the same direct command again within this window 
 const DIRECT_TTL = 30; // queued direct commands older than this are dropped
 const MAX_DIRECT_PENDING = 2;
 const SOCIAL_AGAIN = 40; // a Chibi is greeted / greets at most once per this many seconds
+const CHEER_AGAIN = 60; // claps for someone else's product at most once per minute
+const STAND_UP_SECONDS = 0.45;
 
 /** Direct commands from comments / events that play a full-body animation (spec §3.6, §8). */
 const DIRECT: Record<string, { id: string; anim: AnimState; seconds: number; state: TopState; emote?: string }> = {
@@ -33,6 +36,7 @@ const DIRECT: Record<string, { id: string; anim: AnimState; seconds: number; sta
   surprise: { id: "PRODUCT_NOT_FOUND", anim: "surprise", seconds: 1.5, state: "IDLE", emote: "!" },
   think: { id: "PRODUCT_AMBIGUOUS", anim: "think", seconds: 2.4, state: "IDLE", emote: "?" },
   nod: { id: "SOCIAL_NOD", anim: "nod", seconds: 1.2, state: "SOCIALIZING" },
+  cheer: { id: "FUN_CHEER", anim: "cheer", seconds: 2, state: "PLAYING", emote: "★" },
 };
 
 export interface Vec3 {
@@ -60,6 +64,12 @@ export interface WorldQuery {
   socialReply?(partnerId: string, from: AvatarController): boolean;
   cameraBusy?(): boolean;
   spotFree?(p: Point2, selfId: string): boolean;
+  /** the host / AI voice is talking: tone down fun (spec §5, T15) */
+  hostSpeaking?(): boolean;
+  /** animation clips this rig has (missing ones fall back, spec §7 / T12) */
+  clips?(): ClipLibrary;
+  /** a product command finished: neighbours may clap (FUN_CHEER) */
+  onCompleted?(who: AvatarController): void;
 }
 
 interface AutoRun {
@@ -138,6 +148,7 @@ export class AvatarController {
   private directDef: (typeof DIRECT)[string] | null = null;
   private directId: string | null = null;
   socialAt = -1e9;
+  cheerAt = -1e9;
   emote: { icon: string; until: number } | null = null;
   private entering = true;
   private recoverT = 0;
@@ -246,6 +257,11 @@ export class AvatarController {
     return this.fsm.state;
   }
 
+  /** The pose actually drawn: the state's own clip, or the nearest one this rig has (T12). */
+  get pose(): AnimState {
+    return this.world.clips?.().resolve(this.fsm.state) ?? this.fsm.state;
+  }
+
   get busy(): boolean {
     return this.cmd !== null;
   }
@@ -312,8 +328,9 @@ export class AvatarController {
   /** Stand up from the tea table and go back to browsing. */
   leaveTea(): void {
     if (this.phase !== "tea_sit" && this.phase !== "tea_step" && this.phase !== "to_tea") return;
+    const seated = this.phase === "tea_sit";
     this.phase = "tea_up";
-    this.fsm.force("walk");
+    this.fsm.force(seated ? "standup" : "walk");
   }
 
   get interruptible(): boolean {
@@ -401,6 +418,23 @@ export class AvatarController {
     this.targetYaw = Math.atan2(from.pos.x - this.pos.x, from.pos.z - this.pos.z);
     this.fsm.force("nod");
     this.note("SOCIAL_NOD");
+    return true;
+  }
+
+  /** Someone nearby finished presenting a product: clap for them if free (FUN_CHEER). */
+  cheerFor(other: AvatarController): boolean {
+    if (this.clockT - this.cheerAt < CHEER_AGAIN || this.cmd) return false;
+    const idleish = this.phase === "none" || (this.phase === "auto" && this.auto?.stage === "do" && !this.auto.plan.seat);
+    if (!idleish) return false;
+    this.stopActivity();
+    this.cheerAt = this.clockT;
+    this.phase = "direct";
+    this.directDef = DIRECT.cheer;
+    this.directId = "FUN_CHEER";
+    this.targetYaw = Math.atan2(other.pos.x - this.pos.x, other.pos.z - this.pos.z);
+    this.fsm.force("cheer");
+    this.setEmote("★", 1.6);
+    this.note("FUN_CHEER");
     return true;
   }
 
@@ -527,7 +561,11 @@ export class AvatarController {
       if (this.walkTo(goal)) this.phase = "wander";
       return;
     }
-    const plan = pickBehavior(cfg, { recent: this.recent, lastDone: this.lastDone, now: this.clockT, cameraBusy: this.world.cameraBusy?.() ?? false }, this.planContext());
+    const plan = pickBehavior(
+      cfg,
+      { recent: this.recent, lastDone: this.lastDone, now: this.clockT, cameraBusy: this.world.cameraBusy?.() ?? false, hostSpeaking: this.world.hostSpeaking?.() ?? false },
+      this.planContext(),
+    );
     if (!plan || !this.startPlan(plan)) {
       this.fsm.force("idle");
       this.wanderIn = 1 + this.rng() * 2;
@@ -610,6 +648,7 @@ export class AvatarController {
     if (this.completed.length > 20) this.completed.shift();
     this.cmd = null;
     this.preempt = false;
+    this.world.onCompleted?.(this);
   }
 
   /** Moves along the path; returns true on arrival. */
@@ -723,6 +762,7 @@ export class AvatarController {
           this.held.mode = "inHand";
           this.phase = "hold";
           this.fsm.force("hold");
+          this.setEmote("★", 1.0); // FUN_SURPRISE: a little hop of joy, the box is found
           this.progress("PICKED");
         } else if (expired) return this.fail("pickup_timeout");
         break;
@@ -819,7 +859,9 @@ export class AvatarController {
         if (expired) this.leaveTea();
         break;
       case "tea_up":
-        if (!this.teaApproach || this.moveDirect(this.teaApproach, dt) || expired) {
+        if (this.fsm.state === "standup") {
+          if (this.fsm.elapsed >= STAND_UP_SECONDS) this.fsm.force("walk");
+        } else if (!this.teaApproach || this.moveDirect(this.teaApproach, dt) || expired) {
           this.phase = "none";
           this.targetYaw = 0;
           this.fsm.force("wave");
@@ -845,10 +887,19 @@ export class AvatarController {
         } else if (a.stage === "do") {
           a.t += dt;
           if (a.plan.face !== undefined) this.targetYaw = a.plan.face;
+          const x = a.plan.extra;
+          if (x) {
+            // a short extra moment inside the activity (FUN_YAWN on the bench)
+            const inside = a.t >= x.at && a.t < x.at + x.seconds;
+            if (inside && this.fsm.state !== x.anim) {
+              this.fsm.force(x.anim);
+              this.note(x.id);
+            } else if (!inside && this.fsm.state === x.anim) this.fsm.force(a.plan.anim);
+          }
           if (a.t >= a.plan.seconds) {
             if (a.plan.seat) {
               a.stage = "up";
-              this.fsm.force("walk");
+              this.fsm.force("standup");
             } else {
               this.endActivity(true);
               this.phase = "none";
@@ -857,7 +908,9 @@ export class AvatarController {
             }
           }
         } else if (a.stage === "up") {
-          if (this.moveDirect(a.plan.seat!.approach, dt) || expired) {
+          if (this.fsm.state === "standup") {
+            if (this.fsm.elapsed >= STAND_UP_SECONDS) this.fsm.force("walk");
+          } else if (this.moveDirect(a.plan.seat!.approach, dt) || expired) {
             this.endActivity(true);
             this.phase = "none";
             this.fsm.force("idle");

@@ -100,6 +100,8 @@ export interface AutoPlan {
   emote?: string;
   partner?: string; // social: the other Chibi
   prop?: "cup";
+  /** a short extra moment inside the activity, e.g. a yawn on the bench */
+  extra?: { id: string; anim: AnimState; at: number; seconds: number };
 }
 
 export interface Partner {
@@ -212,7 +214,11 @@ export const CATALOG: Def[] = [
     cooldown: 45,
     plan: (c) => {
       const s = pick(c.rand, c.freeSeats);
-      return s ? { id: "REST_BENCH", group: "rest", state: "RESTING", seat: s, face: s.yaw, anim: "sit", seconds: between(c.rand, 6, 10) } : null;
+      if (!s) return null;
+      const seconds = between(c.rand, 6, 10);
+      // FUN_YAWN: now and then a sleepy yawn on the bench
+      const extra = c.rand() < 0.5 ? { id: "FUN_YAWN", anim: "yawn" as const, at: between(c.rand, 1.5, seconds - 3), seconds: 1.8 } : undefined;
+      return { id: "REST_BENCH", group: "rest", state: "RESTING", seat: s, face: s.yaw, anim: "sit", seconds, extra };
     },
   },
   {
@@ -235,6 +241,7 @@ export interface PickState {
   lastDone: Map<string, number>; // id → clock seconds
   now: number;
   cameraBusy: boolean; // the camera is on a product: no fun, less crowd movement
+  hostSpeaking?: boolean; // the host / AI voice is talking: no fun, calmer crowd
 }
 
 /** Weighted choice of the next autonomous activity, or null if nothing fits right now. */
@@ -244,6 +251,8 @@ export function pickBehavior(cfg: BehaviorConfig, st: PickState, ctx: PlanContex
     let w = (cfg.weights[d.group] ?? 0) * d.share;
     if (st.cameraBusy && d.group === "fun") w = 0;
     if (st.cameraBusy && d.group === "explore") w *= 0.4;
+    if (st.hostSpeaking && d.group === "fun") w = 0;
+    if (st.hostSpeaking && d.group === "explore") w *= 0.6;
     const last = st.lastDone.get(d.id);
     if (last !== undefined && st.now - last < d.cooldown) w = 0;
     const n = st.recent.length;

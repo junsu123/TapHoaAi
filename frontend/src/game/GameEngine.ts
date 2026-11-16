@@ -17,6 +17,7 @@ import { DEFAULT_SCENE, type LeaderboardView } from "../types/protocol";
 import { TeaHouse, teaSpot, type TeaSpot } from "./teahouse";
 import { benchSpots, DEFAULT_BEHAVIOR, type Bench, type BehaviorConfig } from "./behaviors";
 import { AvatarController, type Vec3, type WorldQuery } from "./AvatarController";
+import { ClipLibrary, PROCEDURAL_CLIPS } from "./clips";
 import { NavGrid } from "./Navigation";
 
 export interface CameraState {
@@ -102,6 +103,9 @@ export class GameEngine {
       },
       socialReply: (partnerId, from) => this.avatars.get(partnerId)?.socialReply(from) ?? false,
       cameraBusy: () => this.camera.mode === "follow" && !!this.camera.commandId,
+      hostSpeaking: () => this.hostSpeaking,
+      clips: () => this.clips,
+      onCompleted: (who) => this.cheerFor(who),
       spotFree: (p, selfId) => {
         for (const a of this.avatars.values()) {
           if (a.info.avatar_id === selfId) continue;
@@ -118,6 +122,14 @@ export class GameEngine {
   debugScreens = new Map<string, { x: number; y: number; on: boolean }>();
   /** autonomous-life settings (spec §5); the server may send its own */
   behavior: BehaviorConfig = DEFAULT_BEHAVIOR;
+  /** animation clips the Chibi rig has; missing ones fall back (T12) */
+  clips = new ClipLibrary(PROCEDURAL_CLIPS);
+  /** the host / AI voice is talking right now (T15) */
+  hostSpeaking = false;
+  /** render level of detail per Chibi, decided by the renderer each frame (T16) */
+  lod = { full: 0, reduced: 0, far: 0, hidden: 0 };
+  /** 0 = everyone in full, 1 = crowded, 2 = very crowded / slow PC */
+  lodLevel: 0 | 1 | 2 = 0;
   /** benches for REST_* and who sits on which seat */
   benches: Bench[] = [];
   private seatHolders = new Map<string, string>();
@@ -139,9 +151,33 @@ export class GameEngine {
     this.version++;
   }
 
+  /** For a rig without some clips (or a test): those clips fall back to the nearest one. */
+  setMissingClips(missing: string[]): void {
+    const gone = new Set(missing);
+    this.clips = new ClipLibrary(PROCEDURAL_CLIPS.filter((c) => !gone.has(c)));
+  }
+
+  setSpeaking(on: boolean): void {
+    this.hostSpeaking = on;
+  }
+
+  /** A Chibi just finished presenting a product: up to two free neighbours clap (FUN_CHEER). */
+  private cheerFor(who: AvatarController): void {
+    if (this.behavior.weights.fun <= 0 || !this.behavior.autonomous_enabled || this.hostSpeaking) return;
+    const near = [...this.avatars.values()]
+      .filter((a) => a !== who && !a.removed && Math.hypot(a.pos.x - who.pos.x, a.pos.z - who.pos.z) < 4)
+      .sort((a, b) => Math.hypot(a.pos.x - who.pos.x, a.pos.z - who.pos.z) - Math.hypot(b.pos.x - who.pos.x, b.pos.z - who.pos.z));
+    let n = 0;
+    for (const a of near) {
+      if (n >= 2) break;
+      if (a.cheerFor(who)) n++;
+    }
+  }
+
   setScene(scene: SceneConfig): void {
     const ownerWas = this.scene.owner_enabled;
     this.scene = { ...DEFAULT_SCENE, ...scene };
+    this.behavior = behaviorFromScene(this.scene);
     if (this.layout && ownerWas !== this.scene.owner_enabled) this.rebuildNav();
     this.sceneVersion++;
     this.version++;
@@ -363,9 +399,32 @@ export class GameEngine {
         directQueue: a.direct.map((d) => d.kind),
         emote: a.emote?.icon ?? null,
         seat: a.sittingOnBench?.id ?? null,
+        pose: a.pose,
       })),
+      clipWarnings: [...this.clips.warnings],
+      hostSpeaking: this.hostSpeaking,
+      behaviorConfig: this.behavior,
+      lod: { ...this.lod, level: this.lodLevel },
       seats: Object.fromEntries([...this.benches.flatMap((b) => b.seats)].map((s) => [s.id, this.world.seatFree?.(s.id) === false])),
       sent: this.sent.slice(-80),
     };
   }
+}
+
+/** Behaviour settings saved in the dashboard (scene config) → scheduler config. */
+export function behaviorFromScene(sc: SceneConfig): BehaviorConfig {
+  const n = (v: unknown, d: number) => (typeof v === "number" && Number.isFinite(v) ? Math.max(0, v) : d);
+  const w = DEFAULT_BEHAVIOR.weights;
+  return {
+    ...DEFAULT_BEHAVIOR,
+    autonomous_enabled: sc.chibi_autonomous ?? true,
+    weights: {
+      browse: n(sc.chibi_w_browse, w.browse),
+      explore: n(sc.chibi_w_explore, w.explore),
+      idle: n(sc.chibi_w_idle, w.idle),
+      social: n(sc.chibi_w_social, w.social),
+      rest: n(sc.chibi_w_rest, w.rest),
+      fun: n(sc.chibi_w_fun, w.fun),
+    },
+  };
 }

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.17.0 — 2026-11-16 — Hành vi Chibi V3 (P1)
+
+- **Thiếu hoạt ảnh không làm hỏng game (T12):** mỗi trạng thái chơi một “clip” có tên (idle, walk, wave, reach, present, put_back, sit, stand_up, dance, cheer…). Nếu bộ nhân vật thiếu clip nào, Chibi dùng clip gần nghĩa nhất (nhảy → vỗ tay → vẫy tay → đứng yên), ghi cảnh báo một lần, không lỗi. Thử bằng `/game/live?noclip=dance`.
+- **Khi giọng AI/người dẫn đang đọc (T15):** Chibi vẫn đi lại, xem kệ bình thường nhưng không tự nhảy/tạo dáng/xoay vòng hay vỗ tay; lệnh của người xem (“nhảy đi”) vẫn làm. Hành vi Chibi không bao giờ phát âm thanh; chỉ một giọng đọc tại một thời điểm.
+- **Đông khách vẫn mượt (T16):** Chibi ở xa vẽ ít chi tiết hơn (bỏ viền, bỏ má hồng/mắt lấp lánh, khối ít đa giác, cử động cập nhật cách khung), Chibi ngoài khung hình không tính cử động. Chibi đang được quay hoặc đang cầm hộp, và tên khách, không bao giờ bị giảm. Mức giảm tự chọn theo số Chibi và FPS đo được; `/game/live?lod=0` vẽ mọi Chibi đầy đủ để so sánh. Kết quả đo trong `docs/benchmark-chibi.md`.
+- **Đo hiệu năng ngay trên máy phát LIVE:** thẻ *Hiệu năng màn hình game* (trang Game 3D & OBS) hiện FPS, khung chậm nhất, thời gian CPU cho hành vi Chibi, số lệnh vẽ GPU, bộ nhớ, card đồ họa và số Chibi theo mức chi tiết; nút **Đo thử với 30 / 50 Chibi** (chỉ khi chạy Demo) thêm Chibi demo, chờ 8 giây rồi đo 20 giây và ghi kết quả vào bảng.
+- **Hành vi Chibi chỉnh trong dashboard:** bật/tắt tự sinh hoạt, kéo tỉ lệ xem kệ / dạo quanh / đứng nghỉ / chào nhau / ngồi ghế / vui nhộn, số Chibi tối đa trên màn hình (người đến sau chờ ngoài cửa, vào khi có Chibi ra về).
+- Hành vi mới: đứng dậy khỏi ghế (stand_up), ngáp trên ghế dài (FUN_YAWN), nhảy cẫng lên khi lấy được hộp (FUN_SURPRISE), tối đa 2 Chibi đứng gần vỗ tay khi người khác giới thiệu xong sản phẩm (FUN_CHEER, mỗi Chibi tối đa 1 lần/phút), bước chân khi xoay người.
+- API mới: `GET /api/v1/game/perf`, `POST /api/v1/game/benchmark`, `POST /api/v1/game/benchmark/clear`; tin nhắn game `PERF_REPORT`.
+
 ## 0.16.0 — 2026-11-16 — Hành vi Chibi V3 (P0)
 
 - **Chibi tự sống khi không có lệnh:** bộ chọn hành vi có trọng số (xem kệ 30%, dạo quanh 25%, đứng nghỉ 20%, giao lưu 10%, ngồi ghế 10%, vui nhộn 5%), có thời gian hồi, không làm một việc 3 lần liền, tự giảm hành vi ồn ào khi camera đang quay người khác. Hành vi mới: xem kệ, xem giá, đọc biển, vươn vai, nhìn quanh, vẫy/gật đầu với Chibi bên cạnh, ngồi ghế dài uống trà, nhảy, tạo dáng, xoay vòng.

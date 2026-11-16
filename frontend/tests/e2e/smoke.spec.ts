@@ -930,3 +930,148 @@ test("Behaviour V3: Chibis live on their own, take product commands, queue dance
   await frame("left");
   await game.close();
 });
+
+test("Behaviour P1: missing dance clip falls back (T12), Chibis keep living calmly while the voice talks (T15), settings from the dashboard", async ({ page, context }) => {
+  test.setTimeout(200_000);
+  const csrf = await login(page.request);
+  const H = { "X-CSRF-Token": csrf };
+  const game = await context.newPage();
+  // a fake computer voice that talks for 6 s; counts how many voices / audio clips play at once
+  await game.addInitScript(() => {
+    const w = window as any;
+    w.__sound = { speaking: 0, maxAtOnce: 0, speaks: 0, mediaPlays: 0 };
+    const orig = HTMLMediaElement.prototype.play;
+    HTMLMediaElement.prototype.play = function (this: HTMLMediaElement) {
+      w.__sound.mediaPlays++;
+      w.__sound.speaking++;
+      w.__sound.maxAtOnce = Math.max(w.__sound.maxAtOnce, w.__sound.speaking);
+      const done = () => {
+        w.__sound.speaking--;
+        this.removeEventListener("ended", done);
+        this.removeEventListener("pause", done);
+      };
+      this.addEventListener("ended", done);
+      this.addEventListener("pause", done);
+      return orig.call(this);
+    };
+    class U {
+      text: string; voice: any = null; lang = ""; rate = 1;
+      onstart: any = null; onend: any = null; onerror: any = null;
+      constructor(t: string) { this.text = t; }
+    }
+    const voice = { name: "Fake Vietnamese", lang: "vi-VN", localService: true };
+    w.SpeechSynthesisUtterance = U;
+    Object.defineProperty(w, "speechSynthesis", {
+      value: {
+        getVoices: () => [voice],
+        cancel: () => undefined, pause: () => undefined, resume: () => undefined,
+        addEventListener: () => undefined, removeEventListener: () => undefined,
+        speak: (u: any) => {
+          w.__sound.speaks++;
+          w.__sound.speaking++;
+          w.__sound.maxAtOnce = Math.max(w.__sound.maxAtOnce, w.__sound.speaking);
+          setTimeout(() => u.onstart?.(), 30);
+          setTimeout(() => { w.__sound.speaking--; u.onend?.(); }, 6000);
+        },
+      },
+      configurable: true,
+    });
+  });
+  await game.setViewportSize({ width: 540, height: 960 });
+  await game.goto("/game/live?debug=1&overlay=1&quality=medium&noclip=dance");
+  await game.waitForFunction(() => (window as any).__chibiDebug?.state().layoutVersion > 0);
+  const st = () => game.evaluate(() => (window as any).__chibiDebug.state());
+  const tag = RUN.slice(-3);
+
+  // T12: "nhảy" without a dance clip → the Chibi still does FUN_DANCE, drawn with the cheer clip
+  const nick = `clip${tag}`;
+  await inject(page, csrf, `@${nick}: chào shop`);
+  await game.waitForFunction((n) => (window as any).__chibiDebug.state().avatars.some((a: any) => a.nickname === n && a.top !== "ENTERING"), nick, { timeout: 30_000 });
+  await inject(page, csrf, `@${nick}: nhảy đi`);
+  await game.waitForFunction((n) => (window as any).__chibiDebug.state().avatars.some((a: any) => a.nickname === n && a.behavior === "FUN_DANCE" && a.pose === "cheer"), nick, { timeout: 20_000 });
+  expect((await st()).clipWarnings).toContain("dance → cheer");
+  await game.screenshot({ path: `${SHOTS}/P1-T12-dance-fallback-cheer.png` });
+
+  // T15: the voice talks → the shop stays alive (Chibis move), no dance/pose/spin starts, one voice at a time
+  await page.request.post("/api/v1/demo/events", { data: { type: "SPAWN_RANDOM", count: 10, seed: 15 }, headers: H });
+  await game.waitForTimeout(6000);
+  const ai = await (await page.request.get("/api/v1/settings/ai")).json();
+  await page.request.put("/api/v1/settings/ai", { data: { config: { ...ai.config, voice_enabled: true, voice_policy_confirmed: true } }, headers: H });
+  await page.request.post("/api/v1/voice/unmute", { headers: H });
+  const r = await page.request.post("/api/v1/voice/test-live", { headers: H });
+  expect(r.ok()).toBeTruthy();
+  await game.waitForFunction(() => (window as any).__chibiDebug.state().hostSpeaking === true, null, { timeout: 15_000 });
+  const before = await st();
+  await game.waitForTimeout(1500);
+  const during = await st();
+  await game.screenshot({ path: `${SHOTS}/P1-T15-voice-talking.png` });
+  expect(during.hostSpeaking).toBe(true);
+  const moved = during.avatars.filter((a: any) => {
+    const b = before.avatars.find((x: any) => x.id === a.id);
+    return b && Math.hypot(a.pos.x - b.pos.x, a.pos.z - b.pos.z) > 0.2;
+  });
+  expect(moved.length).toBeGreaterThanOrEqual(2); // still alive, not frozen
+  for (const a of during.avatars) {
+    const b = before.avatars.find((x: any) => x.id === a.id);
+    const fresh = b ? a.history.slice(b.history.length) : [];
+    expect(fresh.filter((h: string) => /^FUN_(DANCE|POSE|SPIN)$/.test(h)), a.nickname).toEqual([]);
+  }
+  await game.waitForFunction(() => (window as any).__chibiDebug.state().hostSpeaking === false, null, { timeout: 20_000 });
+  const sound = await game.evaluate(() => (window as any).__sound);
+  // exactly the one voice line (Vbee audio or the computer's voice): Chibi behaviours make no sound
+  expect(sound.speaks + sound.mediaPlays).toBe(1);
+  expect(sound.maxAtOnce).toBe(1);
+  await page.request.put("/api/v1/settings/ai", { data: { config: ai.config }, headers: H });
+
+  // behaviour settings in the dashboard: no fun, saved and applied live
+  await page.setViewportSize({ width: 1360, height: 1400 });
+  await page.goto("/dashboard/game");
+  const weights = page.getByTestId("chibi-weights");
+  await expect(weights).toBeVisible();
+  await weights.getByLabel("Vui nhộn").fill("0");
+  await page.getByRole("button", { name: "Lưu không gian & banner" }).click();
+  await expect(page.getByText("Đã lưu — màn hình LIVE đổi ngay.")).toBeVisible();
+  await game.waitForFunction(() => (window as any).__chibiDebug.state().behaviorConfig.weights.fun === 0, null, { timeout: 10_000 });
+  await weights.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${SHOTS}/P1-settings-behaviour.png` });
+  await weights.getByRole("button", { name: "Về tỉ lệ mặc định" }).click();
+  await page.getByRole("button", { name: "Lưu không gian & banner" }).click();
+  await game.waitForFunction(() => (window as any).__chibiDebug.state().behaviorConfig.weights.fun === 5, null, { timeout: 10_000 });
+  await game.close();
+});
+
+test("Behaviour P1 (T16): benchmark 30 and 50 Chibis from the dashboard, with level of detail", async ({ page, context }) => {
+  test.setTimeout(300_000);
+  const csrf = await login(page.request);
+  const H = { "X-CSRF-Token": csrf };
+  const game = await context.newPage();
+  await game.setViewportSize({ width: 540, height: 960 });
+  await game.goto("/game/live?debug=1&overlay=1");
+  await game.waitForFunction(() => (window as any).__chibiDebug?.state().layoutVersion > 0);
+  await page.request.post("/api/v1/game/benchmark/clear", { headers: H });
+  await page.setViewportSize({ width: 1360, height: 1500 });
+  await page.goto("/dashboard/game");
+  const card = page.getByTestId("perf-card");
+  await expect(card.getByTestId("perf-fps")).toBeVisible({ timeout: 20_000 });
+  const results: any[] = [];
+  for (const n of [30, 50]) {
+    await card.getByTestId(`bench-${n}`).click();
+    await expect(card.getByTestId("bench-msg")).toContainText(`Đang đo với ${n} Chibi`);
+    await expect(card.getByTestId("bench-results").locator("tbody tr")).toHaveCount(results.length + 1, { timeout: 90_000 });
+    const v = await (await page.request.get("/api/v1/game/perf")).json();
+    const res = v.results[v.results.length - 1];
+    expect(res.avatars).toBeGreaterThanOrEqual(n);
+    results.push(res);
+    const s = await game.evaluate(() => (window as any).__chibiDebug.state());
+    // crowded: far-away Chibis are drawn with less detail; names and boxes are never dropped
+    expect(s.lod.level).toBeGreaterThanOrEqual(1);
+    expect(s.lod.full + s.lod.reduced + s.lod.far + s.lod.hidden).toBe(s.avatars.length);
+    await game.screenshot({ path: `${SHOTS}/P1-T16-game-${n}-chibi.png` });
+  }
+  await card.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${SHOTS}/P1-T16-perf-card.png` });
+  const fs = await import("node:fs");
+  fs.writeFileSync(`${SHOTS}/P1-T16-benchmark.json`, JSON.stringify(results, null, 2));
+  await card.getByTestId("bench-clear").click();
+  await game.close();
+});

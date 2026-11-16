@@ -48,6 +48,10 @@ class LiveSettingsPatch(BaseModel):
     sign_api_key: str | None = Field(default=None, max_length=300)
 
 
+class BenchmarkIn(BaseModel):
+    count: int = Field(ge=5, le=80)
+
+
 class DemoEventIn(BaseModel):
     type: Literal["COMMENT", "JOIN", "LIKE", "FOLLOW", "GIFT", "SPAWN_RANDOM"] = "COMMENT"
     raw: str | None = Field(default=None, max_length=400)
