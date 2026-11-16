@@ -6,6 +6,7 @@
   - **Đoán giá** 💰: một sản phẩm có giá đã kiểm tra hiện trên màn hình kèm ảnh; người xem bình luận con số (“85”, “85k”, “85.000”, “85 nghìn”, “1tr2”); ai gần đúng nhất thắng (bằng nhau thì ai trả lời trước).
   - **Đố vui** ❓: câu hỏi A / B / C về trà, Việt Nam và chính LIVE này (17 câu có sẵn, không nói về công dụng chữa bệnh) cùng câu đố của shop; 3 người trả lời đúng nhanh nhất thắng.
   - **Nhanh tay** ⚡: chủ quán đưa ra một chữ (vd “TRÀ NGON”); 3 người gõ đúng đầu tiên thắng, lượt kết thúc ngay khi đủ 3.
+- (Bộ test trình duyệt tắt mini-game tự động cho mọi test trừ test mini-game.)
 - Bảng mini-game trên LIVE: câu hỏi, vạch đếm ngược, số người đã trả lời; hết giờ hiện đáp án và người thắng. Chủ quán đọc câu hỏi và kết quả (bong bóng + giọng). Bảng “Sắp diễn ra” có dòng 🎮 mini-game tiếp theo và tạm nhường chỗ khi đang chơi; Bảng vàng cũng tạm ẩn trong lượt chơi.
 - Mỗi người chỉ một câu trả lời mỗi lượt (câu đầu tiên tính). Câu trả lời chỉ là câu trả lời: không được đọc to, không làm Chibi chạy đi lấy hàng, không gửi Claude, không vào danh sách người trực.
 - **Người thắng**: Chibi đeo **huy chương vàng**, cổ vũ; lên **Bảng vàng — tab “Mini-game”** (số lần thắng). Phần thưởng chỉ là danh hiệu trong game; quà thật hay rút thăm thì shop cần làm đúng quy định khuyến mãi của TikTok.

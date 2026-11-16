@@ -39,6 +39,22 @@ async function inject(page: Page, csrf: string, raw: string) {
   expect(r.ok(), await r.text()).toBeTruthy();
 }
 
+// Automatic mini-games (every 15–20 minutes) would start at random moments of this long suite and
+// take comments as answers: they are off for every test except the one about them.
+test.beforeEach(async ({ playwright, baseURL }, info) => {
+  if (info.title.startsWith("Mini-games")) return;
+  const r = await playwright.request.newContext({ baseURL });
+  try {
+    const csrf = await login(r);
+    const H = { "X-CSRF-Token": csrf };
+    const cur = (await (await r.get("/api/v1/settings/scene")).json()).config;
+    if (cur.minigame_enabled) await r.put("/api/v1/settings/scene", { data: { ...cur, minigame_enabled: false }, headers: H });
+    await r.post("/api/v1/games/stop", { headers: H });
+  } finally {
+    await r.dispose();
+  }
+});
+
 const state = (page: Page) => page.evaluate(() => (window as any).__chibiDebug.state() as DebugState);
 const cameraShot = (page: Page) => page.evaluate(() => (window as any).__chibiDebug.camera()?.shot as string);
 const avatarOf = (s: DebugState, nick: string) => s.avatars.find((a) => a.nickname === nick);
