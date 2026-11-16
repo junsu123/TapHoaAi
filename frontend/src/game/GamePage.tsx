@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { SequencedSocket, wsUrl } from "../lib/ws";
 import type { ClientGameMessage, GameSnapshot, ServerGameMessage } from "../types/protocol";
 import { GameEngine } from "./GameEngine";
+import { BehaviorDebugOverlay } from "./BehaviorDebugOverlay";
 import { LiveOverlay, type SafeArea } from "./LiveOverlay";
 import { pickVoice, SpeechPlayer, vietnameseVoices, type SpeechView, type VoiceLike } from "./SpeechPlayer";
 import { World, type Quality } from "./World";
@@ -16,6 +17,7 @@ export function GamePage() {
   const params = useMemo(() => new URLSearchParams(location.search), []);
   const role = params.get("role") === "viewer" ? "viewer" : "primary";
   const debug = params.get("debug") === "1";
+  const overlay = params.get("overlay") === "1"; // behaviour debug overlay (spec V3 §9)
   const [quality, setQuality] = useState<Quality>((ORDER as string[]).includes(params.get("quality") ?? "") ? (params.get("quality") as Quality) : "medium");
   const autoQuality = params.get("quality") === null;
   const safe: SafeArea = {
@@ -117,8 +119,9 @@ export function GamePage() {
   return (
     <div className="game-root">
       <div className="game-stage" data-testid="game-stage">
-        <World engine={engine} quality={quality} onFps={onFps} />
+        <World engine={engine} quality={quality} onFps={onFps} debugOverlay={overlay} />
         <LiveOverlay engine={engine} safe={safe} socketUp={socketUp} speech={speech} onUnlockAudio={() => player.unlock()} />
+        {overlay && <BehaviorDebugOverlay engine={engine} fps={() => fpsLog.current} />}
       </div>
     </div>
   );

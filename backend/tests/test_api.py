@@ -148,7 +148,7 @@ def test_product_glb_model_reaches_game_layout(admin_client):
 
 def test_idle_exit_setting_persists(admin_client):
     c = admin_client
-    assert c.get("/api/v1/settings/game").json()["idle_exit_minutes"] == 5.0
+    assert c.get("/api/v1/settings/game").json()["idle_exit_minutes"] == 6.0  # spec V3: 6 minutes by default
     r = c.patch("/api/v1/settings/game", json={"idle_exit_minutes": 2})
     assert r.status_code == 200 and r.json()["idle_exit_minutes"] == 2.0
     assert c.app.state.container.avatars.idle_exit_seconds == 120

@@ -23,6 +23,14 @@ if TYPE_CHECKING:
 log = logging.getLogger("chibi.orchestrator")
 
 
+DIRECT_WINDOW_S = 4.0  # the same direct command again within this window does nothing (spec §4)
+LIKE_WINDOW_S = 8.0
+DIRECT_EFFECTS = {
+    IntentKind.GREETING: "wave", IntentKind.DANCE: "dance", IntentKind.EXPLORE: "explore",
+    IntentKind.SIT: "sit", IntentKind.POSE: "pose",
+}
+
+
 class Orchestrator:
     def __init__(self, c: AppContainer):
         self.c = c
@@ -34,6 +42,7 @@ class Orchestrator:
         self.host_attention: deque[dict[str, Any]] = deque(maxlen=100)
         self.viewer_count: int | None = None
         self.errors = 0
+        self._last_effect: dict[tuple[str, str], float] = {}
 
     async def run(self) -> None:
         while True:
@@ -113,8 +122,10 @@ class Orchestrator:
             av = self.c.avatars.find(ev.user)  # like/follow never create avatars (LIVE-04)
             if av:
                 self.c.avatars.touch(av.avatar_id)  # still here → not idle
-            self.c.hub.send_game({"type": "SOCIAL_EFFECT", "kind": ev.type.value.lower(),
-                                  "avatar_id": av.avatar_id if av and av.visible else None})
+            kind = ev.type.value.lower()
+            # likes come in floods: one small heart per viewer per window (spec §3.6, §10)
+            if av and av.visible and self._allow(av.avatar_id, kind, LIKE_WINDOW_S if kind == "like" else DIRECT_WINDOW_S):
+                self.c.hub.send_game({"type": "SOCIAL_EFFECT", "kind": kind, "avatar_id": av.avatar_id})
         elif ev.type == EventType.VIEWER_COUNT:
             self.viewer_count = int(ev.payload.get("count", 0))
             if not is_demo:
@@ -123,6 +134,23 @@ class Orchestrator:
             for avatar_id in self.c.avatars.exit_all("live_end"):
                 self.c.actions.cancel_avatar(avatar_id, "live_end")
             self.c.camera.forget_all()
+
+    def _allow(self, avatar_id: str, kind: str, window: float) -> bool:
+        """Debounce: the same reaction for the same Chibi at most once per `window` seconds."""
+        now = time.monotonic()
+        key = (avatar_id, kind)
+        if now - self._last_effect.get(key, -1e9) < window:
+            return False
+        self._last_effect[key] = now
+        if len(self._last_effect) > 20000:
+            self._last_effect.clear()
+        return True
+
+    def _direct(self, avatar_id: str, kind: str) -> str:
+        if not self._allow(avatar_id, kind, DIRECT_WINDOW_S):
+            return "duplicate"
+        self.c.hub.send_game({"type": "SOCIAL_EFFECT", "kind": kind, "avatar_id": avatar_id})
+        return "direct"
 
     def _comment(self, ev: LiveEvent, is_demo: bool) -> None:
         now = time.monotonic()
@@ -140,10 +168,23 @@ class Orchestrator:
                 parent_event_id=ev.event_id, received_monotonic=ev.received_monotonic,
             )
             command_id = cmd.command_id if cmd else None
-        elif av and intent.kind == IntentKind.GREETING:
-            self.c.hub.send_game({"type": "SOCIAL_EFFECT", "kind": "wave", "avatar_id": av.avatar_id})
-        elif av and intent.kind == IntentKind.DANCE:
-            self.c.hub.send_game({"type": "SOCIAL_EFFECT", "kind": "dance", "avatar_id": av.avatar_id})
+            if outcome == "no_location":  # approved product that sits on no shelf
+                self._direct(av.avatar_id, "surprise")
+        elif av and intent.kind == IntentKind.LEAVE:
+            # "về thôi": put things back, wave, walk out (spec LEAVE_WAVE); a later comment brings them back
+            outcome = "leave"
+            self.c.actions.cancel_avatar(av.avatar_id, "user_leave")
+            self.c.camera.forget_avatar(av.avatar_id)
+            self.c.avatars.leave(av.avatar_id)
+        elif av and intent.kind in DIRECT_EFFECTS:
+            outcome = self._direct(av.avatar_id, DIRECT_EFFECTS[intent.kind])
+        elif av and intent.kind == IntentKind.AMBIGUOUS:
+            self._direct(av.avatar_id, "think")  # waits, a "?" over the head — never a random product
+        elif av and intent.kind == IntentKind.QUESTION and intent.product_id is None:
+            held = self.c.actions.current_product(av.avatar_id)
+            if held:  # "thành phần trà này" → the box in this viewer's hands
+                intent.product_id = held
+                self._direct(av.avatar_id, "point")
 
         names = self.c.catalog.products
         record = {

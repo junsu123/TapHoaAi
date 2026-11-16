@@ -38,6 +38,11 @@ export function ChibiAvatar({
   const legR = useRef<THREE.Group>(null!);
   const hand = useRef<THREE.Object3D>(null!); // rightHandSocket
   const label = useRef<THREE.Sprite>(null!);
+  const emote = useRef<THREE.Sprite>(null!);
+  const emoteIcon = useRef<string | null>(null);
+  const emoteMat = useMemo(() => new THREE.SpriteMaterial({ depthTest: false, transparent: true }), []);
+  useEffect(() => () => emoteMat.dispose(), [emoteMat]);
+  const cup = useRef<THREE.Group>(null!);
   const heldBox = useRef<THREE.Group>(null!);
   const { camera } = useThree();
   const labels = useContext(LabelRegistryContext);
@@ -82,7 +87,12 @@ export function ChibiAvatar({
     let lArmSide = 0.12;
     let legSwing = 0;
     let headTilt = 0;
+    let headYaw = 0;
+    let headPitch = 0;
+    let bodyRoll = 0;
+    let spin = 0;
     let lean = 0;
+    const e = ctl.fsm.elapsed;
     if (st === "walk" || (ctl.phase === "leave" && st !== "idle")) {
       const w = Math.sin(t * 11);
       legSwing = w * 0.6;
@@ -123,6 +133,55 @@ export function ChibiAvatar({
       lArm = -2.7;
     } else if (st === "wait") {
       headTilt = Math.sin(t * 1.5) * 0.1;
+    } else if (st === "look") {
+      headYaw = Math.sin(t * 1.3) * 0.65; // look around
+    } else if (st === "browse") {
+      lean = 0.1;
+      headTilt = 0.16;
+      headYaw = Math.sin(t * 0.8) * 0.5; // eyes along the shelf
+      rArm = -0.35 + Math.max(0, Math.sin(t * 0.6)) * -0.5; // now and then points at a box
+    } else if (st === "nod") {
+      headPitch = Math.abs(Math.sin(e * 7)) * 0.32;
+      lean = 0.06;
+    } else if (st === "lookup") {
+      headPitch = -0.32;
+      headYaw = Math.sin(t * 0.7) * 0.25;
+      rArm = -0.3;
+      lArm = -0.3;
+    } else if (st === "stretch") {
+      const k = Math.sin(Math.min(1, e / 1.6) * Math.PI);
+      rArm = -2.9 * k;
+      lArm = -2.9 * k;
+      rArmSide = -0.25 * k;
+      lArmSide = 0.25 * k;
+      lean = -0.12 * k;
+      bob = 0.03 * k;
+    } else if (st === "pose") {
+      rArm = -2.3;
+      rArmSide = -0.2;
+      lArm = -0.25;
+      lArmSide = 0.75;
+      bodyRoll = 0.1;
+    } else if (st === "spin") {
+      spin = Math.min(1, e / 1.1) * Math.PI * 2 + (e > 1.1 ? Math.sin((e - 1.1) * 12) * 0.12 * Math.max(0, 1.4 - e) : 0);
+      rArm = -1.4;
+      lArm = -1.4;
+      rArmSide = -1.1;
+      lArmSide = 1.1;
+    } else if (st === "surprise") {
+      bob = Math.max(0, Math.sin(Math.min(1, e / 0.5) * Math.PI)) * 0.12;
+      rArm = -2.0;
+      lArm = -2.0;
+      rArmSide = -0.9;
+      lArmSide = 0.9;
+      headPitch = -0.12;
+    } else if (st === "think") {
+      rArm = -2.1;
+      rArmSide = 0.55; // hand to the chin
+      headTilt = 0.22 + Math.sin(t * 1.2) * 0.05;
+    } else if (st === "point") {
+      rArm = -1.55;
+      rArmSide = -0.15;
     }
     // sitting on a cushion at the tea table: legs forward, hands on the table, a sip now and then
     let sit = 0;
@@ -134,14 +193,40 @@ export function ChibiAvatar({
       lArm = -0.7;
       bob = 0;
       headTilt = sip * -0.08;
+      if (ctl.sittingOnBench && !ctl.prop) {
+        // resting on a bench: hands on the knees, legs swinging
+        rArm = -0.9;
+        lArm = -0.9;
+        headTilt = Math.sin(t * 0.9) * 0.06;
+      }
     }
-    body.current.position.y = bob - sit * 0.12;
+    // bench seat is higher than the tea cushion
+    body.current.position.y = bob - sit * (ctl.sittingOnBench ? -0.06 : 0.12);
     body.current.rotation.x = lean;
+    body.current.rotation.z = bodyRoll;
     head.current.rotation.z = headTilt;
+    head.current.rotation.y = headYaw;
+    head.current.rotation.x = headPitch;
+    if (spin) root.current.rotation.y = ctl.yaw + spin;
     armL.current.rotation.set(lArm, 0, lArmSide);
     armR.current.rotation.set(rArm, 0, rArmSide);
-    legL.current.rotation.x = sit ? -1.45 : legSwing;
-    legR.current.rotation.x = sit ? -1.45 : -legSwing;
+    const swing = sit && ctl.sittingOnBench ? Math.sin(t * 2.4) * 0.25 : 0;
+    legL.current.rotation.x = sit ? -1.45 + swing : legSwing;
+    legR.current.rotation.x = sit ? -1.45 - swing : -legSwing;
+    cup.current.visible = ctl.prop === "cup";
+
+    // ---- emote bubble beside the head (never over the name label)
+    const em = ctl.emote?.icon ?? null;
+    if (em !== emoteIcon.current) {
+      emoteIcon.current = em;
+      emoteMat.map = em ? emoteTexture(em) : null;
+      emoteMat.needsUpdate = true;
+    }
+    emote.current.visible = !!em;
+    if (em) {
+      const pop = 1 + Math.max(0, Math.sin(t * 4)) * 0.06;
+      emote.current.scale.set(0.32 * pop, 0.32 * pop, 1);
+    }
 
     // ---- held product: slot → right hand → slot (always the commanding avatar's own hand)
     const held = ctl.held;
@@ -209,6 +294,15 @@ export function ChibiAvatar({
           <group ref={armL} position={[-0.2, 0.47, 0]}>
             <Part geometry={GEO.arm} material={shirt} position={[0, -0.13, 0]} />
             <Part geometry={GEO.hand} material={skin} position={[0, -0.26, 0]} />
+            {/* REST_DRINK: a plain tea cup (not one of the shop's products) */}
+            <group ref={cup} position={[0, -0.3, 0.06]} visible={false}>
+              <mesh material={toon("#f3ead6")}>
+                <cylinderGeometry args={[0.045, 0.035, 0.07, 14]} />
+              </mesh>
+              <mesh material={toon("#b9832f")} position={[0, 0.032, 0]}>
+                <cylinderGeometry args={[0.04, 0.04, 0.006, 14]} />
+              </mesh>
+            </group>
           </group>
           <group ref={armR} position={[0.2, 0.47, 0]}>
             <Part geometry={GEO.arm} material={shirt} position={[0, -0.13, 0]} />
@@ -250,6 +344,7 @@ export function ChibiAvatar({
           </group>
         </group>
         <sprite ref={label} material={labelMat} position={[0, LABEL_Y, 0]} renderOrder={10} />
+        <sprite ref={emote} material={emoteMat} position={[0.34, 1.12, 0]} renderOrder={11} visible={false} />
       </group>
       {/* the carried visual copy lives in world space so it can fly from the slot to the hand */}
       <group ref={heldBox} visible={false}>
@@ -257,6 +352,40 @@ export function ChibiAvatar({
       </group>
     </>
   );
+}
+
+const emoteCache = new Map<string, THREE.CanvasTexture>();
+/** Small round bubble with an icon (♪ ★ ❤ ? ! i) shown beside a Chibi's head. */
+function emoteTexture(icon: string): THREE.CanvasTexture {
+  const hit = emoteCache.get(icon);
+  if (hit) return hit;
+  const c = document.createElement("canvas");
+  c.width = c.height = 128;
+  const ctx = c.getContext("2d")!;
+  const colors: Record<string, string> = { "❤": "#e0455f", "★": "#e2a52b", "♪": "#3f6b3f", "?": "#4a6fa5", "!": "#c2502f", i: "#2e7a59" };
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.arc(64, 60, 52, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(40, 100);
+  ctx.lineTo(28, 124);
+  ctx.lineTo(62, 108);
+  ctx.fill();
+  ctx.lineWidth = 6;
+  ctx.strokeStyle = colors[icon] ?? "#3f6b3f";
+  ctx.beginPath();
+  ctx.arc(64, 60, 50, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = colors[icon] ?? "#3f6b3f";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = `900 ${icon === "i" ? 70 : 64}px Georgia, "DejaVu Sans", sans-serif`;
+  ctx.fillText(icon, 64, 64);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  emoteCache.set(icon, t);
+  return t;
 }
 
 /** A body part with optional inverted-hull outline (cel-shaded look). */

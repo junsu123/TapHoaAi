@@ -36,6 +36,9 @@ TERMINAL = {CmdStatus.COMPLETED, CmdStatus.FAILED, CmdStatus.CANCELLED, CmdStatu
 RUNNING = {CmdStatus.DISPATCHED, CmdStatus.ACKED, CmdStatus.STARTED}
 
 
+WALK_FOLLOW_SECONDS = 20.0  # camera follows a walking Chibi at most this long
+
+
 @dataclass
 class Command:
     command_id: str
@@ -59,6 +62,8 @@ class Command:
     received_monotonic: float = 0.0
     preempt_sent: bool = False
     show_seconds: float = 8.0
+    camera_seconds: float = 5.0
+    milestones: list[str] = field(default_factory=list)
 
     def wire(self, sequence_hint: str | None = None) -> dict[str, Any]:
         return {
@@ -70,7 +75,8 @@ class Command:
 
     def summary(self) -> dict[str, Any]:
         return {"command_id": self.command_id, "avatar_id": self.avatar_id, "product_id": self.product_id,
-                "shelf_id": self.shelf_code, "status": self.status.value, "reason": self.reason}
+                "shelf_id": self.shelf_code, "status": self.status.value, "reason": self.reason,
+                "milestones": list(self.milestones)}
 
 
 class StandReservations:
@@ -133,7 +139,8 @@ class AvatarQueue:
 class GameActionQueue:
     def __init__(self, hub, catalog: Catalog, camera: CameraDirector, *, cooldown: float = 5.0,
                  max_pending: int = 2, show_seconds: float = 8.0, reservation_ttl: float = 15.0,
-                 ack_timeout: float = 5.0, action_timeout: float = 45.0, clock=time.monotonic,
+                 ack_timeout: float = 5.0, action_timeout: float = 45.0, camera_seconds: float = 5.0,
+                 clock=time.monotonic,
                  persist: Callable[[Command], None] | None = None):
         self.hub = hub
         self.catalog = catalog
@@ -142,6 +149,7 @@ class GameActionQueue:
         self.max_pending = max_pending
         self.show_seconds = show_seconds
         self.ack_timeout = ack_timeout
+        self.camera_seconds = camera_seconds
         self.action_timeout = action_timeout
         self.clock = clock
         self.persist = persist or (lambda _c: None)
@@ -181,6 +189,13 @@ class GameActionQueue:
         q = self.queues.get(avatar_id)
         return bool(q and (q.active or q.pending))
 
+    def current_product(self, avatar_id: str) -> str | None:
+        """The product this viewer's Chibi is walking to / holding right now, if any."""
+        q = self.queues.get(avatar_id)
+        if q and q.active and q.active.status in RUNNING:
+            return q.active.product_id
+        return None
+
     def active_commands(self) -> list[Command]:
         return [q.active for q in self.queues.values() if q.active and q.active.status in RUNNING]
 
@@ -213,6 +228,7 @@ class GameActionQueue:
             command_id=self._new_id(), session_id=self.session_id, avatar_id=avatar_id, viewer_key=viewer_key,
             product_id=product_id, shelf_code=loc[0], slot_code=loc[1], created_at=self.clock(),
             parent_event_id=parent_event_id, received_monotonic=received_monotonic, show_seconds=self.show_seconds,
+            camera_seconds=self.camera_seconds,
         )
         self.commands[cmd.command_id] = cmd
         if len(q.pending) >= self.max_pending:
@@ -278,7 +294,9 @@ class GameActionQueue:
         cmd.send_attempts += 1
         self._set(cmd, CmdStatus.DISPATCHED)
         self.hub.send_game(cmd.wire())
-        self.camera.request(cmd.avatar_id, cmd.command_id, cmd.priority)
+        # camera focus is only a request: it follows the walk for a while (WALK_FOLLOW_SECONDS at
+        # most); the close-up on the presented box lasts camera_seconds (spec §7)
+        self.camera.request(cmd.avatar_id, cmd.command_id, cmd.priority, max_seconds=WALK_FOLLOW_SECONDS)
 
     # ------------------------------------------------------------------ client feedback
     def on_client_message(self, msg: dict[str, Any]) -> None:
@@ -302,6 +320,12 @@ class GameActionQueue:
             self._set(cmd, CmdStatus.STARTED)
         elif mtype == "ACTION_PROGRESS":
             self.reservations.renew(cmd.shelf_code, cmd.avatar_id)
+            phase = str(msg.get("phase") or "")[:24]
+            if phase.isupper() and phase not in cmd.milestones:  # PATH_FOUND, REACHED_SHELF, PICKED…
+                cmd.milestones.append(phase)
+                if phase == "PRESENTED":
+                    self.camera.limit(cmd.avatar_id, cmd.command_id, cmd.priority, cmd.camera_seconds)
+                self.on_update(cmd)
         elif mtype == "ACTION_COMPLETED":
             self.completed += 1
             self._finish(cmd, CmdStatus.COMPLETED, msg.get("reason"))

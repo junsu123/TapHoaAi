@@ -870,3 +870,63 @@ test("Honour board: drag it anywhere on the LIVE screen and resize it from the d
   await expect.poll(async () => (await gb.evaluate((el) => (el as HTMLElement).style.left))).toBe("");
   await game.close();
 });
+
+test("Behaviour V3: Chibis live on their own, take product commands, queue dance, leave on 'về thôi' (with demo frames)", async ({ page, context }) => {
+  test.setTimeout(240_000);
+  const csrf = await login(page.request);
+  const H = { "X-CSRF-Token": csrf };
+  const cur = (await (await page.request.get("/api/v1/settings/scene")).json()).config;
+  await page.request.put("/api/v1/settings/scene", { data: { ...cur, owner_enabled: true, board_enabled: false }, headers: H });
+  const game = await context.newPage();
+  await game.setViewportSize({ width: 540, height: 960 });
+  await game.goto("/game/live?debug=1&overlay=1&quality=medium");
+  await game.waitForFunction(() => (window as any).__chibiDebug?.state().layoutVersion > 0);
+  const tag = RUN.slice(-3);
+  await page.request.post("/api/v1/demo/events", { data: { type: "SPAWN_RANDOM", count: 12, seed: 77 }, headers: H });
+  const st = () => game.evaluate(() => (window as any).__chibiDebug.state());
+  const frames: string[] = [];
+  const frame = async (name: string) => {
+    const p = `${SHOTS}/BEHAVIOR-frame-${String(frames.length).padStart(3, "0")}-${name}.png`;
+    await game.screenshot({ path: p });
+    frames.push(p);
+  };
+
+  // autonomous life: within ~40 s several different activities and top states appear
+  const behaviours = new Set<string>();
+  const tops = new Set<string>();
+  for (let i = 0; i < 40; i++) {
+    const s = await st();
+    for (const a of s.avatars) {
+      behaviours.add(a.behavior);
+      tops.add(a.top);
+    }
+    if (i % 4 === 0) await frame("life");
+    await game.waitForTimeout(1000);
+  }
+  expect(behaviours.size).toBeGreaterThanOrEqual(5);
+  expect([...tops]).toEqual(expect.arrayContaining(["IDLE", "NAVIGATING", "BROWSING"]));
+  await expect(game.getByTestId("behavior-debug")).toBeVisible();
+
+  // a product comment: this viewer's own Chibi walks to KE_02, picks, presents, returns
+  const nick = `beh${tag}`;
+  await inject(page, csrf, `@${nick}: trà cà gai leo`);
+  await game.waitForFunction((n) => (window as any).__chibiDebug.state().avatars.some((a: any) => a.nickname === n && a.top === "PRESENTING"), nick, { timeout: 40_000 });
+  await frame("presenting");
+  // a dance request while busy waits in the queue …
+  await inject(page, csrf, `@${nick}: nhảy đi`);
+  await game.waitForFunction((n) => (window as any).__chibiDebug.state().avatars.some((a: any) => a.nickname === n && a.directQueue.includes("dance")), nick, { timeout: 10_000 });
+  // … and is danced after the box is back on the shelf
+  await game.waitForFunction((n) => (window as any).__chibiDebug.state().avatars.some((a: any) => a.nickname === n && a.behavior === "FUN_DANCE"), nick, { timeout: 40_000 });
+  await frame("dance-after-product");
+  const me = (await st()).avatars.find((a: any) => a.nickname === nick);
+  expect(me.heldProductId).toBeNull();
+  expect(me.history).toEqual(expect.arrayContaining(["PRODUCT_ROUTE", "FUN_DANCE"]));
+
+  // "về thôi": waves and walks out; nothing left behind
+  await inject(page, csrf, `@${nick}: về thôi`);
+  await game.waitForFunction((n) => (window as any).__chibiDebug.state().avatars.some((a: any) => a.nickname === n && a.top === "LEAVING"), nick, { timeout: 10_000 });
+  await frame("leaving");
+  await game.waitForFunction((n) => !(window as any).__chibiDebug.state().avatars.some((a: any) => a.nickname === n), nick, { timeout: 40_000 });
+  await frame("left");
+  await game.close();
+});
