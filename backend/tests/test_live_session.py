@@ -117,3 +117,28 @@ async def test_instant_drops_back_off_instead_of_storming(db):
     await svc.stop()
     assert len(sleeps) >= 4
     assert sleeps[3] > sleeps[0] * 3  # grows (1, 2, 4, 8 … with jitter) — never reset by a 0-second "connection"
+
+
+def test_demo_replaces_a_real_live_attempt_that_already_ended(admin_client):
+    """TikTok said "not live / unsupported": the Demo must still work without a manual disconnect."""
+
+    from app.providers.live_provider import ProviderStatus
+
+    c = admin_client
+    cont = c.app.state.container
+
+    class Dead:
+        name = "tiktoklive"
+        room_id = None
+
+        def capabilities(self):
+            return {}
+
+        async def stop(self):
+            return None
+
+    cont.live.provider = Dead()
+    cont.live.status = ProviderStatus.UNSUPPORTED
+    r = c.post("/api/v1/demo/events", json={"raw": "@an: chào shop"})
+    assert r.status_code == 200, r.text
+    assert cont.live.is_demo

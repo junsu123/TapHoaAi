@@ -8,7 +8,9 @@
 
 param(
     [int]$Port = 0,
-    [switch]$SkipInstall
+    [switch]$SkipInstall,
+    # also open the game in its own 9:16 Windows window (desktop\, instead of a browser tab)
+    [switch]$GameApp
 )
 
 $ErrorActionPreference = "Stop"
@@ -55,5 +57,13 @@ Write-Host ""
 Write-Host "Server: http://127.0.0.1:$Port" -ForegroundColor Green
 Write-Host "   Dashboard: http://127.0.0.1:$Port/dashboard  (lần đầu sẽ tạo tài khoản quản trị)"
 Write-Host "   Game/OBS : http://127.0.0.1:$Port/game/live"
+if ($GameApp) {
+    Write-Host "== Cửa sổ game 9:16 (Chibi Live Game)" -ForegroundColor Cyan
+    Push-Location desktop
+    if (-not (Test-Path "node_modules\electron")) { npm install }
+    # starts after the server is up: the window waits for it and connects by itself
+    Start-Process -FilePath "npx.cmd" -ArgumentList @("electron", ".", "--server=http://127.0.0.1:$Port", "--no-server") -WindowStyle Hidden
+    Pop-Location
+}
 Set-Location backend
 & $Py -m app --host 127.0.0.1 --port $Port

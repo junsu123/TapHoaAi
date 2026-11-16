@@ -25,3 +25,7 @@ Thumbs.db
 
 # TypeScript incremental build cache (regenerated on every build)
 *.tsbuildinfo
+
+# Windows game app (Electron)
+desktop/dist/
+desktop/test-results/

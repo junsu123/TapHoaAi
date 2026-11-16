@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.19.0 — 2026-11-16 — Cửa sổ game 9:16 cho Windows
+
+- **Chibi Live Game**: game hiện trong cửa sổ phần mềm Windows riêng (không phải tab trình duyệt), luôn giữ tỉ lệ **9:16** khi kéo đổi cỡ. Cỡ có sẵn: vừa màn hình, 540 × 960, 720 × 1280, **1080 × 1920** điểm ảnh (tính cả màn hình phóng to 125–150 %); toàn màn hình (F11), luôn nằm trên cùng, ẩn viền cho OBS *Window Capture*, chuyển màn hình; nhớ vị trí và cài đặt.
+- Tự kết nối máy chủ (màn hình chờ khi chưa có), có thể tự mở máy chủ cùng máy; chỉ một cửa sổ game; game vẫn chạy đủ nhanh khi cửa sổ bị che/thu nhỏ; giọng AI phát không cần bấm.
+- Bộ cài và bản chạy thẳng `.exe` được build trên máy Windows bởi GitHub Actions (*desktop-windows*); `scripts\dev_windows.ps1 -GameApp` mở máy chủ và cửa sổ game cùng lúc. Hướng dẫn: `docs/desktop-app.md`.
+- Bảng điều khiển (Game 3D & OBS) hướng dẫn cửa sổ game và OBS Window Capture.
+- Demo dùng được ngay cả khi lần kết nối TikTok trước đã kết thúc (“Không hỗ trợ”, không phát LIVE) mà chưa bấm Ngắt kết nối.
+
 ## 0.18.0 — 2026-11-16 — LIVE đông người xem vẫn ổn định
 
 - **Máy chủ chịu tải gấp đôi trở lên:** trên máy kiểm thử, bản cũ nghẽn từ khoảng 500 sự kiện/giây (trễ 4–7 giây, bỏ hàng nghìn lượt tim/vào xem); bản mới xử lý 1 000 sự kiện/giây, trễ 12 ms, CPU 35 % một nhân, không bỏ gì. Chi tiết và cách đo: `docs/high-load.md`.

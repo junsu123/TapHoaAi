@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'" />
+    <title>Chibi Live Game</title>
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body class="waiting">
+    <main>
+      <div class="cup" aria-hidden="true"><span></span><span></span><span></span></div>
+      <h1>Chibi Live Game</h1>
+      <p id="status" data-testid="waiting-status">Đang kết nối…</p>
+      <p class="hint">Máy chủ: <b id="server"></b></p>
+      <p class="hint">Chuột phải hoặc <kbd>Ctrl</kbd> + <kbd>,</kbd> để mở Cài đặt.</p>
+    </main>
+    <script src="waiting.js"></script>
+  </body>
+</html>

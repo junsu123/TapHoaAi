@@ -1,0 +1,27 @@
+:root { --green: #1f5a40; --leaf: #2e7a59; --ink: #1d2a24; --muted: #5d6b66; --line: #dfe5e2; }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: "Segoe UI", system-ui, sans-serif; color: var(--ink); }
+.waiting { background: #1a1016; color: #f6efe6; height: 100vh; display: grid; place-items: center; text-align: center; }
+.waiting main { padding: 8%; max-width: 30em; }
+.waiting h1 { font-size: 1.4em; margin: .6em 0 .3em; }
+.waiting #status { font-size: 1.05em; line-height: 1.5; }
+.waiting .hint { color: #c9bdb1; font-size: .85em; }
+kbd { border: 1px solid #8a7f76; border-radius: 4px; padding: 0 .35em; font-family: inherit; }
+.cup { display: inline-flex; gap: .4em; }
+.cup span { width: .6em; height: 1.6em; border-radius: 1em; background: #6fae86; opacity: .35; animation: steam 1.4s infinite ease-in-out; }
+.cup span:nth-child(2) { animation-delay: .2s; }
+.cup span:nth-child(3) { animation-delay: .4s; }
+@keyframes steam { 50% { opacity: 1; transform: translateY(-.4em); } }
+@media (prefers-reduced-motion: reduce) { .cup span { animation: none; opacity: .8; } }
+.settings { background: #f4f7f5; padding: 20px 24px; }
+.settings h1 { font-size: 18px; margin: 0 0 12px; }
+.settings form { display: flex; flex-direction: column; gap: 14px; }
+.settings label { display: flex; flex-direction: column; gap: 4px; font-weight: 600; font-size: 14px; }
+.settings label.check { flex-direction: row; align-items: center; gap: 8px; font-weight: 500; }
+.settings small { color: var(--muted); font-weight: 400; }
+.settings input:not([type]), .settings input[name], .settings select { font: inherit; font-weight: 400; padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+.settings .row { display: flex; gap: 8px; align-items: center; }
+.settings .row input { flex: 1; }
+.settings button { font: inherit; padding: 7px 14px; border-radius: 6px; border: 1px solid var(--line); background: #fff; cursor: pointer; }
+.settings button.primary { background: var(--leaf); border-color: var(--leaf); color: #fff; font-weight: 600; }
+.settings :focus-visible { outline: 2px solid var(--leaf); outline-offset: 2px; }

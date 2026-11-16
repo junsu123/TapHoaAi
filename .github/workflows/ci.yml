@@ -26,8 +26,20 @@ jobs:
         run: |
           npx playwright install --with-deps chromium
           npx playwright test
+      - name: Windows game app (Electron) — unit tests + end to end under Xvfb
+        if: always()
+        working-directory: desktop
+        env:
+          ELECTRON_DISABLE_SANDBOX: "1"
+        run: |
+          npm ci
+          node node_modules/electron/install.js
+          npm test
+          xvfb-run -a -s "-screen 0 2000x2400x24" node test/app.e2e.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: e2e-evidence
-          path: frontend/test-results
+          path: |
+            frontend/test-results
+            desktop/test-results

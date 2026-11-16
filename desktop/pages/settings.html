@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'" />
+    <title>Cài đặt — Chibi Live Game</title>
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body class="settings">
+    <form id="f">
+      <h1>Cài đặt cửa sổ game</h1>
+      <label>
+        Địa chỉ máy chủ Chibi Live Shop
+        <input name="server" required placeholder="http://127.0.0.1:8686" />
+        <small>Như địa chỉ bảng điều khiển, bỏ phần /dashboard.</small>
+      </label>
+      <label>
+        Mã game (chỉ khi máy chủ chạy trên máy khác)
+        <input name="token" autocomplete="off" />
+        <small>Xem ở trang Game 3D &amp; OBS của bảng điều khiển.</small>
+      </label>
+      <label>
+        Kích thước khung 9:16
+        <select name="size" id="size"></select>
+        <small id="now"></small>
+      </label>
+      <label>
+        Chất lượng hình
+        <select name="quality">
+          <option value="">Tự động (tự giảm khi máy chậm)</option>
+          <option value="low">Thấp</option>
+          <option value="medium">Vừa</option>
+          <option value="high">Cao</option>
+        </select>
+      </label>
+      <label class="check"><input type="checkbox" name="startServer" /> Tự mở máy chủ khi chưa chạy (cùng máy)</label>
+      <label>
+        Thư mục phần mềm Chibi Live Shop
+        <span class="row"><input name="serverDir" placeholder="Tự tìm" /><button type="button" id="pick">Chọn…</button></span>
+      </label>
+      <div class="row">
+        <button class="primary" type="submit">Lưu</button>
+        <span id="msg" role="status"></span>
+      </div>
+    </form>
+    <script src="settings.js"></script>
+  </body>
+</html>
