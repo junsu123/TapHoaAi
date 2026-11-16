@@ -7,7 +7,8 @@ import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import type { ProductInfo } from "../types/protocol";
 import type { AvatarController } from "./AvatarController";
-import { appearanceFromSeed, GEO, LabelRegistryContext, OUTLINE_MAT, RenderContext, toon, WHITE } from "./palette";
+import { appearanceFromSeed, GEO, GEO_LOW, LabelRegistryContext, OUTLINE_MAT, RenderContext, toon, WHITE } from "./palette";
+import { LOD, lodTier, type LodTier } from "./lod";
 import { ProductVisual } from "./ProductBox";
 import { nameTexture } from "./nameTexture";
 
@@ -15,7 +16,7 @@ const tmp = new THREE.Vector3();
 const tmpHand = new THREE.Vector3();
 const ease = (t: number) => t * t * (3 - 2 * t);
 const LABEL_Y = 1.42;
-const OUTLINE_LOD_DISTANCE = 12;
+const sphere = new THREE.Sphere(new THREE.Vector3(), 0.95);
 
 export function ChibiAvatar({
   ctl,
@@ -47,7 +48,10 @@ export function ChibiAvatar({
   const { camera } = useThree();
   const labels = useContext(LabelRegistryContext);
   const outlineMeshes = useRef<THREE.Object3D[]>([]);
-  const outlinesOn = useRef(true);
+  const detailMeshes = useRef<THREE.Object3D[]>([]);
+  const lodMeshes = useRef<{ mesh: THREE.Mesh; hi: THREE.BufferGeometry; lo: THREE.BufferGeometry }[]>([]);
+  const tierRef = useRef<LodTier | null>(null);
+  const { outlines: outlinesAllowed } = useContext(RenderContext);
 
   const look = useMemo(() => appearanceFromSeed(ctl.info.appearance_seed), [ctl.info.appearance_seed]);
   const { texture, aspect } = useMemo(() => nameTexture(ctl.info.nickname, ctl.info.is_demo), [ctl.info.nickname, ctl.info.is_demo]);
@@ -63,24 +67,60 @@ export function ChibiAvatar({
       labels?.delete(id);
     };
   }, [labels, aspect, ctl.info.avatar_id]);
-  // collect outline meshes once (and whenever the look changes) for distance LOD
+  // collect outline / face-detail / swappable meshes once (and whenever the look changes) for LOD
   useEffect(() => {
-    const found: THREE.Object3D[] = [];
+    const outl: THREE.Object3D[] = [];
+    const det: THREE.Object3D[] = [];
+    const swap: { mesh: THREE.Mesh; hi: THREE.BufferGeometry; lo: THREE.BufferGeometry }[] = [];
     root.current.traverse((o) => {
-      if ((o as THREE.Mesh).material === OUTLINE_MAT) found.push(o);
+      const m = o as THREE.Mesh;
+      if (m.material === OUTLINE_MAT) outl.push(o);
+      if (o.userData.detail) det.push(o);
+      const lo = m.isMesh ? GEO_LOW.get(m.geometry) : undefined;
+      if (lo) swap.push({ mesh: m, hi: m.geometry, lo });
     });
-    outlineMeshes.current = found;
-    outlinesOn.current = true;
-  }, [look]);
+    outlineMeshes.current = outl;
+    detailMeshes.current = det;
+    lodMeshes.current = swap;
+    tierRef.current = null; // re-apply
+  }, [look, outlinesAllowed]);
+
+  /** Show / hide the parts for a render tier (only when the tier changes). */
+  const applyTier = (tier: LodTier) => {
+    if (tierRef.current === tier) return;
+    tierRef.current = tier;
+    for (const o of outlineMeshes.current) o.visible = tier === "full";
+    for (const o of detailMeshes.current) o.visible = tier === "full" || tier === "reduced";
+    for (const x of lodMeshes.current) x.mesh.geometry = tier === "far" ? x.lo : x.hi;
+  };
 
   useFrame((state) => {
     const t = state.clock.elapsedTime + (ctl.info.appearance_seed % 100) * 0.1;
-    const st = ctl.state;
+    // the pose drawn: the state's own clip, or the nearest one this rig has (T12)
+    const st = ctl.pose;
     root.current.position.set(ctl.pos.x, 0, ctl.pos.z);
     root.current.rotation.y = ctl.yaw;
 
+    // ---- level of detail (T16): never reduce the focused Chibi or one carrying a box
+    const focused = focusedId() === ctl.info.avatar_id;
+    const dist = camera.position.distanceTo(root.current.position);
+    sphere.center.set(ctl.pos.x, 0.6, ctl.pos.z);
+    const tier = lodTier(dist, LOD.frustum.intersectsSphere(sphere), focused || !!ctl.held);
+    LOD.counts[tier] += 1;
+    if (tier === "hidden") {
+      // outside the picture: keep the position for when it walks back in, skip the pose
+      root.current.visible = false;
+      if ((ctl.held?.productId ?? null) !== heldId) setHeldId(ctl.held?.productId ?? null);
+      heldBox.current.visible = false;
+      return;
+    }
+    applyTier(tier);
+    // far away: the pose is sampled every other frame (Chibis take turns)
+    const samplePose = tier !== "far" || (LOD.frame + ctl.info.appearance_seed) % 2 === 0;
+
     // ---- procedural animation per FSM state
     let bob = Math.sin(t * 2.2) * 0.01;
+    if (samplePose) {
     let lArm = 0.15;
     let rArm = 0.15;
     let rArmSide = -0.12;
@@ -113,6 +153,7 @@ export function ChibiAvatar({
     } else if (st === "hold") {
       rArm = -1.2;
       lArm = -0.9;
+      bob = Math.max(0, Math.sin(Math.min(1, e / 0.4) * Math.PI)) * 0.08; // FUN_SURPRISE: hop, found it!
     } else if (st === "show") {
       rArm = -1.45 + Math.sin(t * 3) * 0.05;
       lArm = -1.25 + Math.sin(t * 3) * 0.05;
@@ -182,9 +223,36 @@ export function ChibiAvatar({
     } else if (st === "point") {
       rArm = -1.55;
       rArmSide = -0.15;
+    } else if (st === "cheer") {
+      // clapping in front of the chest
+      const clap = Math.abs(Math.sin(t * 9));
+      rArm = -1.35;
+      lArm = -1.35;
+      rArmSide = 0.15 + clap * 0.35;
+      lArmSide = -0.15 - clap * 0.35;
+      bob = Math.abs(Math.sin(t * 4.5)) * 0.04;
     }
+    // FUN_YAWN: arms up, head back (sitting on the bench or standing)
+    if (st === "yawn") {
+      const k = Math.sin(Math.min(1, e / 1.8) * Math.PI);
+      rArm = -2.6 * k - 0.9 * (1 - k);
+      lArm = -2.6 * k - 0.9 * (1 - k);
+      rArmSide = -0.3 * k;
+      lArmSide = 0.3 * k;
+      headPitch = -0.3 * k;
+    }
+    // turning on the spot: little steps
+    if (st === "idle" && Math.abs(angleDiff(ctl.targetYaw, ctl.yaw)) > 0.35) legSwing = Math.sin(t * 12) * 0.25;
     // sitting on a cushion at the tea table: legs forward, hands on the table, a sip now and then
     let sit = 0;
+    if (st === "yawn" && ctl.sittingOnBench) sit = 1;
+    if (st === "standup") {
+      // getting up from the bench / cushion
+      sit = Math.max(0, 1 - e / 0.45);
+      lean = 0.25 * sit;
+      rArm = -0.6 * sit;
+      lArm = -0.6 * sit;
+    }
     if (st === "sit") {
       sit = 1;
       const sip = (t % 5) < 1.4 ? Math.sin(((t % 5) / 1.4) * Math.PI) : 0;
@@ -211,9 +279,10 @@ export function ChibiAvatar({
     armL.current.rotation.set(lArm, 0, lArmSide);
     armR.current.rotation.set(rArm, 0, rArmSide);
     const swing = sit && ctl.sittingOnBench ? Math.sin(t * 2.4) * 0.25 : 0;
-    legL.current.rotation.x = sit ? -1.45 + swing : legSwing;
-    legR.current.rotation.x = sit ? -1.45 - swing : -legSwing;
+    legL.current.rotation.x = sit ? -1.45 * sit + swing : legSwing;
+    legR.current.rotation.x = sit ? -1.45 * sit - swing : -legSwing;
     cup.current.visible = ctl.prop === "cup";
+    } // samplePose
 
     // ---- emote bubble beside the head (never over the name label)
     const em = ctl.emote?.icon ?? null;
@@ -236,7 +305,7 @@ export function ChibiAvatar({
     if (held && hp) {
       const s = hp.box_size;
       hand.current.getWorldPosition(tmpHand);
-      if (st === "show") {
+      if (ctl.state === "show") {
         // present the box in front of the chest, front face towards the camera
         tmpHand.set(ctl.pos.x + Math.sin(ctl.yaw) * 0.34, 0.36 + bob, ctl.pos.z + Math.cos(ctl.yaw) * 0.34);
       }
@@ -244,26 +313,18 @@ export function ChibiAvatar({
       const k = ease(held.t);
       box.position.lerpVectors(tmp, tmpHand, k);
       // while presenting, turn the box gently left and right so viewers see its sides too
-      const sway = st === "show" ? Math.sin(t * 0.9) * 0.45 : 0;
+      const sway = ctl.state === "show" ? Math.sin(t * 0.9) * 0.45 : 0;
       box.rotation.set(0, (held.mode === "inHand" ? ctl.yaw : THREE.MathUtils.lerp(0, ctl.yaw, k)) + sway, 0);
       box.visible = true;
     } else {
       box.visible = false;
     }
 
-    // ---- nickname label: constant on-screen size, always readable
-    const dist = camera.position.distanceTo(root.current.position);
+    // ---- nickname label: constant on-screen size, always readable (never reduced by LOD)
     // close-up hygiene: other Chibis right in front of the lens are hidden, and the focused
     // Chibi's own label is dropped (the product card already names the viewer)
-    const focused = focusedId() === ctl.info.avatar_id;
     const cv = clearView?.();
     root.current.visible = focused || (dist > 1.7 && !(cv && cv.keep !== ctl.info.avatar_id && dist < cv.dist));
-    // outline LOD: far-away Chibis are a few pixels tall — skip their outline draw calls
-    const wantOutlines = dist < OUTLINE_LOD_DISTANCE;
-    if (wantOutlines !== outlinesOn.current) {
-      outlinesOn.current = wantOutlines;
-      for (const o of outlineMeshes.current) o.visible = wantOutlines;
-    }
     label.current.visible = !(focused && dist < 3.2);
     const sc = THREE.MathUtils.clamp(dist * 0.045, 0.34, 1.7);
     label.current.scale.set(sc * aspect * 0.42, sc * 0.42, 1);
@@ -331,14 +392,14 @@ export function ChibiAvatar({
             {[-1, 1].map((sx) => (
               <group key={sx} position={[sx * 0.1, -0.01, 0.262]}>
                 <mesh geometry={GEO.eye} material={eyeM} scale={[1, 1.25, 0.6]} />
-                <mesh geometry={GEO.eyeShine} material={WHITE} position={[0.014, 0.022, 0.03]} />
+                <mesh geometry={GEO.eyeShine} material={WHITE} position={[0.014, 0.022, 0.03]} userData={{ detail: true }} />
               </group>
             ))}
-            <mesh geometry={GEO.mouth} material={eyeM} position={[0, -0.1, 0.285]} rotation={[0, 0, Math.PI]} />
-            <mesh geometry={GEO.blush} position={[-0.17, -0.085, 0.247]} rotation={[0, -0.5, 0]}>
+            <mesh geometry={GEO.mouth} material={eyeM} position={[0, -0.1, 0.285]} rotation={[0, 0, Math.PI]} userData={{ detail: true }} />
+            <mesh geometry={GEO.blush} position={[-0.17, -0.085, 0.247]} rotation={[0, -0.5, 0]} userData={{ detail: true }}>
               <meshBasicMaterial color="#ff7f9f" transparent opacity={0.55} depthWrite={false} />
             </mesh>
-            <mesh geometry={GEO.blush} position={[0.17, -0.085, 0.247]} rotation={[0, 0.5, 0]}>
+            <mesh geometry={GEO.blush} position={[0.17, -0.085, 0.247]} rotation={[0, 0.5, 0]} userData={{ detail: true }}>
               <meshBasicMaterial color="#ff7f9f" transparent opacity={0.55} depthWrite={false} />
             </mesh>
           </group>
@@ -352,6 +413,13 @@ export function ChibiAvatar({
       </group>
     </>
   );
+}
+
+function angleDiff(a: number, b: number): number {
+  let d = a - b;
+  while (d > Math.PI) d -= 2 * Math.PI;
+  while (d < -Math.PI) d += 2 * Math.PI;
+  return d;
 }
 
 const emoteCache = new Map<string, THREE.CanvasTexture>();

@@ -7,7 +7,7 @@ from app.models import AuditLog, LiveEventRow
 from app.providers.demo_adapter import DemoProvider
 from app.providers.tiktoklive_adapter import TikTokLiveAdapter
 from app.providers.url_validator import InvalidLiveUrl, parse_live_url, resolve_short_link
-from app.schemas.api import ConnectIn, DemoEventIn, LiveSettingsPatch
+from app.schemas.api import BenchmarkIn, ConnectIn, DemoEventIn, LiveSettingsPatch
 from app.security.crypto import mask_secret
 from app.security.sessions import AdminDep, CurrentAdmin
 
@@ -120,3 +120,55 @@ async def demo_events(body: DemoEventIn, request: Request, admin: CurrentAdmin =
     except ValueError as exc:
         raise HTTPException(422, detail={"code": "bad_demo_event", "message": str(exc)}) from exc
     return {"event_ids": ids, "session_id": c.live.session_id}
+
+
+# ---------------------------------------------------------------------- performance (T16)
+@router.get("/game/perf")
+def game_perf(request: Request, admin: CurrentAdmin = AdminDep) -> dict:
+    c = request.app.state.container
+    v = c.perf.view()
+    v["visible"] = len(c.avatars.visible())
+    v["max_visible"] = c.avatars.max_visible
+    v["waiting"] = len(c.avatars.overflow)
+    v["is_demo"] = c.live.is_demo
+    v["live_real"] = c.live.provider is not None and not c.live.is_demo
+    return v
+
+
+def _demo_only(request: Request) -> None:
+    _require_demo(request)
+    c = request.app.state.container
+    if c.live.provider is not None and not c.live.is_demo:
+        raise HTTPException(409, detail={"code": "live_active", "message":
+                            "Chỉ đo thử khi chạy Demo — đang có phiên LIVE thật."})
+
+
+@router.post("/game/benchmark")
+async def game_benchmark(body: BenchmarkIn, request: Request, admin: CurrentAdmin = AdminDep) -> dict:
+    """Fill the shop with demo Chibis up to `count` and measure the OBS page for 20 seconds."""
+    _demo_only(request)
+    c = request.app.state.container
+    if not c.hub.has_primary():
+        raise HTTPException(409, detail={"code": "no_game_page", "message":
+                            "Chưa mở màn hình game (/game/live) — mở nó trên máy phát LIVE rồi đo lại."})
+    if not c.live.is_demo:
+        await c.live.start(DemoProvider())
+    provider: DemoProvider = c.live.provider  # type: ignore[assignment]
+    target = min(body.count, c.avatars.max_visible)
+    missing = max(0, target - len(c.avatars.visible()))
+    if missing:
+        await provider.inject({"type": "SPAWN_RANDOM", "count": missing})
+    c.perf.start(target)
+    return {"target": target, "added": missing, "max_visible": c.avatars.max_visible}
+
+
+@router.post("/game/benchmark/clear")
+def game_benchmark_clear(request: Request, admin: CurrentAdmin = AdminDep) -> dict:
+    """Demo only: every Chibi waves goodbye and leaves (to measure again from an empty shop)."""
+    _demo_only(request)
+    c = request.app.state.container
+    gone = c.avatars.exit_all("benchmark_clear")
+    for avatar_id in gone:
+        c.actions.cancel_avatar(avatar_id, "benchmark_clear")
+        c.camera.forget_avatar(avatar_id)
+    return {"left": len(gone)}

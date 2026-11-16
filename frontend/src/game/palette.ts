@@ -90,6 +90,21 @@ export const GEO = {
 };
 export const BOX_EDGES = new THREE.EdgesGeometry(GEO.box);
 
+/** Low-poly twins of the Chibi parts for far-away Chibis (render LOD, spec V3 §7 / T16). */
+export const GEO_LOW = new Map<THREE.BufferGeometry, THREE.BufferGeometry>([
+  [GEO.head, new THREE.SphereGeometry(0.3, 16, 12)],
+  [GEO.body, new THREE.CapsuleGeometry(0.17, 0.16, 4, 10)],
+  [GEO.arm, new THREE.CapsuleGeometry(0.055, 0.17, 2, 6)],
+  [GEO.hand, new THREE.SphereGeometry(0.06, 6, 4)],
+  [GEO.leg, new THREE.CapsuleGeometry(0.065, 0.1, 2, 6)],
+  [GEO.eye, new THREE.SphereGeometry(0.048, 8, 6)],
+  [GEO.bun, new THREE.SphereGeometry(0.11, 8, 6)],
+  [GEO.hairCap, new THREE.SphereGeometry(0.318, 16, 8, 0, Math.PI * 2, 0, Math.PI * 0.55)],
+  [GEO.capBrim, new THREE.CylinderGeometry(0.2, 0.2, 0.03, 10)],
+  [GEO.spike, new THREE.ConeGeometry(0.07, 0.16, 6)],
+  [GEO.shadow, new THREE.CircleGeometry(0.32, 10)],
+]);
+
 export interface RenderOptions {
   outlines: boolean;
   shadows: boolean;

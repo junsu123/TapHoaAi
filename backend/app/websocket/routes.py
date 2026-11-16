@@ -45,6 +45,8 @@ async def ws_game(ws: WebSocket) -> None:
                     c.speech.on_client_message(msg)
             elif mtype == "PLAYER_INFO" and c.hub.game.role_of(ws) == "primary":
                 c.speech.set_player_info(msg)
+            elif mtype == "PERF_REPORT" and c.hub.game.role_of(ws) == "primary":
+                c.perf.add(msg)
             elif mtype == "FPS_REPORT" and c.hub.game.role_of(ws) == "primary":
                 c.fps_reports.append({"fps": msg.get("fps"), "quality": msg.get("quality"),
                                       "avatars": msg.get("avatars")})

@@ -201,6 +201,7 @@ export function SceneSettings() {
           </label>
         </div>
       )}
+      <ChibiBehaviorFields cfg={cfg} set={set} />
       <div className="row">
         <button className="primary" disabled={busy}>
           Lưu không gian & banner
@@ -264,5 +265,63 @@ function BoardPlacer({ cfg, onSaved }: { cfg: SceneConfig; onSaved: (c: SceneCon
         </div>
       )}
     </div>
+  );
+}
+
+const GROUPS: { key: keyof SceneConfig; label: string; hint: string }[] = [
+  { key: "chibi_w_browse", label: "Xem kệ, xem giá", hint: "đứng trước kệ ngắm hàng" },
+  { key: "chibi_w_explore", label: "Dạo quanh", hint: "đi lại trong quán, đọc biển" },
+  { key: "chibi_w_idle", label: "Đứng nghỉ", hint: "thở, nhìn quanh, vươn vai" },
+  { key: "chibi_w_social", label: "Chào nhau", hint: "vẫy tay, gật đầu với Chibi bên cạnh" },
+  { key: "chibi_w_rest", label: "Ngồi ghế", hint: "ngồi ghế dài, uống trà, ngáp" },
+  { key: "chibi_w_fun", label: "Vui nhộn", hint: "nhảy, tạo dáng, xoay vòng, vỗ tay" },
+];
+const DEFAULT_WEIGHTS = { chibi_w_browse: 30, chibi_w_explore: 25, chibi_w_idle: 20, chibi_w_social: 10, chibi_w_rest: 10, chibi_w_fun: 5 };
+
+/** How Chibis spend their time when nobody gives them a command (spec V3 §5, §11). */
+function ChibiBehaviorFields({ cfg, set }: { cfg: SceneConfig; set: (p: Partial<SceneConfig>) => void }) {
+  const total = GROUPS.reduce((n, g) => n + Number(cfg[g.key] ?? 0), 0);
+  return (
+    <>
+      <h3>Hành vi Chibi</h3>
+      <label className="check">
+        <input type="checkbox" checked={cfg.chibi_autonomous} onChange={(e) => set({ chibi_autonomous: e.target.checked })} aria-label="Chibi tự sinh hoạt" />
+        Chibi tự sinh hoạt khi không có lệnh (tắt thì Chibi đứng yên chờ bình luận)
+      </label>
+      {cfg.chibi_autonomous && (
+        <div className="chibi-weights" data-testid="chibi-weights">
+          <p className="muted small">Kéo để chọn Chibi hay làm việc gì hơn. Phần trăm là tỉ lệ thời gian dự kiến.</p>
+          {GROUPS.map((g) => {
+            const v = Number(cfg[g.key] ?? 0);
+            return (
+              <label key={g.key} className="weight-row">
+                <span className="weight-name">
+                  {g.label}
+                  <small className="muted">{g.hint}</small>
+                </span>
+                <input type="range" min={0} max={60} step={1} value={v} aria-label={g.label} onChange={(e) => set({ [g.key]: Number(e.target.value) } as Partial<SceneConfig>)} />
+                <span className="weight-pct">{total > 0 ? Math.round((v / total) * 100) : 0}%</span>
+              </label>
+            );
+          })}
+          <button type="button" onClick={() => set(DEFAULT_WEIGHTS)}>
+            Về tỉ lệ mặc định
+          </button>
+        </div>
+      )}
+      <label>
+        Số Chibi tối đa trên màn hình
+        <input
+          type="number"
+          min={10}
+          max={80}
+          value={cfg.chibi_max_visible}
+          onChange={(e) => set({ chibi_max_visible: Number(e.target.value) })}
+          aria-label="Số Chibi tối đa"
+          style={{ width: 110 }}
+        />
+        <small className="muted">Đông hơn thì người mới chờ ngoài cửa và vào khi có Chibi ra về. Máy yếu nên để 30–40.</small>
+      </label>
+    </>
   );
 }

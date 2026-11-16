@@ -10,6 +10,7 @@ import { QuestionCard, VoiceBar } from "./HostDesk";
 import { KnowledgePage } from "./KnowledgePage";
 import { LogsPage } from "./LogsPage";
 import { BOX_FACE_LABEL, PdfFacePicker, type RenderedFaces } from "./PdfFacePicker";
+import { PerfCard } from "./PerfCard";
 import { SceneSettings } from "./SceneSettings";
 import { BoardCard, type PurchasePrefill } from "./BoardCard";
 import type { LeaderboardView } from "../types/protocol";
@@ -945,6 +946,9 @@ function GameSetupPage() {
           </p>
           <p className="muted">Mở đúng một cửa sổ này trên PC phát LIVE — nó là cửa sổ game chính, xác nhận mọi lệnh Chibi.</p>
           <p className="muted">Chất lượng: thêm ?quality=low|medium|high (mặc định tự giảm khi FPS &lt; 24).</p>
+        </Card>
+        <Card title="Hiệu năng màn hình game">
+          <PerfCard />
         </Card>
         <Card title="Khi người xem rời LIVE">
           <LeaveSetting />

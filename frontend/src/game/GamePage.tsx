@@ -4,12 +4,13 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SequencedSocket, wsUrl } from "../lib/ws";
-import type { ClientGameMessage, GameSnapshot, ServerGameMessage } from "../types/protocol";
+import type { ClientGameMessage, GameSnapshot, PerfReport, ServerGameMessage } from "../types/protocol";
 import { GameEngine } from "./GameEngine";
 import { BehaviorDebugOverlay } from "./BehaviorDebugOverlay";
 import { LiveOverlay, type SafeArea } from "./LiveOverlay";
 import { pickVoice, SpeechPlayer, vietnameseVoices, type SpeechView, type VoiceLike } from "./SpeechPlayer";
 import { World, type Quality } from "./World";
+import { LOD } from "./lod";
 
 const ORDER: Quality[] = ["low", "medium", "high"];
 
@@ -18,6 +19,7 @@ export function GamePage() {
   const role = params.get("role") === "viewer" ? "viewer" : "primary";
   const debug = params.get("debug") === "1";
   const overlay = params.get("overlay") === "1"; // behaviour debug overlay (spec V3 §9)
+  // ?noclip=dance,cheer — pretend the rig lacks these clips (tests the fallback, T12)
   const [quality, setQuality] = useState<Quality>((ORDER as string[]).includes(params.get("quality") ?? "") ? (params.get("quality") as Quality) : "medium");
   const autoQuality = params.get("quality") === null;
   const safe: SafeArea = {
@@ -32,16 +34,32 @@ export function GamePage() {
     () => new GameEngine((m: ClientGameMessage) => (role === "primary" ? socketRef.current?.send(m) : undefined)),
     [role],
   );
+  useMemo(() => {
+    // ?lod=0 — draw every Chibi in full detail (to compare / benchmark the level of detail)
+    LOD.enabled = params.get("lod") !== "0";
+    const missing = (params.get("noclip") ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+    if (missing.length) engine.setMissingClips(missing);
+  }, [engine, params]);
   const [speech, setSpeech] = useState<SpeechView>({ clip: null, held: false, blocked: false });
   const player = useMemo(
     () =>
       new SpeechPlayer({
         audible: role === "primary" && params.get("mute") !== "1",
         emit: (m) => socketRef.current?.send(m),
-        onChange: setSpeech,
+        onChange: (v) => {
+          // while the voice talks the Chibis keep moving, just calmer (no fun animations) — T15
+          engine.setSpeaking(!!v.clip && !v.held);
+          setSpeech(v);
+        },
       }),
-    [role, params],
+    [role, params, engine],
   );
+  const perfLog = useRef<PerfReport[]>([]);
+  const onPerf = (r: PerfReport) => {
+    perfLog.current.push(r);
+    if (perfLog.current.length > 60) perfLog.current.shift();
+    if (role === "primary") socketRef.current?.send({ type: "PERF_REPORT", ...r });
+  };
   const fpsLog = useRef<number[]>([]);
   const lowSince = useRef<number | null>(null);
 
@@ -64,6 +82,7 @@ export function GamePage() {
         fps: () => [...fpsLog.current],
         camera: () => (window as unknown as { __chibiCamera?: object }).__chibiCamera,
         speech: () => player.view(),
+        perf: () => [...perfLog.current],
       };
     }
     return () => {
@@ -119,7 +138,7 @@ export function GamePage() {
   return (
     <div className="game-root">
       <div className="game-stage" data-testid="game-stage">
-        <World engine={engine} quality={quality} onFps={onFps} debugOverlay={overlay} />
+        <World engine={engine} quality={quality} onFps={onFps} onPerf={onPerf} debugOverlay={overlay} />
         <LiveOverlay engine={engine} safe={safe} socketUp={socketUp} speech={speech} onUnlockAudio={() => player.unlock()} />
         {overlay && <BehaviorDebugOverlay engine={engine} fps={() => fpsLog.current} />}
       </div>

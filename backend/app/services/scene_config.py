@@ -52,6 +52,16 @@ class SceneConfig(BaseModel):
     board_x: float | None = Field(None, ge=0.0, le=0.95)
     board_y: float | None = Field(None, ge=0.0, le=0.95)
     board_scale: float = Field(1.0, ge=0.6, le=1.8)
+    # Chibi behaviour (spec V3 §5, §11): autonomous life on/off and how often each kind of
+    # activity is picked (relative weights), and how many Chibis may be on screen at once
+    chibi_autonomous: bool = True
+    chibi_w_browse: int = Field(30, ge=0, le=100)
+    chibi_w_explore: int = Field(25, ge=0, le=100)
+    chibi_w_idle: int = Field(20, ge=0, le=100)
+    chibi_w_social: int = Field(10, ge=0, le=100)
+    chibi_w_rest: int = Field(10, ge=0, le=100)
+    chibi_w_fun: int = Field(5, ge=0, le=100)
+    chibi_max_visible: int = Field(60, ge=10, le=80)
 
     @field_validator("sign_text", "tagline", "owner_name", "owner_greet_template", "owner_tea_template",
                      "owner_buy_template")
@@ -73,7 +83,16 @@ def load_scene(c: AppContainer) -> SceneConfig:
 def save_scene(c: AppContainer, cfg: SceneConfig) -> None:
     c.set_setting(CONFIG_KEY, cfg.model_dump_json(), secret=False)
     c.scene = cfg
+    apply_avatar_cap(c)
     c.hub.send_game({"type": "SCENE_UPDATED", "scene": cfg.model_dump()})
     board = getattr(c, "board", None)
     if board is not None:  # board size / scope may have changed
         board._publish()
+
+
+def apply_avatar_cap(c: AppContainer) -> None:
+    """More viewers than `chibi_max_visible`: the extra ones wait off screen (state kept,
+    nothing invented) and come in when someone leaves — spec SUSPEND_LOD."""
+    avatars = getattr(c, "avatars", None)
+    if avatars is not None:
+        avatars.max_visible = max(1, int(c.scene.chibi_max_visible))

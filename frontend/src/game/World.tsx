@@ -11,6 +11,8 @@ import { StoreScene } from "./StoreScene";
 import { TeaCorner } from "./TeaCorner";
 import { DebugProjector } from "./BehaviorDebugOverlay";
 import { themeOf } from "./themes";
+import { LOD, lodPolicy } from "./lod";
+import type { PerfReport } from "../types/protocol";
 
 export type Quality = "low" | "medium" | "high";
 
@@ -136,19 +138,97 @@ function LabelLayoutSystem({ registry }: { registry: Map<string, LabelEntry> }) 
   return null;
 }
 
+/** Shared per-frame numbers for the performance report. */
+const perf = { frameMs: [] as number[], simMs: [] as number[], lastFps: null as number | null, gpu: null as string | null };
+
 function FrameLoop({ engine, onFps }: { engine: GameEngine; onFps: (fps: number) => void }) {
   const frames = useRef(0);
   const acc = useRef(0);
   useFrame((_, dt) => {
+    const t0 = performance.now();
     engine.step(dt);
+    perf.simMs.push(performance.now() - t0);
+    perf.frameMs.push(dt * 1000);
+    if (perf.frameMs.length > 300) perf.frameMs.shift();
+    if (perf.simMs.length > 300) perf.simMs.shift();
     frames.current += 1;
     acc.current += dt;
     if (acc.current >= 1) {
-      onFps(frames.current / acc.current);
+      const fps = frames.current / acc.current;
+      perf.lastFps = fps;
+      onFps(fps);
       frames.current = 0;
       acc.current = 0;
     }
   }, -3); // game logic first
+  return null;
+}
+
+const projScreen = new THREE.Matrix4();
+
+/** Level of detail: camera frustum + thresholds for the Chibis (after the camera moved). */
+function LodSystem({ engine }: { engine: GameEngine }) {
+  const { camera } = useThree();
+  const t = useRef(0);
+  useFrame((_, dt) => {
+    LOD.frame += 1;
+    camera.updateMatrixWorld();
+    projScreen.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+    LOD.frustum.setFromProjectionMatrix(projScreen);
+    // last frame's tier counts → engine (debug overlay, perf report)
+    engine.lod = { ...LOD.counts };
+    LOD.counts = { full: 0, reduced: 0, far: 0, hidden: 0 };
+    t.current += dt;
+    if (t.current >= 1) {
+      t.current = 0;
+      const p = lodPolicy(engine.avatars.size, perf.lastFps);
+      LOD.near = p.near;
+      LOD.far = p.far;
+      engine.lodLevel = p.level;
+    }
+  }, -1.5);
+  return null;
+}
+
+const p95 = (xs: number[]) => {
+  if (!xs.length) return 0;
+  const s = [...xs].sort((a, b) => a - b);
+  return s[Math.min(s.length - 1, Math.floor(s.length * 0.95))];
+};
+const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
+
+/** Every 5 s: FPS, slow frames, Chibi logic time, draw calls, memory, graphics card (T16). */
+function PerfMeter({ engine, quality, onPerf }: { engine: GameEngine; quality: Quality; onPerf?: (r: PerfReport) => void }) {
+  const { gl } = useThree();
+  const t = useRef(0);
+  useEffect(() => {
+    try {
+      const ctx = gl.getContext();
+      const ext = ctx.getExtension("WEBGL_debug_renderer_info");
+      perf.gpu = ext ? String(ctx.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : String(ctx.getParameter(ctx.RENDERER));
+    } catch {
+      perf.gpu = null;
+    }
+  }, [gl]);
+  useFrame((_, dt) => {
+    t.current += dt;
+    if (t.current < 5 || !onPerf) return;
+    t.current = 0;
+    const mem = (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory;
+    const frameAvg = avg(perf.frameMs);
+    onPerf({
+      fps: +(frameAvg > 0 ? 1000 / frameAvg : 0).toFixed(1),
+      frame_ms_p95: +p95(perf.frameMs).toFixed(1),
+      sim_ms: +avg(perf.simMs).toFixed(2),
+      render_calls: gl.info.render.calls,
+      triangles: gl.info.render.triangles,
+      heap_mb: mem ? +(mem.usedJSHeapSize / 1048576).toFixed(1) : null,
+      gpu: perf.gpu,
+      quality,
+      avatars: engine.avatars.size,
+      lod: { ...engine.lod },
+    });
+  }, -3);
   return null;
 }
 
@@ -248,7 +328,19 @@ function Lights({ engine, q }: { engine: GameEngine; q: (typeof QUALITY)[Quality
   );
 }
 
-export function World({ engine, quality, onFps, debugOverlay = false }: { engine: GameEngine; quality: Quality; onFps: (fps: number) => void; debugOverlay?: boolean }) {
+export function World({
+  engine,
+  quality,
+  onFps,
+  onPerf,
+  debugOverlay = false,
+}: {
+  engine: GameEngine;
+  quality: Quality;
+  onFps: (fps: number) => void;
+  onPerf?: (r: PerfReport) => void;
+  debugOverlay?: boolean;
+}) {
   const q = QUALITY[quality];
   const opts = useMemo(() => ({ outlines: q.outlines, shadows: q.shadows }), [q.outlines, q.shadows]);
   const labelRegistry = useMemo(() => new Map<string, LabelEntry>(), []);
@@ -277,7 +369,9 @@ export function World({ engine, quality, onFps, debugOverlay = false }: { engine
           <LabelLayoutSystem registry={labelRegistry} />
         </LabelRegistryContext.Provider>
         <CameraRig engine={engine} />
+        <LodSystem engine={engine} />
         <FrameLoop engine={engine} onFps={onFps} />
+        <PerfMeter engine={engine} quality={quality} onPerf={onPerf} />
       </RenderContext.Provider>
     </Canvas>
   );

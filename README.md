@@ -140,6 +140,10 @@ Mỗi Chibi đại diện cho **một người xem thật** (khóa theo id TikTo
 | “trà” (mơ hồ) | Gãi đầu “?”, không lấy bừa |
 | Thả tim, chia sẻ | Biểu cảm nhỏ, tối đa 1 lần / 8 giây |
 
+**Chỉnh trong dashboard** (Game 3D & OBS → Không gian cửa hàng → *Hành vi Chibi*): bật/tắt tự sinh hoạt, tỉ lệ từng nhóm hoạt động, số Chibi tối đa trên màn hình. Khi giọng đọc đang nói, Chibi bớt trò vui nhưng vẫn đi lại; hành vi Chibi không phát âm thanh.
+
+**Hiệu năng:** thẻ *Hiệu năng màn hình game* hiện FPS, CPU, lệnh vẽ GPU, bộ nhớ; nút *Đo thử với 30 / 50 Chibi* (khi chạy Demo) đo ngay trên PC phát LIVE. Chibi ở xa tự giảm chi tiết khi quán đông. Xem `docs/benchmark-chibi.md`.
+
 Chỉ bình luận ngắn (≤ 5 từ) mới là lệnh; câu dài vẫn hiện và được trợ lý đọc nhưng không điều khiển Chibi. Quà tặng không cho lợi thế mua hàng; đơn hàng không bao giờ được đoán từ bình luận. Mở `/game/live?overlay=1` để xem trạng thái từng Chibi.
 
 ## Trợ lý AI & giọng đọc (Claude + Vbee)
