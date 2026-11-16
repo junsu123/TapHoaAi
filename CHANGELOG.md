@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.21.1 — 2026-11-16 — Kéo thả ô Sân khấu
+
+- Ô **Sân khấu** trên màn hình LIVE kéo thả được như Bảng vàng: Game 3D & OBS → Không gian cửa hàng → “Kéo thả bảng vàng và ô Sân khấu tới chỗ muốn đặt”, kéo ô tới chỗ muốn đặt, kéo chấm tròn ở góc để phóng to/thu nhỏ (60–180 %), thả tay là lưu, màn hình LIVE đổi ngay. Nút “Ô Sân khấu về chỗ mặc định” để đưa về như cũ.
+
 ## 0.21.0 — 2026-11-16 — Bình luận chỉ đọc bằng giọng & hình LIVE nét nhất
 
 - **Bình luận chỉ đọc, không hiện chữ:** khi khách bình luận, chủ quán đọc “Bạn X nói: …” và câu trả lời bằng giọng — không còn bong bóng trên đầu chủ quán và không còn dòng chữ ở dưới màn hình (câu hỏi đọc to, câu trả lời của trợ lý cũng vậy). Muốn hiện lại: Game 3D & OBS → Không gian cửa hàng → “Hiện chữ bình luận của khách”. Thơ, truyện, lời mời lên sân khấu, lời chào vẫn hiện như cũ. Khi máy không phát được tiếng (chỉ có chữ) thì vẫn hiện chữ để không mất lời khách.

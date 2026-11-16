@@ -182,8 +182,71 @@ function OwnerBubble({ engine }: { engine: GameEngine }) {
   );
 }
 
+/** Drag a box on the LIVE screen (edit mode only): move it, or resize it from its corner handle.
+ * Dropping it tells the dashboard (which saves the spot) with a postMessage of `msgType`. */
+function useOverlayDrag(
+  editable: boolean,
+  saved: { x: number | null; y: number | null; scale: number },
+  msgType: "chibi-board" | "chibi-stage-board",
+) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [drag, setDrag] = useState<{ x: number; y: number; scale: number } | null>(null);
+  const gesture = useRef<{ kind: "move" | "size"; px: number; py: number; x: number; y: number; scale: number; w: number; h: number; sw: number; sh: number } | null>(null);
+  // the saved position arrived: drop the local drag state
+  useEffect(() => setDrag(null), [saved.x, saved.y, saved.scale]);
+  const placed = drag ?? (saved.x != null && saved.y != null ? { x: saved.x, y: saved.y, scale: saved.scale } : null);
+  const scale = drag?.scale ?? saved.scale ?? 1;
+  const begin = (kind: "move" | "size") => (e: PointerEvent) => {
+    if (!editable || !ref.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const frame = (ref.current.offsetParent as HTMLElement).getBoundingClientRect();
+    const r = ref.current.getBoundingClientRect();
+    gesture.current = {
+      kind,
+      px: e.clientX,
+      py: e.clientY,
+      x: (r.left - frame.left) / frame.width,
+      y: (r.top - frame.top) / frame.height,
+      scale,
+      w: r.width,
+      h: r.height,
+      sw: frame.width,
+      sh: frame.height,
+    };
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  };
+  const move = (e: PointerEvent) => {
+    const g = gesture.current;
+    if (!g) return;
+    if (g.kind === "move") {
+      const x = Math.min(Math.max(0, g.x + (e.clientX - g.px) / g.sw), Math.max(0, 1 - g.w / g.sw));
+      const y = Math.min(Math.max(0, g.y + (e.clientY - g.py) / g.sh), Math.max(0, 1 - g.h / g.sh));
+      setDrag({ x, y, scale: g.scale });
+    } else {
+      const k = Math.min(1.8, Math.max(0.6, g.scale * (1 + (e.clientX - g.px) / g.w)));
+      setDrag({ x: g.x, y: g.y, scale: Math.round(k * 100) / 100 });
+    }
+  };
+  const end = () => {
+    const g = gesture.current;
+    gesture.current = null;
+    if (!g || !drag) return;
+    const msg = { type: msgType, x: Math.round(drag.x * 1000) / 1000, y: Math.round(drag.y * 1000) / 1000, scale: drag.scale };
+    if (window.parent !== window) window.parent.postMessage(msg, location.origin);
+  };
+  const handlers = { onPointerDown: begin("move"), onPointerMove: move, onPointerUp: end, onPointerCancel: end };
+  const resizeHandlers = { onPointerDown: begin("size"), onPointerMove: move, onPointerUp: end, onPointerCancel: end };
+  /** style for a box placed by hand (null: the box keeps its default spot) */
+  const placedStyle: CSSProperties | null = placed
+    ? { left: `${placed.x * 100}%`, top: `${placed.y * 100}%`, right: "auto", bottom: "auto", transform: `scale(${scale})`, transformOrigin: "top left" }
+    : null;
+  return { ref, scale, placedStyle, handlers: editable ? handlers : {}, resizeHandlers };
+}
+
 /** The dance stage line: who dances now, who is next — and how to join. */
-function StageBoard({ engine, safe }: { engine: GameEngine; safe: SafeArea }) {
+function StageBoard({ engine, safe, scene, editable }: { engine: GameEngine; safe: SafeArea; scene: SceneConfig; editable: boolean }) {
+  const d = useOverlayDrag(editable, { x: scene.stage_board_x, y: scene.stage_board_y, scale: scene.stage_board_scale }, "chibi-stage-board");
   const [v, setV] = useState(engine.stage);
   const [enabled, setEnabled] = useState(engine.scene.stage_enabled);
   const tvTop = () => engine.scene.banner_enabled; // TV frame on top or the LED wall screen: stay below it
@@ -207,7 +270,21 @@ function StageBoard({ engine, safe }: { engine: GameEngine; safe: SafeArea }) {
   const next = v?.queue.slice(0, 4) ?? [];
   const more = Math.max(0, (v?.waiting ?? 0) - next.length);
   return (
-    <div className="stage-board" data-testid="stage-board" style={{ top: `${(safe.top + (belowTv ? 0.36 : 0.075)) * 100}%`, right: `${(safe.right + 0.02) * 100}%` }}>
+    <div
+      ref={d.ref}
+      className={`stage-board${editable ? " editable" : ""}`}
+      data-testid="stage-board"
+      data-placed={d.placedStyle ? "1" : undefined}
+      style={
+        d.placedStyle ?? {
+          top: `${(safe.top + (belowTv ? 0.36 : 0.075)) * 100}%`,
+          right: `${(safe.right + 0.02) * 100}%`,
+          transform: `scale(${d.scale})`,
+          transformOrigin: "top right",
+        }
+      }
+      {...d.handlers}
+    >
       <div className="stage-board-title">🎤 Sân khấu</div>
       {cur ? (
         <div className="stage-now" data-testid="stage-current" data-phase={cur.phase}>
@@ -225,6 +302,12 @@ function StageBoard({ engine, safe }: { engine: GameEngine; safe: SafeArea }) {
         </ol>
       )}
       <div className="stage-hint">Bình luận “nhảy” để lên sân khấu</div>
+      {editable && (
+        <>
+          <span className="hb-edit-hint">Kéo để di chuyển, kéo góc để đổi cỡ</span>
+          <span className="hb-resize" data-testid="stage-board-resize" {...d.resizeHandlers} aria-label="Đổi cỡ ô sân khấu" />
+        </>
+      )}
     </div>
   );
 }
@@ -235,76 +318,25 @@ const MEDAL = ["gold", "silver", "bronze"];
  * the host dragged it (edit mode: the dashboard's layout preview loads the page with edit=board). */
 function HonourBoard({ board, scene, hidden, editable }: { board: LeaderboardView | null; scene: SceneConfig; hidden: boolean; editable: boolean }) {
   const [tab, setTab] = useState<"gifts" | "buyers">("gifts");
-  const ref = useRef<HTMLDivElement>(null);
-  const [drag, setDrag] = useState<{ x: number; y: number; scale: number } | null>(null);
-  const gesture = useRef<{ kind: "move" | "size"; px: number; py: number; x: number; y: number; scale: number; w: number; h: number; sw: number; sh: number } | null>(null);
+  const d = useOverlayDrag(editable, { x: scene.board_x, y: scene.board_y, scale: scene.board_scale }, "chibi-board");
   useEffect(() => {
     const id = setInterval(() => setTab((t) => (t === "gifts" ? "buyers" : "gifts")), 8000);
     return () => clearInterval(id);
   }, []);
-  // the saved position arrived: drop the local drag state
-  useEffect(() => setDrag(null), [scene.board_x, scene.board_y, scene.board_scale]);
   const rows =
     tab === "gifts"
       ? (board?.gifts ?? []).map((g) => ({ name: g.name, value: g.coins > 0 ? `${g.coins.toLocaleString("vi-VN")} xu` : `${g.gifts} quà` }))
       : (board?.buyers ?? []).map((b) => ({ name: b.name, value: b.amount > 0 ? (formatVnd(b.amount) ?? "") : `${b.items} sản phẩm` }));
-  const placed = drag ?? (scene.board_x != null && scene.board_y != null ? { x: scene.board_x, y: scene.board_y, scale: scene.board_scale } : null);
-  const scale = drag?.scale ?? scene.board_scale ?? 1;
-  const style: CSSProperties = placed
-    ? { left: `${placed.x * 100}%`, top: `${placed.y * 100}%`, right: "auto", bottom: "auto", transform: `scale(${scale})`, transformOrigin: "top left" }
-    : { transform: `scale(${scale})`, transformOrigin: scene.board_position === "right" ? "bottom right" : "bottom left" };
-
-  const begin = (kind: "move" | "size") => (e: PointerEvent) => {
-    if (!editable || !ref.current) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const stage = (ref.current.offsetParent as HTMLElement).getBoundingClientRect();
-    const r = ref.current.getBoundingClientRect();
-    gesture.current = {
-      kind,
-      px: e.clientX,
-      py: e.clientY,
-      x: (r.left - stage.left) / stage.width,
-      y: (r.top - stage.top) / stage.height,
-      scale,
-      w: r.width,
-      h: r.height,
-      sw: stage.width,
-      sh: stage.height,
-    };
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-  };
-  const move = (e: PointerEvent) => {
-    const g = gesture.current;
-    if (!g) return;
-    if (g.kind === "move") {
-      const x = Math.min(Math.max(0, g.x + (e.clientX - g.px) / g.sw), Math.max(0, 1 - g.w / g.sw));
-      const y = Math.min(Math.max(0, g.y + (e.clientY - g.py) / g.sh), Math.max(0, 1 - g.h / g.sh));
-      setDrag({ x, y, scale: g.scale });
-    } else {
-      const k = Math.min(1.8, Math.max(0.6, g.scale * (1 + (e.clientX - g.px) / (g.w / 1))));
-      setDrag({ x: g.x, y: g.y, scale: Math.round(k * 100) / 100 });
-    }
-  };
-  const end = () => {
-    const g = gesture.current;
-    gesture.current = null;
-    if (!g || !drag) return;
-    const msg = { type: "chibi-board", x: Math.round(drag.x * 1000) / 1000, y: Math.round(drag.y * 1000) / 1000, scale: drag.scale };
-    if (window.parent !== window) window.parent.postMessage(msg, location.origin);
-  };
+  const style: CSSProperties = d.placedStyle ?? { transform: `scale(${d.scale})`, transformOrigin: scene.board_position === "right" ? "bottom right" : "bottom left" };
 
   return (
     <div
-      ref={ref}
+      ref={d.ref}
       className={`honour-board ${scene.board_position}${hidden && !editable ? " away" : ""}${editable ? " editable" : ""}`}
       style={style}
       data-testid="honour-board"
       data-tab={tab}
-      onPointerDown={begin("move")}
-      onPointerMove={move}
-      onPointerUp={end}
-      onPointerCancel={end}
+      {...d.handlers}
     >
       <div className="hb-head">
         <span className="hb-crown" aria-hidden>
@@ -329,7 +361,7 @@ function HonourBoard({ board, scene, hidden, editable }: { board: LeaderboardVie
       {editable && (
         <>
           <span className="hb-edit-hint">Kéo để di chuyển, kéo góc để đổi cỡ</span>
-          <span className="hb-resize" data-testid="board-resize" onPointerDown={begin("size")} onPointerMove={move} onPointerUp={end} onPointerCancel={end} aria-label="Đổi cỡ bảng vàng" />
+          <span className="hb-resize" data-testid="board-resize" {...d.resizeHandlers} aria-label="Đổi cỡ bảng vàng" />
         </>
       )}
     </div>
@@ -421,7 +453,7 @@ export function LiveOverlay({
       {banner && <ProductBanner engine={engine} scene={st.scene} showcase={st.product} nickname={st.nickname} />}
       {(st.scene.board_enabled || editBoard) && <HonourBoard board={st.board} scene={st.scene} hidden={st.teaShot} editable={editBoard} />}
       <OwnerBubble engine={engine} />
-      <StageBoard engine={engine} safe={safe} />
+      <StageBoard engine={engine} safe={safe} scene={st.scene} editable={editBoard} />
       <div className="overlay-bottom">
         {speech?.blocked && (
           <button

@@ -67,6 +67,10 @@ class SceneConfig(BaseModel):
     stage_seconds: int = Field(15, ge=8, le=60)  # each performer dances this long
     stage_max_queue: int = Field(30, ge=5, le=100)
     stage_side: Literal["right", "left"] = "right"
+    # the "Sân khấu" box on the LIVE screen, where the host dragged it (None = default spot)
+    stage_board_x: float | None = Field(None, ge=0.0, le=0.95)
+    stage_board_y: float | None = Field(None, ge=0.0, le=0.95)
+    stage_board_scale: float = Field(1.0, ge=0.6, le=1.8)
     # a viewer's comment (and the owner's reply to it) is only read aloud: no bubble, no caption text
     chat_on_screen: bool = False
 

@@ -307,7 +307,9 @@ class OwnerTalk:
             # never a poem the moment the voice is switched on, never one over an answer
             self._last_auto = now
             return False
-        if now - self._last_auto < every * 60 or now - self._last_any < 60:
+        # quiet = nothing said for `every` minutes (a clip that came and went between two looks counts too)
+        quiet_since = max(self._last_auto, self.c.speech.last_activity - time.monotonic() + now)
+        if now - quiet_since < every * 60 or now - self._last_any < 60:
             return False
         self._last_auto = now
         kind = "poem" if len(self.history) % 2 == 0 else "story"

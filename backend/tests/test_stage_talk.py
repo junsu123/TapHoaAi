@@ -175,6 +175,7 @@ def test_now_and_then_when_quiet(admin_client):
     c = admin_client
     cont = c.app.state.container
     # a long time with the voice off is not "quiet time": switching it on never starts with a poem
+    cont.speech.last_activity -= 3600
     cont.talk._last_auto = time.monotonic() - 3600
     assert cont.talk.tick() is False
     assert time.monotonic() - cont.talk._last_auto < 5
@@ -186,5 +187,6 @@ def test_now_and_then_when_quiet(admin_client):
     assert not t.history  # just started: not yet
     t._last_auto -= 9 * 60  # 9 quiet minutes later (the owner looks every 5 s)
     t._last_any -= 120
+    cont.speech.last_activity -= 9 * 60
     _until(lambda: len(t.history) == 1, timeout=12)
     assert t.history[0]["kind"] == "poem"
