@@ -146,6 +146,10 @@ export function SceneSettings() {
       <p className="muted small">
         Có người vào LIVE: chủ quán đứng dậy cúi chào, hiện bong bóng lời chào (nhiều người vào cùng lúc thì gộp tên). Có người tặng quà: Chibi của khách tới ngồi đối diện, chủ quán rót trà mời. Ghi đơn mua hàng: chủ quán cảm ơn.
       </p>
+      <label className="check">
+        <input type="checkbox" checked={cfg.chat_on_screen} onChange={(e) => set({ chat_on_screen: e.target.checked })} aria-label="Hiện chữ bình luận trên màn hình" />
+        Hiện chữ bình luận của khách (và câu chủ quán trả lời) trên màn hình — tắt: chỉ đọc bằng giọng, không hiện bong bóng hay dòng chữ
+      </label>
       {cfg.owner_enabled && (
         <>
           <label>

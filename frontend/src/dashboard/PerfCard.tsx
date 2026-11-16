@@ -15,6 +15,8 @@ interface Report {
   quality: string;
   avatars: number;
   lod: { full: number; reduced: number; far: number; hidden: number };
+  window_px?: [number, number] | null;
+  render_px?: [number, number] | null;
 }
 interface Result {
   target: number;
@@ -67,7 +69,7 @@ const LEVEL: Record<string, { text: string; cls: string }> = {
 };
 
 const fmt = (v: number | null | undefined, d = 0) => (v === null || v === undefined ? "–" : v.toFixed(d));
-const QUALITY: Record<string, string> = { low: "thấp", medium: "vừa", high: "cao" };
+const QUALITY: Record<string, string> = { low: "thấp", medium: "vừa", high: "cao", ultra: "nét nhất" };
 
 export function PerfCard() {
   const [v, setV] = useState<PerfView | null>(null);
@@ -157,6 +159,7 @@ export function PerfCard() {
             Chi tiết: {last.lod.full} Chibi vẽ đầy đủ · {last.lod.reduced} giảm viền · {last.lod.far} ở xa (ít chi tiết) · {last.lod.hidden} ngoài khung hình. Chất lượng{" "}
             {QUALITY[last.quality] ?? last.quality}. Card đồ họa: {last.gpu ?? "không rõ"}.
           </p>
+          <Sharpness last={last} />
         </>
       )}
       <div className="row wrap">
@@ -255,5 +258,23 @@ export function PerfCard() {
         </table>
       )}
     </div>
+  );
+}
+
+/** Is the game window big enough for a sharp 1080 × 1920 LIVE picture? */
+function Sharpness({ last }: { last: Report }) {
+  const win = last.window_px;
+  if (!win) return null;
+  const [w, h] = win;
+  const sharp = h >= 1900;
+  const render = last.render_px;
+  return (
+    <p className={sharp ? "muted small" : "warn-text small"} data-testid="perf-sharpness" data-sharp={sharp ? "1" : "0"}>
+      Cửa sổ game: <b>{w} × {h}</b> điểm ảnh
+      {render && (render[0] !== w || render[1] !== h) ? <> (vẽ ở {render[0]} × {render[1]} rồi thu nhỏ cho nét)</> : null}.{" "}
+      {sharp
+        ? "Đủ khung LIVE 1080 × 1920 — hình trên điện thoại sẽ nét."
+        : `Nhỏ hơn khung LIVE 1080 × 1920: phần mềm LIVE phải phóng to ${(1920 / Math.max(1, h)).toFixed(1)} lần nên hình trên điện thoại bị mờ. Trong cửa sổ Chibi Live Game: chuột phải → “Nét nhất cho LIVE (1080 × 1920)”, hoặc dùng nguồn Link / Browser Source 1080 × 1920.`}
+    </p>
   );
 }

@@ -51,6 +51,33 @@ function start() {
   powerSaveBlocker.start("prevent-display-sleep");
   createWindow();
   connect();
+  const report = process.argv.find((a) => a.startsWith("--chibi-report="));
+  if (report) setTimeout(() => writeReport(report.split("=").slice(1).join("=")), 8000);
+}
+
+/** Test hook (CI on Windows): the window's real size and the size of what it shows, then quit. */
+async function writeReport(file) {
+  const display = win ? screen.getDisplayMatching(win.getBounds()) : screen.getPrimaryDisplay();
+  let capture = null;
+  try {
+    const img = await win.webContents.capturePage();
+    capture = img.getSize();
+  } catch (e) {
+    capture = { error: String(e) };
+  }
+  const out = {
+    platform: process.platform,
+    scaleFactor: display.scaleFactor,
+    workArea: physicalOf(display.workAreaSize, display),
+    window: physicalSize(),
+    contentDip: win?.getContentSize(),
+    bounds: win?.getBounds(),
+    capture,
+    quality: cfg.quality,
+    url: win?.webContents.getURL(),
+  };
+  require("node:fs").writeFileSync(file, JSON.stringify(out, null, 2));
+  app.quit();
 }
 
 // ------------------------------------------------------------------ window
@@ -83,6 +110,8 @@ function createWindow() {
     alwaysOnTop: cfg.alwaysOnTop,
     autoHideMenuBar: true,
     enableLargerThanScreen: true, // 1080 × 1920 on a landscape Full HD monitor
+    maxWidth: 4320,
+    maxHeight: 7680,
     show: false,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -93,7 +122,12 @@ function createWindow() {
   });
   win = w;
   win.setAspectRatio(9 / 16);
-  if (!pos) win.center();
+  // Windows keeps a window within about the screen's size unless a maximum is set: allow up to 4K tall
+  win.setMaximumSize(4320, 7680);
+  if (S.sticksOut(physicalOf(size, display), physicalOf(display.workAreaSize, display))) {
+    win.setContentSize(size.width, size.height); // again, now that the maximum allows it
+    placeTopVisible(display);
+  } else if (!pos) win.center();
   win.once("ready-to-show", () => {
     win.show();
     if (cfg.fullscreen) win.setFullScreen(true);
@@ -143,6 +177,16 @@ function createWindow() {
   updateTitle();
 }
 
+const physicalOf = (sz, display) => ({ width: Math.round(sz.width * display.scaleFactor), height: Math.round(sz.height * display.scaleFactor) });
+
+/** A window taller than the screen: its top (title bar, start of the picture) stays on screen. */
+function placeTopVisible(display) {
+  if (!win) return;
+  const b = win.getBounds();
+  const wa = display.workArea;
+  win.setPosition(wa.x + Math.max(0, Math.round((wa.width - b.width) / 2)), wa.y);
+}
+
 function physicalSize() {
   if (!win) return { width: 0, height: 0 };
   const b = win.getContentBounds();
@@ -164,8 +208,19 @@ function setSize(widthPx) {
   const display = screen.getDisplayMatching(win.getBounds());
   const s = wantedSize(display);
   win.setContentSize(s.width, s.height);
+  if (S.sticksOut(physicalOf(s, display), physicalOf(display.workAreaSize, display))) placeTopVisible(display);
   saveCfg();
   setTimeout(updateTitle, 50);
+}
+
+/** "Nét nhất cho LIVE": exactly the 1080 × 1920 LIVE frame, drawn at the sharpest quality. */
+function sharpLive() {
+  const qualityChanged = cfg.quality !== "";
+  cfg = S.sharpLive(cfg);
+  if (win?.isFullScreen()) win.setFullScreen(false);
+  setSize(1080);
+  if (qualityChanged && state.phase === "game") win?.loadURL(S.gameUrl(cfg));
+  win?.setMenu(buildMenu());
 }
 
 function toggle(key) {
@@ -203,6 +258,7 @@ function shortcut(i) {
   else if (ctrl && i.key === "1") setSize(540);
   else if (ctrl && i.key === "2") setSize(720);
   else if (ctrl && i.key === "3") setSize(1080);
+  else if (ctrl && i.key.toLowerCase() === "l") sharpLive();
   else if (ctrl && i.key.toLowerCase() === "t") toggle("alwaysOnTop");
   else if (ctrl && i.key.toLowerCase() === "b") toggle("frameless");
   else if (ctrl && i.key.toLowerCase() === "m") moveToNextDisplay();
@@ -222,6 +278,7 @@ function buildMenu() {
     click: () => setSize(p.width),
   }));
   return Menu.buildFromTemplate([
+    { label: "Nét nhất cho LIVE (1080 × 1920)", accelerator: "CmdOrCtrl+L", click: sharpLive },
     { label: "Kích thước khung 9:16", submenu: sizes },
     { label: "Toàn màn hình", type: "checkbox", checked: !!win?.isFullScreen(), accelerator: "F11", click: () => toggle("fullscreen") },
     { label: "Luôn nằm trên cùng", type: "checkbox", checked: cfg.alwaysOnTop, accelerator: "CmdOrCtrl+T", click: () => toggle("alwaysOnTop") },

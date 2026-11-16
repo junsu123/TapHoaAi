@@ -22,6 +22,17 @@ def _num(v: Any, lo: float = 0.0, hi: float = 1e9) -> float | None:
     return max(lo, min(hi, float(v)))
 
 
+def _size(v: Any) -> list[int] | None:
+    """[width, height] in pixels, or None."""
+    if not isinstance(v, (list, tuple)) or len(v) != 2:
+        return None
+    try:
+        w, h = int(v[0]), int(v[1])
+    except (TypeError, ValueError):
+        return None
+    return [w, h] if 0 < w <= 16384 and 0 < h <= 16384 else None
+
+
 def clean_report(msg: dict[str, Any]) -> dict[str, Any]:
     lod = msg.get("lod") if isinstance(msg.get("lod"), dict) else {}
     return {
@@ -35,6 +46,8 @@ def clean_report(msg: dict[str, Any]) -> dict[str, Any]:
         "quality": str(msg.get("quality") or "")[:12],
         "avatars": int(_num(msg.get("avatars"), 0, 10_000) or 0),
         "lod": {k: int(_num(lod.get(k), 0, 10_000) or 0) for k in ("full", "reduced", "far", "hidden")},
+        "window_px": _size(msg.get("window_px")),
+        "render_px": _size(msg.get("render_px")),
         "at": time.time(),
     }
 

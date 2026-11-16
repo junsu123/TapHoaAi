@@ -644,3 +644,6 @@ ol.steps code { font-size: 12px; background: #eef2f0; padding: 1px 5px; border-r
 .stage-queue { margin: 6px 0 10px; padding-left: 22px; max-height: 220px; overflow: auto; }
 .stage-queue li { padding: 2px 0; }
 .stage-queue li span { margin-right: 8px; }
+
+/* a viewer's chat is only read aloud (Không gian cửa hàng → "Hiện chữ bình luận" off) */
+.speech-caption.off-screen { display: none; }

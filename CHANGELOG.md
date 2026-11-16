@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.21.0 — 2026-11-16 — Bình luận chỉ đọc bằng giọng & hình LIVE nét nhất
+
+- **Bình luận chỉ đọc, không hiện chữ:** khi khách bình luận, chủ quán đọc “Bạn X nói: …” và câu trả lời bằng giọng — không còn bong bóng trên đầu chủ quán và không còn dòng chữ ở dưới màn hình (câu hỏi đọc to, câu trả lời của trợ lý cũng vậy). Muốn hiện lại: Game 3D & OBS → Không gian cửa hàng → “Hiện chữ bình luận của khách”. Thơ, truyện, lời mời lên sân khấu, lời chào vẫn hiện như cũ. Khi máy không phát được tiếng (chỉ có chữ) thì vẫn hiện chữ để không mất lời khách.
+- **Chất lượng “Nét nhất”** (`?quality=ultra`): vẽ hình gấp đôi số điểm ảnh của cửa sổ (tối đa 3840 px chiều cao) rồi thu nhỏ — viền, tên, chữ trên kệ và màn hình LED sắc nét hơn sau khi TikTok nén lại. Cửa sổ Chibi Live Game ở chế độ Tự động giờ bắt đầu từ Nét nhất và chỉ giảm khi máy chậm.
+- **Cửa sổ “Nét nhất cho LIVE (1080 × 1920)”** (chuột phải hoặc Ctrl+L): cửa sổ đúng bằng khung LIVE 1080 × 1920 kể cả trên màn hình Full HD nằm ngang (phần dưới nằm ngoài màn hình nhưng vẫn được vẽ để phần mềm LIVE bắt hình); trước đây cửa sổ vừa màn hình chỉ khoảng 540 × 960 nên TikTok phải phóng to gấp đôi — đó là lý do hình mờ trên điện thoại. Có kiểm thử tự động trên Windows thật (máy ảo màn hình nhỏ): cửa sổ đủ 1080 × 1920 và phần ngoài màn hình vẫn có hình.
+- Bảng điều khiển → Game 3D & OBS → *Hiệu năng màn hình game* cho biết cửa sổ game đang là bao nhiêu điểm ảnh, đủ khung 1080 × 1920 chưa, và cách sửa; có đường link “nét nhất” cho nguồn Link (TikTok LIVE Studio) / Browser Source (OBS) 1080 × 1920.
+
 ## 0.20.0 — 2026-11-16 — Sân khấu nhảy & chủ quán trò chuyện
 
 - **Sân khấu:** sân khấu gỗ có rèm, biển “SÂN KHẤU” và hai đèn chiếu ở phía trước quán (chọn bên phải/trái). Người xem bình luận “nhảy”, “lên sân khấu”, “đăng ký nhảy”… được xếp hàng — **ai bình luận trước lên nhảy trước**; bình luận lại không mất chỗ cũng không chen thêm lượt. Tới lượt, chủ quán mời “Mời bạn {tên} lên sân khấu!”, Chibi của người đó đi tới, bước lên và nhảy một bài (8–60 giây, mặc định 15), đèn chiếu đổi màu, camera quay sân khấu suốt lượt nhảy; hết lượt cúi chào, bước xuống, chủ quán cảm ơn rồi mời người kế tiếp. Ai đã nhảy chờ 1 phút mới đăng ký lại; người rời LIVE (“về thôi”) tự ra khỏi hàng; Chibi không tới được trong 30 giây thì qua lượt người sau.

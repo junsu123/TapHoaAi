@@ -67,6 +67,8 @@ class SceneConfig(BaseModel):
     stage_seconds: int = Field(15, ge=8, le=60)  # each performer dances this long
     stage_max_queue: int = Field(30, ge=5, le=100)
     stage_side: Literal["right", "left"] = "right"
+    # a viewer's comment (and the owner's reply to it) is only read aloud: no bubble, no caption text
+    chat_on_screen: bool = False
 
     @field_validator("sign_text", "tagline", "owner_name", "owner_greet_template", "owner_tea_template",
                      "owner_buy_template")
