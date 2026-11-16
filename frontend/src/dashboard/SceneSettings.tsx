@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api, ApiError, formatVnd } from "../lib/api";
-import type { SceneConfig } from "../types/protocol";
+import type { AgendaItem, SceneConfig } from "../types/protocol";
 
 interface ProductLite {
   id: string;
@@ -176,7 +176,7 @@ export function SceneSettings() {
         <input type="checkbox" checked={cfg.board_enabled} onChange={(e) => set({ board_enabled: e.target.checked })} aria-label="Bảng vàng" />
         Hiện bảng vàng top tặng quà & mua hàng trên màn hình LIVE
       </label>
-      {(cfg.board_enabled || cfg.stage_enabled) && (
+      {(cfg.board_enabled || cfg.stage_enabled || cfg.upcoming_enabled) && (
         <BoardPlacer
           cfg={cfg}
           onSaved={(c) =>
@@ -190,6 +190,9 @@ export function SceneSettings() {
                     stage_board_x: c.stage_board_x,
                     stage_board_y: c.stage_board_y,
                     stage_board_scale: c.stage_board_scale,
+                    upcoming_x: c.upcoming_x,
+                    upcoming_y: c.upcoming_y,
+                    upcoming_scale: c.upcoming_scale,
                   }
                 : prev,
             )
@@ -261,6 +264,12 @@ export function SceneSettings() {
           </label>
         </div>
       )}
+      <h3>Bảng “Sắp diễn ra”</h3>
+      <label className="check">
+        <input type="checkbox" checked={cfg.upcoming_enabled} onChange={(e) => set({ upcoming_enabled: e.target.checked })} aria-label="Bảng sắp diễn ra" />
+        Hiện trên LIVE những gì sắp tới, có đếm ngược: bài thơ tiếp theo, ai sắp lên cấp, hàng chờ sân khấu, lịch của shop — để người xem chờ thêm chút nữa
+      </label>
+      {cfg.upcoming_enabled && <AgendaEditor items={cfg.agenda} onChange={(agenda) => set({ agenda })} />}
       <h3>Chibi lên cấp theo thời gian xem</h3>
       <label className="check">
         <input type="checkbox" checked={cfg.levels_enabled} onChange={(e) => set({ levels_enabled: e.target.checked })} aria-label="Chibi lên cấp" />
@@ -343,12 +352,18 @@ function BoardPlacer({ cfg, onSaved }: { cfg: SceneConfig; onSaved: (c: SceneCon
           { stage_board_x: x, stage_board_y: y, stage_board_scale: scale },
           (c) => `Đã lưu vị trí ô Sân khấu (cỡ ${Math.round(c.stage_board_scale * 100)}%). Màn hình LIVE đổi ngay.`,
         );
+      else if (type === "chibi-upcoming-board")
+        save(
+          { upcoming_x: x, upcoming_y: y, upcoming_scale: scale },
+          (c) => `Đã lưu vị trí bảng Sắp diễn ra (cỡ ${Math.round(c.upcoming_scale * 100)}%). Màn hình LIVE đổi ngay.`,
+        );
     };
     window.addEventListener("message", on);
     return () => window.removeEventListener("message", on);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
-  const what = [cfg.board_enabled && "bảng vàng", cfg.stage_enabled && "ô Sân khấu"].filter(Boolean).join(" và ");
+  const parts = [cfg.board_enabled && "bảng vàng", cfg.stage_enabled && "ô Sân khấu", cfg.upcoming_enabled && "bảng Sắp diễn ra"].filter(Boolean) as string[];
+  const what = parts.length > 1 ? `${parts.slice(0, -1).join(", ")} và ${parts[parts.length - 1]}` : parts[0];
   return (
     <div className="board-placer">
       <div className="row wrap">
@@ -366,6 +381,11 @@ function BoardPlacer({ cfg, onSaved }: { cfg: SceneConfig; onSaved: (c: SceneCon
             onClick={() => save({ stage_board_x: null, stage_board_y: null, stage_board_scale: 1 }, () => "Đã đưa ô Sân khấu về chỗ mặc định.")}
           >
             Ô Sân khấu về chỗ mặc định
+          </button>
+        )}
+        {cfg.upcoming_enabled && (cfg.upcoming_x != null || cfg.upcoming_scale !== 1) && (
+          <button type="button" onClick={() => save({ upcoming_x: null, upcoming_y: null, upcoming_scale: 1 }, () => "Đã đưa bảng Sắp diễn ra về chỗ mặc định.")}>
+            Bảng Sắp diễn ra về chỗ mặc định
           </button>
         )}
         {note && (
@@ -440,4 +460,41 @@ function ChibiBehaviorFields({ cfg, set }: { cfg: SceneConfig; set: (p: Partial<
       </label>
     </>
   );
+}
+
+/** The shop's LIVE schedule: "22:10 Mini-game đoán giá" (shown when it is less than 90 minutes away). */
+function AgendaEditor({ items, onChange }: { items: AgendaItem[]; onChange: (v: AgendaItem[]) => void }) {
+  const setAt = (i: number, patch: Partial<AgendaItem>) => onChange(items.map((it, k) => (k === i ? { ...it, ...patch } : it)));
+  return (
+    <div className="agenda-editor" data-testid="agenda-editor">
+      <p className="muted small">Lịch LIVE của shop (hiện trên bảng khi còn dưới 90 phút; qua giờ thì tự ẩn). Ví dụ: 22:10 Mini-game đoán giá · 22:30 Giảm giá giờ vàng.</p>
+      {items.map((it, i) => (
+        <div className="row" key={i}>
+          <input type="time" value={it.time} onChange={(e) => setAt(i, { time: e.target.value })} aria-label={`Giờ mục ${i + 1}`} />
+          <input
+            type="text"
+            value={it.text}
+            maxLength={60}
+            placeholder="Việc gì (vd: Mini-game đoán giá)"
+            onChange={(e) => setAt(i, { text: e.target.value })}
+            aria-label={`Nội dung mục ${i + 1}`}
+          />
+          <button type="button" className="link" onClick={() => onChange(items.filter((_, k) => k !== i))} aria-label={`Xóa mục ${i + 1}`}>
+            Xóa
+          </button>
+        </div>
+      ))}
+      {items.length < 12 && (
+        <button type="button" onClick={() => onChange([...items, { time: nextHalfHour(), text: "" }])}>
+          + Thêm mục vào lịch
+        </button>
+      )}
+    </div>
+  );
+}
+
+function nextHalfHour(): string {
+  const d = new Date(Date.now() + 30 * 60000);
+  d.setMinutes(d.getMinutes() < 30 ? 30 : 60, 0, 0);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }

@@ -82,9 +82,31 @@ export interface GameSnapshot {
   scene?: SceneConfig;
   board?: LeaderboardView;
   stage?: StageView;
+  upcoming?: UpcomingView;
 }
 
 /** The dance stage (whoever comments "nhảy" first dances first). */
+/** One line of the shop's LIVE schedule. */
+export interface AgendaItem {
+  time: string; // "22:10"
+  text: string;
+}
+
+/** “Sắp diễn ra”: what is coming up (soonest first) + how to join in. */
+export interface UpcomingRow {
+  kind: "poem" | "level" | "stage" | "agenda";
+  icon: string;
+  text: string;
+  due: number | null; // epoch ms the screen counts down to (null: happening now)
+  clock?: string;
+  item?: string;
+}
+export interface UpcomingView {
+  enabled: boolean;
+  rows: UpcomingRow[];
+  tips: string[];
+}
+
 export interface StageView {
   enabled: boolean;
   seconds: number;
@@ -142,6 +164,12 @@ export interface SceneConfig {
   stage_board_scale: number;
   /** show a viewer's comment (and the owner's reply) as text on screen; off = only read aloud */
   chat_on_screen: boolean;
+  upcoming_enabled: boolean;
+  agenda: AgendaItem[];
+  shop_utc_offset: number;
+  upcoming_x: number | null;
+  upcoming_y: number | null;
+  upcoming_scale: number;
   levels_enabled: boolean;
   level_minutes: number[];
   level_presence_min: number;
@@ -199,6 +227,12 @@ export const DEFAULT_SCENE: SceneConfig = {
   stage_board_y: null,
   stage_board_scale: 1,
   chat_on_screen: false,
+  upcoming_enabled: true,
+  agenda: [],
+  shop_utc_offset: 7,
+  upcoming_x: null,
+  upcoming_y: null,
+  upcoming_scale: 1,
   levels_enabled: true,
   level_minutes: [5, 15, 30],
   level_presence_min: 10,
@@ -223,6 +257,7 @@ export type ServerGameMessage =
   | { type: "AVATAR_UPDATE"; sequence: number; avatar: AvatarInfo }
   | { type: "AVATAR_LEVEL"; sequence: number; avatar_id: string; level: number; up: boolean; item: string }
   /** [avatar_id, level, progress 0…1 towards the next level or null (not counting / top level)] */
+  | { type: "UPCOMING"; sequence: number; upcoming: UpcomingView }
   | { type: "LEVEL_PROGRESS"; sequence: number; items: [string, number, number | null][] }
   | { type: "AVATAR_EXIT"; sequence: number; avatar_id: string; reason: string }
   | { type: "PREEMPT"; sequence: number; command_id: string; avatar_id: string }

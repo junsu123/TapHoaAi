@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
 import { isChatClip, type SpeechView } from "./SpeechPlayer";
 import { formatVnd } from "../lib/api";
-import type { LeaderboardView, ProductInfo, SceneConfig, SpeechClip } from "../types/protocol";
+import type { LeaderboardView, ProductInfo, SceneConfig, SpeechClip, UpcomingView } from "../types/protocol";
 import type { GameEngine } from "./GameEngine";
 
 export interface SafeArea {
@@ -187,7 +187,7 @@ function OwnerBubble({ engine }: { engine: GameEngine }) {
 function useOverlayDrag(
   editable: boolean,
   saved: { x: number | null; y: number | null; scale: number },
-  msgType: "chibi-board" | "chibi-stage-board",
+  msgType: "chibi-board" | "chibi-stage-board" | "chibi-upcoming-board",
 ) {
   const ref = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<{ x: number; y: number; scale: number } | null>(null);
@@ -244,37 +244,76 @@ function useOverlayDrag(
   return { ref, scale, placedStyle, handlers: editable ? handlers : {}, resizeHandlers };
 }
 
-/** Tells viewers that staying longer dresses up their Chibi (shown 15 s out of every minute). */
-function LevelHint({ safe, minutes }: { safe: SafeArea; minutes: number[] }) {
-  const [on, setOn] = useState(true);
+/** “Sắp diễn ra”: what is coming up, soonest first, with live countdowns — and how to join in. */
+function UpcomingBoard({ engine, safe, scene, editable }: { engine: GameEngine; safe: SafeArea; scene: SceneConfig; editable: boolean }) {
+  const d = useOverlayDrag(editable, { x: scene.upcoming_x, y: scene.upcoming_y, scale: scene.upcoming_scale }, "chibi-upcoming-board");
+  const [v, setV] = useState<UpcomingView | null>(engine.upcoming);
+  const [now, setNow] = useState(() => Date.now());
+  const [tip, setTip] = useState(0);
+  const [away, setAway] = useState(false);
   useEffect(() => {
-    let n = 0;
     const id = setInterval(() => {
-      n = (n + 1) % 4; // 4 × 15 s: shown for the first quarter of every minute
-      setOn(n === 0);
-    }, 15000);
-    return () => clearInterval(id);
-  }, []);
-  const [a, b, c] = minutes;
+      setV(engine.upcoming);
+      setNow(Date.now());
+      setAway(engine.tea.cameraOnTable() || engine.stageShot()); // close-ups: step aside
+    }, 500);
+    const t = setInterval(() => setTip((n) => n + 1), 6000);
+    return () => {
+      clearInterval(id);
+      clearInterval(t);
+    };
+  }, [engine]);
+  if (!v || !v.enabled || (!v.rows.length && !v.tips.length)) return null;
+  const tips = v.tips;
   return (
     <div
-      className={`level-hint${on ? "" : " away"}`}
-      data-testid="level-hint"
-      style={{ top: `${(safe.top + 0.36) * 100}%`, left: `${(safe.left + 0.02) * 100}%` }}
-      aria-hidden={!on}
+      ref={d.ref}
+      className={`upcoming-board${editable ? " editable" : ""}${away && !editable ? " away" : ""}`}
+      data-testid="upcoming-board"
+      data-placed={d.placedStyle ? "1" : undefined}
+      style={
+        d.placedStyle ?? {
+          top: `${(safe.top + 0.36) * 100}%`,
+          left: `${(safe.left + 0.02) * 100}%`,
+          transform: `scale(${d.scale})`,
+          transformOrigin: "top left",
+        }
+      }
+      {...d.handlers}
     >
-      <div className="level-hint-title">Ở lại với quán, Chibi lên cấp</div>
-      <div className="level-hint-row">
-        <span className="lv lv1">1</span> {a} phút: nón lá
-      </div>
-      <div className="level-hint-row">
-        <span className="lv lv2">2</span> {b} phút: áo choàng
-      </div>
-      <div className="level-hint-row">
-        <span className="lv lv3">3</span> {c} phút: vương miện
-      </div>
+      <div className="upcoming-title">Sắp diễn ra</div>
+      {v.rows.map((r, i) => (
+        <div key={`${r.kind}-${i}`} className={`upcoming-row up-${r.kind}`} data-testid={`upcoming-${r.kind}`}>
+          <span className="up-icon" aria-hidden>
+            {r.icon}
+          </span>
+          <span className="up-text">{r.text}</span>
+          <span className="up-when">{whenText(r.due, now, r.clock)}</span>
+        </div>
+      ))}
+      {tips.length > 0 && (
+        <div className="upcoming-tip" key={tip % tips.length} data-testid="upcoming-tip">
+          {tips[tip % tips.length]}
+        </div>
+      )}
+      {editable && (
+        <>
+          <span className="hb-edit-hint">Kéo để di chuyển, kéo góc để đổi cỡ</span>
+          <span className="hb-resize" data-testid="upcoming-board-resize" {...d.resizeHandlers} aria-label="Đổi cỡ bảng sắp diễn ra" />
+        </>
+      )}
     </div>
   );
+}
+
+/** "đang diễn ra" / "45 giây" / "4 phút" / "22:10" (more than an hour away). */
+export function whenText(due: number | null, now: number, clock?: string): string {
+  if (due == null) return "đang diễn ra";
+  const s = Math.round((due - now) / 1000);
+  if (s <= 5) return "sắp bắt đầu";
+  if (s < 60) return `${s} giây`;
+  if (s < 3600) return `${Math.ceil(s / 60)} phút`;
+  return clock ?? new Date(due).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
 }
 
 /** The dance stage line: who dances now, who is next — and how to join. */
@@ -487,7 +526,7 @@ export function LiveOverlay({
       {(st.scene.board_enabled || editBoard) && <HonourBoard board={st.board} scene={st.scene} hidden={st.teaShot} editable={editBoard} />}
       <OwnerBubble engine={engine} />
       <StageBoard engine={engine} safe={safe} scene={st.scene} editable={editBoard} />
-      {st.scene.levels_enabled && <LevelHint safe={safe} minutes={st.scene.level_minutes} />}
+      {st.scene.upcoming_enabled && <UpcomingBoard engine={engine} safe={safe} scene={st.scene} editable={editBoard} />}
       <div className="overlay-bottom">
         {speech?.blocked && (
           <button

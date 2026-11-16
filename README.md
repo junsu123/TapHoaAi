@@ -136,6 +136,10 @@ Hình trên điện thoại chỉ nét khi nguồn game đủ **1080 × 1920 đi
 3. Trong phần mềm LIVE: khung hình 1080 × 1920, nguồn game phủ vừa khít khung (không phóng to), bitrate cao nhất mạng tải lên cho phép.
 4. Kiểm tra: Game 3D & OBS → *Hiệu năng màn hình game* ghi cỡ cửa sổ game và báo nếu chưa đủ 1080 × 1920.
 
+## Bảng “Sắp diễn ra”
+
+Bảng nhỏ trên màn hình LIVE cho người xem biết sắp có gì, kèm đếm ngược: bài thơ tiếp theo của chủ quán, ai sắp lên cấp, và **lịch LIVE của shop** (Không gian cửa hàng → *Bảng “Sắp diễn ra”* → “+ Thêm mục vào lịch”, ví dụ 22:10 Mini-game đoán giá; hiện khi còn dưới 90 phút, giờ Việt Nam). Kéo thả được như Bảng vàng.
+
 ## Chibi lên cấp theo thời gian xem
 
 Người xem ở lại càng lâu, Chibi càng “xịn”: **5 phút nón lá → 15 phút áo choàng → 30 phút vương miện** (chỉnh ở Không gian cửa hàng → *Chibi lên cấp*). Cạnh tên có số cấp, sắp lên cấp thì hiện vạch tiến độ; lên cấp thì Chibi cổ vũ và chủ quán chúc mừng; khoảng 1 phút trước, chủ quán nhắc người đó ở lại. Người xem im lặng vẫn được tính thêm 10 phút sau lần thả tim / bình luận gần nhất (TikTok không báo khi ai rời LIVE). Thẻ **Ở lại lâu nhất** ở trang Người trực; nút **Thử (Demo)** để xem trước phụ kiện.

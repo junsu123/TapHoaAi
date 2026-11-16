@@ -13,7 +13,7 @@ import type {
   ShelfLayout,
   StoreLayout,
 } from "../types/protocol";
-import { DEFAULT_SCENE, type LeaderboardView, type StageView } from "../types/protocol";
+import { DEFAULT_SCENE, type LeaderboardView, type StageView, type UpcomingView } from "../types/protocol";
 import { TeaHouse, teaSpot, type TeaSpot } from "./teahouse";
 import { stageSpot, type StageSpot } from "./stage";
 import { benchSpots, DEFAULT_BEHAVIOR, type Bench, type BehaviorConfig } from "./behaviors";
@@ -55,6 +55,8 @@ export class GameEngine {
   tea = new TeaHouse((id) => this.avatars.get(id));
   board: LeaderboardView | null = null;
   /** the dance stage: where it stands, and who dances / waits (from the server) */
+  /** “Sắp diễn ra” rows (server) */
+  upcoming: UpcomingView | null = null;
   stageSpot: StageSpot | null = null;
   stage: StageView | null = null;
   /** owner's head on screen (0..1), written by the renderer, read by the speech bubble */
@@ -270,6 +272,7 @@ export class GameEngine {
     }
     this.camera = { mode: s.camera.mode, avatarId: s.camera.avatar_id ?? null, commandId: s.camera.command_id ?? null };
     if (s.stage !== undefined) this.setStage(s.stage ?? null, true);
+    if (s.upcoming !== undefined) this.upcoming = s.upcoming ?? null;
     this.version++;
   }
 
@@ -364,6 +367,9 @@ export class GameEngine {
         break;
       case "OWNER_SAY":
         if (this.scene.owner_enabled) this.tea.line(m.text, m.kind === "stage" || m.kind === "level" ? "stage" : "talk");
+        break;
+      case "UPCOMING":
+        this.upcoming = m.upcoming;
         break;
       case "STAGE_STATE":
         this.setStage(m.stage);
