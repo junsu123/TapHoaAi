@@ -15,7 +15,9 @@ class Base(DeclarativeBase):
 def make_engine(url: str) -> Engine:
     connect_args = {}
     if url.startswith("sqlite"):
-        connect_args = {"check_same_thread": False}
+        # the batch writer and the API may write at the same moment: wait for each other (up to
+        # 30 s on a slow disk) instead of failing with "database is locked"
+        connect_args = {"check_same_thread": False, "timeout": 30}
     engine = create_engine(url, connect_args=connect_args, future=True)
     if url.startswith("sqlite"):
 

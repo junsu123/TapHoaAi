@@ -18,6 +18,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import insert
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.models import LiveEventRow, Viewer
@@ -36,6 +37,7 @@ class DbWriter:
         self._jobs: dict[Any, Callable[[Session], None]] = {}
         self._lock = threading.Lock()  # buffers are swapped under the lock; the write runs outside it
         self._write_lock = threading.Lock()  # one batch at a time
+        self._retried: set[Any] = set()
         self._task: asyncio.Task | None = None
         self.written_events = 0
         self.written_viewers = 0
@@ -82,7 +84,7 @@ class DbWriter:
                 return
             t0 = time.perf_counter()
             try:
-                self._write(events, list(viewers.values()), list(jobs.values()))
+                self._write(events, list(viewers.values()), list(jobs.items()))
             except Exception:
                 log.exception("Không ghi được dữ liệu sự kiện vào cơ sở dữ liệu (%d sự kiện)", len(events))
                 return
@@ -92,8 +94,10 @@ class DbWriter:
             self.batches += 1
             self.written_events += len(events)
             self.written_viewers += len(viewers)
+            if len(self._retried) > 1000:
+                self._retried.clear()
 
-    def _write(self, events: list[dict[str, Any]], viewers: list[dict[str, Any]], jobs: list[Callable]) -> None:
+    def _write(self, events: list[dict[str, Any]], viewers: list[dict[str, Any]], jobs: list[tuple[Any, Callable]]) -> None:
         sqlite = self.db.engine.dialect.name == "sqlite"
         with self.db.session() as s:
             if events:
@@ -123,10 +127,17 @@ class DbWriter:
                             s.add(Viewer(**v))
                         else:
                             row.nickname, row.last_seen_at = v["nickname"], v["last_seen_at"]
-            for job in jobs:
+            for key, job in jobs:
                 try:
                     with s.begin_nested():
                         job(s)
+                except OperationalError:
+                    # busy disk / another writer: try again with the next batch (once)
+                    if key not in self._retried:
+                        self._retried.add(key)
+                        self.submit(key, job)
+                    else:
+                        log.exception("Không ghi được một dòng dữ liệu")
                 except Exception:
                     log.exception("Không ghi được một dòng dữ liệu")
 

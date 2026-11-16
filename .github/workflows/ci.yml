@@ -33,6 +33,7 @@ jobs:
           ELECTRON_DISABLE_SANDBOX: "1"
         run: |
           npm ci
+          node node_modules/electron/install.js
           npm test
           xvfb-run -a -s "-screen 0 2000x2400x24" node test/app.e2e.mjs
       - uses: actions/upload-artifact@v4
