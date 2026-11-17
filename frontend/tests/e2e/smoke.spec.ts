@@ -7,7 +7,11 @@ import fs from "node:fs";
 
 const SHOTS = "test-results/evidence";
 fs.mkdirSync(SHOTS, { recursive: true });
-const RUN = Date.now().toString(36).slice(-4);
+// letters only: a run of digits in a name is not read aloud nor shown in the owner's lines ("khen287e8" → "khene8")
+const RUN = Date.now()
+  .toString(36)
+  .slice(-4)
+  .replace(/\d/g, (d) => "qrstuvwxyz"[Number(d)]);
 
 interface DebugAvatar {
   id: string;
