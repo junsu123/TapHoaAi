@@ -59,7 +59,9 @@ def test_rows_soonest_first_and_pushed_to_the_game(admin_client):
         msg, _ = recv_until(ws, lambda m: m["type"] == "UPCOMING" and any(r["kind"] == "poem" for r in m["upcoming"]["rows"]),
                             limit=2000)
     rows = msg["upcoming"]["rows"]
-    assert [r["kind"] for r in rows][:2] == ["poem", "agenda"]  # 4 minutes, then 20 minutes
+    kinds = [r["kind"] for r in rows]
+    assert kinds[0] == "poem" and "agenda" in kinds  # 4 minutes first; (the next mini-game, 15–20 min, may come before the 20-min line)
+    assert "game" in kinds
     assert rows == sorted(rows, key=lambda r: r["due"])
     assert "stage" not in [r["kind"] for r in rows]  # the stage has its own box
     texts = [r["text"] for r in rows]

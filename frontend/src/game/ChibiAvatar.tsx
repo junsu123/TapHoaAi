@@ -56,6 +56,7 @@ export function ChibiAvatar({
   const look = useMemo(() => appearanceFromSeed(ctl.info.appearance_seed), [ctl.info.appearance_seed]);
   // watch-time level (nón lá / áo choàng / vương miện): re-render only when it changes
   const [level, setLevel] = useState(ctl.level);
+  const [medal, setMedal] = useState(ctl.medals > 0);
   const { texture, aspect } = useMemo(() => nameTexture(ctl.info.nickname, ctl.info.is_demo, level), [ctl.info.nickname, ctl.info.is_demo, level]);
   const gear = useRef<THREE.Group>(null);
   const bar = useRef<THREE.Sprite>(null!);
@@ -338,6 +339,7 @@ export function ChibiAvatar({
 
     // ---- level: new gear pops in; a thin bar under the name when the next level is near
     if (ctl.level !== level) setLevel(ctl.level);
+    if (ctl.medals > 0 !== medal) setMedal(ctl.medals > 0);
     if (gear.current) {
       const since = ctl.sinceLevelUp;
       const pop = since >= 0 && since < 1.5 ? 1 + 0.45 * Math.exp(-since * 4) * Math.abs(Math.sin(since * 9)) : 1;
@@ -380,6 +382,7 @@ export function ChibiAvatar({
           {/* torso */}
           <Part geometry={GEO.body} material={shirt} position={[0, 0.36, 0]} />
           {level >= 2 && <Cape />}
+          {medal && <Medal />}
           {/* arms: pivot at the shoulder; hand socket at the end of the right arm */}
           <group ref={armL} position={[-0.2, 0.47, 0]}>
             <Part geometry={GEO.arm} material={shirt} position={[0, -0.13, 0]} />
@@ -613,4 +616,22 @@ function barTexture(p: number, level: number): THREE.CanvasTexture {
   t.colorSpace = THREE.SRGBColorSpace;
   barCache.set(key, t);
   return t;
+}
+
+const MEDAL_DISC = new THREE.CylinderGeometry(0.075, 0.075, 0.02, 20);
+const MEDAL_RIBBON = new THREE.BoxGeometry(0.05, 0.12, 0.01);
+
+/** Huy chương: a gold medal on the chest for a mini-game winner. */
+function Medal() {
+  return (
+    <group position={[0, 0.4, 0.2]} rotation={[0.25, 0, 0]}>
+      <mesh geometry={MEDAL_RIBBON} position={[-0.03, 0.07, -0.01]} rotation={[0, 0, 0.35]}>
+        <meshBasicMaterial color="#d8434c" />
+      </mesh>
+      <mesh geometry={MEDAL_RIBBON} position={[0.03, 0.07, -0.01]} rotation={[0, 0, -0.35]}>
+        <meshBasicMaterial color="#3b6fd8" />
+      </mesh>
+      <Part geometry={MEDAL_DISC} material={toon("#ffcc33")} rotation={[Math.PI / 2, 0, 0]} outlineScale={1.08} />
+    </group>
+  );
 }

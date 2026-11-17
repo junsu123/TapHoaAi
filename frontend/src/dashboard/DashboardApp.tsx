@@ -15,6 +15,7 @@ import { SceneSettings } from "./SceneSettings";
 import { BoardCard, type PurchasePrefill } from "./BoardCard";
 import { StageCard } from "./StageCard";
 import { LevelsCard } from "./LevelsCard";
+import { GameCard } from "./GameCard";
 import type { LeaderboardView, StageView } from "../types/protocol";
 import { Brand, OnAirTile, PageHeader, SideNav, UserFoot } from "./Shell";
 import { ShelfEditor } from "./ShelfEditor";
@@ -464,6 +465,9 @@ function HostPage({
         </Card>
         <Card title="Sân khấu" desc="Khách bình luận “nhảy” được xếp hàng — ai bình luận trước lên nhảy trước.">
           <StageCard stage={stage} />
+        </Card>
+        <Card title="Mini-game" desc="Đoán giá, đố vui, nhanh tay — tự chạy mỗi 15–20 phút, hoặc bắt đầu ngay.">
+          <GameCard />
         </Card>
         <Card title="Ở lại lâu nhất" desc="Người xem ở lại càng lâu, Chibi càng lên cấp (nón lá → áo choàng → vương miện).">
           <LevelsCard />

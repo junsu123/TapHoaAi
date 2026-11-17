@@ -39,6 +39,22 @@ async function inject(page: Page, csrf: string, raw: string) {
   expect(r.ok(), await r.text()).toBeTruthy();
 }
 
+// Automatic mini-games (every 15–20 minutes) would start at random moments of this long suite and
+// take comments as answers: they are off for every test except the one about them.
+test.beforeEach(async ({ playwright, baseURL }, info) => {
+  if (info.title.startsWith("Mini-games")) return;
+  const r = await playwright.request.newContext({ baseURL });
+  try {
+    const csrf = await login(r);
+    const H = { "X-CSRF-Token": csrf };
+    const cur = (await (await r.get("/api/v1/settings/scene")).json()).config;
+    if (cur.minigame_enabled) await r.put("/api/v1/settings/scene", { data: { ...cur, minigame_enabled: false }, headers: H });
+    await r.post("/api/v1/games/stop", { headers: H });
+  } finally {
+    await r.dispose();
+  }
+});
+
 const state = (page: Page) => page.evaluate(() => (window as any).__chibiDebug.state() as DebugState);
 const cameraShot = (page: Page) => page.evaluate(() => (window as any).__chibiDebug.camera()?.shot as string);
 const avatarOf = (s: DebugState, nick: string) => s.avatars.find((a) => a.nickname === nick);
@@ -519,7 +535,8 @@ test("Autopilot: one switch reads comments and answers them without the host", a
   await expect(toggle).toContainText("đang bật");
 
   await inject(page, csrf, `@chao${RUN}: chào shop nha`);
-  await expect(caption).toContainText(`chao${RUN}`, { timeout: 20_000 });
+  // (a name is read without trailing digits: "chao1k2" → "chao1k")
+  await expect(caption).toContainText(`chao${RUN.replace(/\d+$/, "")}`, { timeout: 20_000 });
   await expect(caption).toContainText("Trợ lý AI");
   await game.screenshot({ path: `${SHOTS}/AUTO-greeting.png` });
 
@@ -822,7 +839,7 @@ test("Honour board: drag it anywhere on the LIVE screen and resize it from the d
   test.setTimeout(150_000);
   const csrf = await login(page.request);
   const cur = (await (await page.request.get("/api/v1/settings/scene")).json()).config;
-  await page.request.put("/api/v1/settings/scene", { data: { ...cur, board_enabled: true, board_x: null, board_y: null, board_scale: 1, stage_enabled: true, stage_board_x: null, stage_board_y: null, stage_board_scale: 1, upcoming_enabled: false }, headers: { "X-CSRF-Token": csrf } });
+  await page.request.put("/api/v1/settings/scene", { data: { ...cur, board_enabled: true, board_x: null, board_y: null, board_scale: 1, stage_enabled: true, stage_board_x: null, stage_board_y: null, stage_board_scale: 1, upcoming_enabled: false, minigame_enabled: false }, headers: { "X-CSRF-Token": csrf } });
   const game = await context.newPage();
   await game.setViewportSize({ width: 540, height: 960 });
   await game.goto("/game/live?debug=1&quality=low");
@@ -834,6 +851,8 @@ test("Honour board: drag it anywhere on the LIVE screen and resize it from the d
   const frame = page.frameLocator('[data-testid="board-placer-frame"]');
   const board = frame.getByTestId("honour-board");
   await expect(board).toBeVisible({ timeout: 20_000 });
+  await expect(frame.getByTestId("game-panel")).toHaveCount(0); // mini-games are off here: no sample panel over the board
+  await frame.locator("body").evaluate(() => new Promise((r) => setTimeout(r, 800))); // the shop's settings have loaded
   const iframeBox = (await page.getByTestId("board-placer-frame").boundingBox())!;
   const b = (await board.boundingBox())!;
   // drag the board up and to the right
@@ -972,7 +991,7 @@ test("Behaviour P1: missing dance clip falls back (T12), Chibis keep living calm
   const H = { "X-CSRF-Token": csrf };
   const scene = (await (await page.request.get("/api/v1/settings/scene")).json()).config;
   // "nhảy" = dance in place; no level-up lines on the voice (this test counts voices)
-  await page.request.put("/api/v1/settings/scene", { data: { ...scene, stage_enabled: false, level_voice: false }, headers: H });
+  await page.request.put("/api/v1/settings/scene", { data: { ...scene, stage_enabled: false, level_voice: false, minigame_enabled: false }, headers: H });
   const game = await context.newPage();
   // a fake computer voice that talks for 6 s; counts how many voices / audio clips play at once
   await game.addInitScript(() => {
@@ -1194,7 +1213,7 @@ test("Stage + owner talk: first to comment dances first, the owner answers chat 
   const csrf = await login(page.request);
   const H = { "X-CSRF-Token": csrf };
   const scene = (await (await page.request.get("/api/v1/settings/scene")).json()).config;
-  await page.request.put("/api/v1/settings/scene", { data: { ...scene, owner_enabled: true, stage_enabled: true, stage_seconds: 25, stage_side: "center", levels_enabled: false }, headers: H });
+  await page.request.put("/api/v1/settings/scene", { data: { ...scene, owner_enabled: true, stage_enabled: true, stage_seconds: 25, stage_side: "center", levels_enabled: false, minigame_enabled: false }, headers: H });
   const s = await (await page.request.get("/api/v1/settings/ai")).json();
   const cfg = { ...s.config, voice_policy_confirmed: true, voice_enabled: true, autopilot: false, read_comments: false, greet_joins: false, owner_chat: true, stage_announce: true, poem_story: true, poem_auto: false, poem_story_builtin: true, poem_story_claude: false };
   const put = await page.request.put("/api/v1/settings/ai", { data: { config: cfg }, headers: H });
@@ -1364,7 +1383,7 @@ test("Chibi levels: staying longer dresses up the Chibi (nón lá → áo choàn
   const csrf = await login(page.request);
   const H = { "X-CSRF-Token": csrf };
   const scene = (await (await page.request.get("/api/v1/settings/scene")).json()).config;
-  await page.request.put("/api/v1/settings/scene", { data: { ...scene, owner_enabled: true, levels_enabled: true, level_minutes: [5, 15, 30], stage_enabled: true, upcoming_enabled: true }, headers: H });
+  await page.request.put("/api/v1/settings/scene", { data: { ...scene, owner_enabled: true, levels_enabled: true, level_minutes: [5, 15, 30], stage_enabled: true, upcoming_enabled: true, minigame_enabled: false }, headers: H });
   const who = `lenCap${RUN}`;
   await inject(page, csrf, `@${who}: chào shop`);
   const game = await context.newPage();
@@ -1477,5 +1496,84 @@ test("Sắp diễn ra: what is coming up, soonest first, with countdowns — and
   await page.request.put("/api/v1/settings/scene", { data: { ...cur, upcoming_enabled: false, agenda: [] }, headers: H });
   await expect(board).toHaveCount(0, { timeout: 15_000 });
   await page.request.put("/api/v1/settings/ai", { data: { config: { ...ai, voice_enabled: false } }, headers: H });
+  await game.close();
+});
+
+test("Mini-games: đố vui, nhanh tay, đoán giá — answers from comments, winners get a medal and the honour board", async ({ page, context }) => {
+  test.setTimeout(240_000);
+  const csrf = await login(page.request);
+  const H = { "X-CSRF-Token": csrf };
+  const scene = (await (await page.request.get("/api/v1/settings/scene")).json()).config;
+  await page.request.put("/api/v1/settings/scene", {
+    data: { ...scene, owner_enabled: true, board_enabled: true, upcoming_enabled: true, minigame_enabled: true, minigame_kinds: ["price", "quiz", "keyword"], minigame_seconds: 20, game_x: null, game_y: null, game_scale: 1 },
+    headers: H,
+  });
+  await page.request.post("/api/v1/games/stop", { headers: H });
+  const game = await context.newPage();
+  await game.setViewportSize({ width: 540, height: 960 });
+  await game.goto("/game/live?debug=1&quality=medium");
+  await page.setViewportSize({ width: 1360, height: 1200 });
+  await page.goto("/dashboard/host");
+  const card = page.getByTestId("game-card");
+  const panel = game.getByTestId("game-panel");
+  const [a, b, c] = ["quizA", "quizB", "quizC"].map((n) => `${n}${RUN}`);
+  for (const n of [a, b, c]) await inject(page, csrf, `@${n}: chào shop`);
+
+  // ---- Đố vui: three viewers answer A, B, C — exactly one is right
+  await card.getByRole("button", { name: "Bắt đầu: Đố vui" }).click();
+  await expect(panel).toBeVisible({ timeout: 10_000 });
+  await expect(panel.locator(".gp-options li")).toHaveCount(3);
+  await expect(game.getByTestId("upcoming-board")).toHaveClass(/away/); // the panel takes its place
+  await inject(page, csrf, `@${a}: A`);
+  await inject(page, csrf, `@${b}: b`);
+  await inject(page, csrf, `@${c}: đáp án C`);
+  await inject(page, csrf, `@${a}: B`); // a second answer does not count
+  await expect(game.getByTestId("game-answers")).toContainText("3 bạn đã trả lời", { timeout: 10_000 });
+  await expect(panel).toHaveAttribute("data-phase", "open", { timeout: 10_000 });
+  await game.waitForTimeout(800);
+  await game.screenshot({ path: `${SHOTS}/GAME-1-quiz.png` });
+  await expect(panel).toHaveAttribute("data-phase", "reveal", { timeout: 40_000 });
+  await expect(panel.locator(".gp-options li.right")).toHaveCount(1);
+  const winners = await game.getByTestId("game-winners").innerText();
+  expect([a, b, c].filter((n) => winners.includes(n))).toHaveLength(1);
+  await expect(game.getByTestId("owner-bubble")).toContainText("Đáp án đúng là", { timeout: 10_000 });
+  await game.screenshot({ path: `${SHOTS}/GAME-2-quiz-reveal.png` });
+  const winner = [a, b, c].find((n) => winners.includes(n))!;
+  await expect
+    .poll(() => game.evaluate((n) => (window as any).__chibiDebug.state().avatars.find((x: any) => x.nickname === n)?.medals, winner))
+    .toBe(1);
+  await expect(panel).toHaveCount(0, { timeout: 20_000 });
+
+  // ---- Nhanh tay: the first three to type the word win, the round ends at once
+  await card.getByRole("button", { name: "Bắt đầu: Nhanh tay" }).click();
+  await expect(game.getByTestId("game-keyword")).toBeVisible({ timeout: 10_000 });
+  const kw = await game.getByTestId("game-keyword").innerText();
+  for (const n of ["nhanh1", "nhanh2", "nhanh3", "nhanh4"]) await inject(page, csrf, `@${n}${RUN}: ${kw.toLowerCase()}`);
+  await expect(panel).toHaveAttribute("data-phase", "reveal", { timeout: 15_000 });
+  await expect(game.getByTestId("game-winners")).toContainText(`nhanh1${RUN}`);
+  await expect(game.getByTestId("game-winners")).not.toContainText(`nhanh4${RUN}`);
+  await game.screenshot({ path: `${SHOTS}/GAME-3-keyword.png` });
+  await expect(panel).toHaveCount(0, { timeout: 20_000 });
+
+  // ---- Đoán giá: the closest guess wins
+  const start = await page.request.post("/api/v1/games/start", { data: { kind: "price" }, headers: H });
+  expect(start.ok(), await start.text()).toBeTruthy();
+  await expect(panel).toHaveAttribute("data-kind", "price", { timeout: 10_000 });
+  await inject(page, csrf, `@giaXa${RUN}: 5k`);
+  await inject(page, csrf, `@giaGan${RUN}: 90 nghìn`);
+  await expect(game.getByTestId("game-answers")).toContainText("2 bạn đã trả lời", { timeout: 10_000 });
+  await expect(panel).toHaveAttribute("data-phase", "reveal", { timeout: 40_000 });
+  await expect(game.getByTestId("game-answer")).toContainText("Giá đúng");
+  await expect(game.getByTestId("game-winners")).toContainText(`giaGan${RUN}`);
+  await game.screenshot({ path: `${SHOTS}/GAME-4-price.png` });
+
+  // the honour board gets a "Mini-game" tab
+  await expect(game.getByTestId("honour-board")).toHaveAttribute("data-tab", "games", { timeout: 30_000 });
+  await expect(game.getByTestId("honour-board")).toContainText("lần thắng");
+  await game.screenshot({ path: `${SHOTS}/GAME-5-board.png` });
+  await expect(card).toContainText("Đố vui");
+  await card.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${SHOTS}/GAME-6-host.png` });
+  await page.request.put("/api/v1/settings/scene", { data: { ...scene, minigame_enabled: false }, headers: H });
   await game.close();
 });

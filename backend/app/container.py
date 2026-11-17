@@ -33,6 +33,7 @@ from app.services.intent_router import CommentIntentRouter
 from app.services.levels import LevelService
 from app.services.live_session import LiveSessionService
 from app.services.loadgen import LoadGenerator
+from app.services.minigames import MiniGames
 from app.services.orchestrator import Orchestrator
 from app.services.owner_talk import OwnerTalk
 from app.services.perf import PerfMonitor
@@ -98,6 +99,8 @@ class AppContainer:
         self.stage = StageService(self)
         self.talk = OwnerTalk(self)
         self.levels = LevelService(self)
+        self.games = MiniGames(self)
+        self.avatars.medals_of = self.games.medals_of
         self.upcoming = UpcomingService(self)
         self.avatars.level_of = self.levels.level_of
         self.assistant.memory.load(self.catalog)
@@ -143,6 +146,7 @@ class AppContainer:
         self.avatars.reset(session_id)
         self.stage.reset()
         self.levels.reset(session_id)
+        self.games.reset()
         self.avatars.viewer_cap = None
         self.actions.reset(session_id)
         self.camera.current = None
@@ -228,6 +232,7 @@ class AppContainer:
             "board": self.board.view(),
             "stage": self.stage.view(),
             "upcoming": self.upcoming.view(),
+            "game": self.games.view(),
         }
 
     def dashboard_snapshot(self) -> dict[str, Any]:
@@ -340,6 +345,7 @@ class AppContainer:
                 self.avatars.tick()
                 self.stage.tick()
                 self.levels.tick()
+                self.games.tick()
                 self.upcoming.tick()
                 self.camera.tick()
             except Exception:
