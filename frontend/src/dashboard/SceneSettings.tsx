@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, formatVnd } from "../lib/api";
 import type { AgendaItem, QuizQuestion, SceneConfig } from "../types/protocol";
+import { isMoved, OVERLAY_ITEMS, overlayItem, placePatch, spotOf, type OverlayKey } from "../game/overlayItems";
 
 interface ProductLite {
   id: string;
@@ -171,37 +172,17 @@ export function SceneSettings() {
         </>
       )}
 
+      <h3>Bố cục màn hình LIVE</h3>
+      <LayoutPlacer
+        cfg={cfg}
+        onPatch={(p) => setCfg((prev) => (prev ? { ...prev, ...p } : prev))}
+        onSaved={(c) => setCfg((prev) => (prev ? { ...prev, ...overlayFields(c) } : prev))}
+      />
       <h3>Bảng vàng</h3>
       <label className="check">
         <input type="checkbox" checked={cfg.board_enabled} onChange={(e) => set({ board_enabled: e.target.checked })} aria-label="Bảng vàng" />
         Hiện bảng vàng top tặng quà & mua hàng trên màn hình LIVE
       </label>
-      {(cfg.board_enabled || cfg.stage_enabled || cfg.upcoming_enabled || cfg.minigame_enabled) && (
-        <BoardPlacer
-          cfg={cfg}
-          onSaved={(c) =>
-            setCfg((prev) =>
-              prev
-                ? {
-                    ...prev,
-                    board_x: c.board_x,
-                    board_y: c.board_y,
-                    board_scale: c.board_scale,
-                    stage_board_x: c.stage_board_x,
-                    stage_board_y: c.stage_board_y,
-                    stage_board_scale: c.stage_board_scale,
-                    upcoming_x: c.upcoming_x,
-                    upcoming_y: c.upcoming_y,
-                    upcoming_scale: c.upcoming_scale,
-                    game_x: c.game_x,
-                    game_y: c.game_y,
-                    game_scale: c.game_scale,
-                  }
-                : prev,
-            )
-          }
-        />
-      )}
       {cfg.board_enabled && (
         <div className="row wrap">
           <label>
@@ -399,8 +380,19 @@ export function SceneSettings() {
   );
 }
 
-/** Drag the honour board and the "Sân khấu" box on a live preview of the LIVE screen; dropping one saves its spot. */
-function BoardPlacer({ cfg, onSaved }: { cfg: SceneConfig; onSaved: (c: SceneConfig) => void }) {
+/** the settings of every box on the LIVE screen: shown or not, where, how big */
+function overlayFields(c: SceneConfig): Partial<SceneConfig> {
+  const out: Record<string, unknown> = {};
+  for (const it of OVERLAY_ITEMS) {
+    out[it.show] = c[it.show];
+    if (it.place) for (const k of [it.place.x, it.place.y, it.place.scale]) out[k] = c[k];
+  }
+  return out as Partial<SceneConfig>;
+}
+
+/** Every box on the LIVE screen: switch each one on or off, drag them on a live preview of the
+ * LIVE screen (dropping one saves its spot), or send one back to its default spot. Saved at once. */
+function LayoutPlacer({ cfg, onPatch, onSaved }: { cfg: SceneConfig; onPatch: (p: Partial<SceneConfig>) => void; onSaved: (c: SceneConfig) => void }) {
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const save = async (patch: Partial<SceneConfig>, done: (c: SceneConfig) => string) => {
@@ -417,60 +409,31 @@ function BoardPlacer({ cfg, onSaved }: { cfg: SceneConfig; onSaved: (c: SceneCon
     if (!open) return;
     const on = (e: MessageEvent) => {
       if (e.origin !== location.origin) return;
-      const { type, x, y, scale } = (e.data ?? {}) as { type?: string; x: number; y: number; scale: number };
-      if (type === "chibi-board")
-        save({ board_x: x, board_y: y, board_scale: scale }, (c) => `Đã lưu vị trí bảng vàng (cỡ ${Math.round(c.board_scale * 100)}%). Màn hình LIVE đổi ngay.`);
-      else if (type === "chibi-stage-board")
-        save(
-          { stage_board_x: x, stage_board_y: y, stage_board_scale: scale },
-          (c) => `Đã lưu vị trí ô Sân khấu (cỡ ${Math.round(c.stage_board_scale * 100)}%). Màn hình LIVE đổi ngay.`,
-        );
-      else if (type === "chibi-upcoming-board")
-        save(
-          { upcoming_x: x, upcoming_y: y, upcoming_scale: scale },
-          (c) => `Đã lưu vị trí bảng Sắp diễn ra (cỡ ${Math.round(c.upcoming_scale * 100)}%). Màn hình LIVE đổi ngay.`,
-        );
-      else if (type === "chibi-game-board")
-        save(
-          { game_x: x, game_y: y, game_scale: scale },
-          (c) => `Đã lưu vị trí bảng mini-game (cỡ ${Math.round(c.game_scale * 100)}%). Màn hình LIVE đổi ngay.`,
-        );
+      const { type, item, x, y, scale } = (e.data ?? {}) as { type?: string; item?: OverlayKey; x: number; y: number; scale: number };
+      if (type !== "chibi-overlay" || !item || !OVERLAY_ITEMS.some((i) => i.key === item && i.place)) return;
+      const it = overlayItem(item);
+      save(placePatch(item, x, y, scale), (c) => `Đã lưu vị trí ${it.name} (cỡ ${Math.round(spotOf(c, item).scale * 100)}%). Màn hình LIVE đổi ngay.`);
     };
     window.addEventListener("message", on);
     return () => window.removeEventListener("message", on);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
-  const parts = [cfg.board_enabled && "bảng vàng", cfg.stage_enabled && "ô Sân khấu", cfg.upcoming_enabled && "bảng Sắp diễn ra", cfg.minigame_enabled && "bảng mini-game"].filter(
-    Boolean,
-  ) as string[];
-  const what = parts.length > 1 ? `${parts.slice(0, -1).join(", ")} và ${parts[parts.length - 1]}` : parts[0];
+  const ledBanner = cfg.banner_style === "led";
   return (
     <div className="board-placer">
+      <p className="muted small">Bật / tắt từng ô trên màn hình LIVE (lưu ngay), rồi bấm “Kéo thả…” để đặt chúng ở chỗ khác và đổi cỡ.</p>
       <div className="row wrap">
         <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
-          {open ? "Xong, đóng khung kéo thả" : `Kéo thả ${what} tới chỗ muốn đặt`}
+          {open ? "Xong, đóng khung kéo thả" : "Kéo thả các ô trên màn hình LIVE"}
         </button>
-        {cfg.board_enabled && (cfg.board_x != null || cfg.board_scale !== 1) && (
-          <button type="button" onClick={() => save({ board_x: null, board_y: null, board_scale: 1 }, () => "Đã đưa bảng vàng về góc mặc định.")}>
-            Bảng vàng về góc mặc định
-          </button>
-        )}
-        {cfg.stage_enabled && (cfg.stage_board_x != null || cfg.stage_board_scale !== 1) && (
+        {OVERLAY_ITEMS.some((it) => it.place && isMoved(cfg, it.key)) && (
           <button
             type="button"
-            onClick={() => save({ stage_board_x: null, stage_board_y: null, stage_board_scale: 1 }, () => "Đã đưa ô Sân khấu về chỗ mặc định.")}
+            onClick={() =>
+              save(Object.assign({}, ...OVERLAY_ITEMS.filter((it) => it.place).map((it) => placePatch(it.key, null, null, 1))), () => "Đã đưa mọi ô về chỗ mặc định.")
+            }
           >
-            Ô Sân khấu về chỗ mặc định
-          </button>
-        )}
-        {cfg.upcoming_enabled && (cfg.upcoming_x != null || cfg.upcoming_scale !== 1) && (
-          <button type="button" onClick={() => save({ upcoming_x: null, upcoming_y: null, upcoming_scale: 1 }, () => "Đã đưa bảng Sắp diễn ra về chỗ mặc định.")}>
-            Bảng Sắp diễn ra về chỗ mặc định
-          </button>
-        )}
-        {cfg.minigame_enabled && (cfg.game_x != null || cfg.game_scale !== 1) && (
-          <button type="button" onClick={() => save({ game_x: null, game_y: null, game_scale: 1 }, () => "Đã đưa bảng mini-game về chỗ mặc định.")}>
-            Bảng mini-game về chỗ mặc định
+            Đưa tất cả về chỗ mặc định
           </button>
         )}
         {note && (
@@ -481,10 +444,48 @@ function BoardPlacer({ cfg, onSaved }: { cfg: SceneConfig; onSaved: (c: SceneCon
       </div>
       {open && (
         <div className="board-placer-frame">
-          <iframe title={`Kéo thả ${what}`} src="/game/live?role=viewer&quality=low&edit=board" data-testid="board-placer-frame" />
-          <p className="muted small">Kéo {what} trong khung này. Kéo chấm tròn ở góc để phóng to, thu nhỏ. Thả tay là lưu.</p>
+          <iframe title="Kéo thả các ô trên màn hình LIVE" src="/game/live?role=viewer&quality=low&edit=board" data-testid="board-placer-frame" />
+          <p className="muted small">
+            Kéo từng ô (viền chấm) trong khung này. Kéo chấm tròn ở góc để phóng to, thu nhỏ. Thả tay là lưu. Ô nào chưa có nội dung thì hiện bản mẫu để đặt chỗ.
+          </p>
         </div>
       )}
+      <ul className="overlay-list" data-testid="overlay-list">
+        {OVERLAY_ITEMS.map((it) => {
+          const on = cfg[it.show] as boolean;
+          const moved = it.place && isMoved(cfg, it.key);
+          return (
+            <li key={it.key} className={on ? "" : "off"} data-testid={`overlay-item-${it.key}`}>
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={on}
+                  onChange={(e) => {
+                    const v = e.target.checked;
+                    onPatch({ [it.show]: v } as Partial<SceneConfig>); // ticks at once; saved just after
+                    save({ [it.show]: v } as Partial<SceneConfig>, () => `Đã ${v ? "bật" : "tắt"} ${it.name}. Màn hình LIVE đổi ngay.`);
+                  }}
+                  aria-label={`Hiện ${it.label.toLowerCase()}`}
+                />
+                <span>
+                  <b>{it.label}</b>
+                  <span className="muted small"> — {it.hint}</span>
+                  {it.key === "banner" && ledBanner && on && <span className="muted small"> (đang dùng kiểu Màn LED trên tường)</span>}
+                </span>
+              </label>
+              {moved && (
+                <button
+                  type="button"
+                  className="small"
+                  onClick={() => save(placePatch(it.key, null, null, 1), () => `Đã đưa ${it.name} về ${it.key === "board" ? "góc" : "chỗ"} mặc định.`)}
+                >
+                  {it.label} về {it.key === "board" ? "góc" : "chỗ"} mặc định
+                </button>
+              )}
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

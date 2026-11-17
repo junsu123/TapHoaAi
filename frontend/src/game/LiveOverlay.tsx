@@ -6,6 +6,7 @@ import { isChatClip, type SpeechView } from "./SpeechPlayer";
 import { formatVnd } from "../lib/api";
 import type { GameView, LeaderboardView, ProductInfo, SceneConfig, SpeechClip, UpcomingView } from "../types/protocol";
 import type { GameEngine } from "./GameEngine";
+import { SCALE_MAX, SCALE_MIN, spotOf, type OverlayKey } from "./overlayItems";
 
 export interface SafeArea {
   top: number;
@@ -64,8 +65,21 @@ function ScrollTrack({ list, scene, hotId }: { list: ProductInfo[]; scene: Scene
 
 /** Big product photos across the top of the frame. "scroll": they slide past continuously;
  * "slide": one at a time. While a Chibi shows a product the banner can switch to just that one. */
-function ProductBanner({ engine, scene, showcase, nickname }: { engine: GameEngine; scene: SceneConfig; showcase: ProductInfo | null; nickname: string | null }) {
+function ProductBanner({
+  engine,
+  scene,
+  showcase,
+  nickname,
+  editable,
+}: {
+  engine: GameEngine;
+  scene: SceneConfig;
+  showcase: ProductInfo | null;
+  nickname: string | null;
+  editable: boolean;
+}) {
   const [i, setI] = useState(0);
+  const d = useOverlayDrag(editable, scene, "banner");
   const list = engine.bannerProducts();
   const focus = !!showcase && (scene.banner_focus_on_show || list.length === 0);
   const scrolling = scene.banner_mode === "scroll" && !focus && list.length > 0;
@@ -78,9 +92,12 @@ function ProductBanner({ engine, scene, showcase, nickname }: { engine: GameEngi
   const tv = scene.banner_style === "tv";
   const frame = (mode: string, children: ReactNode, productId?: string) => (
     <div
-      className={`product-banner${herbal ? " herbal" : ""}${tv ? " tv" : ""}${showcase ? " showcase" : ""}${mode === "scroll" ? " scrolling" : ""}`}
-      style={{ flex: `0 0 ${scene.banner_height * 100}%` }}
+      ref={d.ref}
+      className={`product-banner${herbal ? " herbal" : ""}${tv ? " tv" : ""}${showcase ? " showcase" : ""}${mode === "scroll" ? " scrolling" : ""}${editable ? " ov-edit" : ""}`}
+      style={d.placedStyle ? { ...d.placedStyle, width: "94%", height: `${scene.banner_height * 100}%` } : { flex: `0 0 ${scene.banner_height * 100}%` }}
       data-testid="product-banner"
+      data-placed={d.placedStyle ? "1" : undefined}
+      {...d.handlers}
       data-mode={mode}
       data-style={tv ? "tv" : "board"}
       data-product-id={productId}
@@ -99,6 +116,7 @@ function ProductBanner({ engine, scene, showcase, nickname }: { engine: GameEngi
       ) : (
         children
       )}
+      {editable && <EditHandles d={d} testId="banner-resize" label="Đổi cỡ màn hình sản phẩm" />}
     </div>
   );
   if (scrolling)
@@ -152,7 +170,7 @@ function OwnerBubble({ engine }: { engine: GameEngine }) {
     let raf = 0;
     let last = "";
     const tick = () => {
-      const b = engine.scene.owner_enabled ? engine.tea.bubble : null;
+      const b = engine.scene.owner_enabled && engine.scene.owner_bubble_enabled ? engine.tea.bubble : null;
       const key = b ? `${b.kind}|${b.text}` : "";
       if (key !== last) {
         last = key;
@@ -184,11 +202,8 @@ function OwnerBubble({ engine }: { engine: GameEngine }) {
 
 /** Drag a box on the LIVE screen (edit mode only): move it, or resize it from its corner handle.
  * Dropping it tells the dashboard (which saves the spot) with a postMessage of `msgType`. */
-function useOverlayDrag(
-  editable: boolean,
-  saved: { x: number | null; y: number | null; scale: number },
-  msgType: "chibi-board" | "chibi-stage-board" | "chibi-upcoming-board" | "chibi-game-board",
-) {
+function useOverlayDrag(editable: boolean, scene: SceneConfig, item: OverlayKey) {
+  const saved = spotOf(scene, item);
   const ref = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<{ x: number; y: number; scale: number } | null>(null);
   const gesture = useRef<{ kind: "move" | "size"; px: number; py: number; x: number; y: number; scale: number; w: number; h: number; sw: number; sh: number } | null>(null);
@@ -224,7 +239,7 @@ function useOverlayDrag(
       const y = Math.min(Math.max(0, g.y + (e.clientY - g.py) / g.sh), Math.max(0, 1 - g.h / g.sh));
       setDrag({ x, y, scale: g.scale });
     } else {
-      const k = Math.min(1.8, Math.max(0.6, g.scale * (1 + (e.clientX - g.px) / g.w)));
+      const k = Math.min(SCALE_MAX, Math.max(SCALE_MIN, g.scale * (1 + (e.clientX - g.px) / g.w)));
       setDrag({ x: g.x, y: g.y, scale: Math.round(k * 100) / 100 });
     }
   };
@@ -232,21 +247,139 @@ function useOverlayDrag(
     const g = gesture.current;
     gesture.current = null;
     if (!g || !drag) return;
-    const msg = { type: msgType, x: Math.round(drag.x * 1000) / 1000, y: Math.round(drag.y * 1000) / 1000, scale: drag.scale };
+    const msg = { type: "chibi-overlay", item, x: Math.round(drag.x * 1000) / 1000, y: Math.round(drag.y * 1000) / 1000, scale: drag.scale };
     if (window.parent !== window) window.parent.postMessage(msg, location.origin);
   };
   const handlers = { onPointerDown: begin("move"), onPointerMove: move, onPointerUp: end, onPointerCancel: end };
   const resizeHandlers = { onPointerDown: begin("size"), onPointerMove: move, onPointerUp: end, onPointerCancel: end };
   /** style for a box placed by hand (null: the box keeps its default spot) */
   const placedStyle: CSSProperties | null = placed
-    ? { left: `${placed.x * 100}%`, top: `${placed.y * 100}%`, right: "auto", bottom: "auto", transform: `scale(${scale})`, transformOrigin: "top left" }
+    ? { position: "absolute", left: `${placed.x * 100}%`, top: `${placed.y * 100}%`, right: "auto", bottom: "auto", margin: 0, transform: `scale(${scale})`, transformOrigin: "top left" }
     : null;
   return { ref, scale, placedStyle, handlers: editable ? handlers : {}, resizeHandlers };
 }
 
+type Drag = ReturnType<typeof useOverlayDrag>;
+
+/** Edit mode: the hint and the corner handle that resizes the box. */
+function EditHandles({ d, testId, label, hint = false }: { d: Drag; testId: string; label: string; hint?: boolean }) {
+  return (
+    <>
+      {hint && <span className="hb-edit-hint">Kéo để di chuyển, kéo góc để đổi cỡ</span>}
+      <span className="hb-resize" data-testid={testId} {...d.resizeHandlers} aria-label={label} />
+    </>
+  );
+}
+
+/** "DEMO · sự kiện mô phỏng" and the connection warning, top of the frame. The DEMO label cannot
+ * be switched off: viewers must be able to tell simulated events from real ones. */
+function Badges({ scene, isDemo, warning, editable, sample }: { scene: SceneConfig; isDemo: boolean; warning: string | null; editable: boolean; sample: boolean }) {
+  const d = useOverlayDrag(editable, scene, "badges");
+  const warn = warning && scene.status_badge_enabled ? warning : null;
+  const showSample = editable && sample && !isDemo && !warn;
+  if (!isDemo && !warn && !showSample) return null;
+  return (
+    <div
+      ref={d.ref}
+      className={`overlay-badges${editable ? " ov-edit" : ""}`}
+      data-testid="overlay-badges"
+      data-placed={d.placedStyle ? "1" : undefined}
+      style={d.placedStyle ?? undefined}
+      {...d.handlers}
+    >
+      {isDemo && (
+        <span className="badge-demo" data-testid="demo-badge">
+          DEMO · sự kiện mô phỏng
+        </span>
+      )}
+      {warn && (
+        <span className="badge-warn" data-testid="status-banner">
+          ⚠ {warn}
+        </span>
+      )}
+      {showSample && <span className="badge-demo sample">Nhãn DEMO / cảnh báo (mẫu)</span>}
+      {editable && <EditHandles d={d} testId="badges-resize" label="Đổi cỡ nhãn trạng thái" />}
+    </div>
+  );
+}
+
+/** The line of what is being read aloud (bottom of the frame). */
+function Caption({
+  scene,
+  speech,
+  hiddenChat,
+  ownerOn,
+  editable,
+  sample,
+}: {
+  scene: SceneConfig;
+  speech?: SpeechView;
+  hiddenChat: (c: SpeechClip) => boolean;
+  ownerOn: boolean;
+  editable: boolean;
+  sample: boolean;
+}) {
+  const d = useOverlayDrag(editable, scene, "caption");
+  const clip: SpeechClip | null =
+    speech?.clip ??
+    (editable && sample && scene.caption_enabled
+      ? ({ id: "sample", kind: "test", label: scene.owner_name || "Chủ quán", text: "Câu đang được đọc hiện ở đây (mẫu)" } as SpeechClip)
+      : null);
+  if (!clip) return null;
+  const hidden = hiddenChat(clip) || !scene.caption_enabled;
+  return (
+    <div
+      ref={d.ref}
+      className={`speech-caption speech-${clip.kind}${speech?.held ? " held" : ""}${hidden ? " off-screen" : ""}${editable ? " ov-edit" : ""}`}
+      data-testid="speech-caption"
+      data-kind={clip.kind}
+      data-hidden={hidden ? "1" : undefined}
+      data-placed={d.placedStyle ? "1" : undefined}
+      style={d.placedStyle ?? undefined}
+      {...d.handlers}
+    >
+      <span className="speech-label">
+        {clip.label === "Trợ lý AI" ? "🤖" : "🔊"} {clip.label}
+      </span>
+      {/* a poem / story is already in the owner's bubble: the caption only says what is playing */}
+      {!((clip.kind === "poem" || clip.kind === "story") && ownerOn) && <span className="speech-text">{clip.text}</span>}
+      {editable && <EditHandles d={d} testId="caption-resize" label="Đổi cỡ dòng chữ đang đọc" />}
+    </div>
+  );
+}
+
+/** The product a Chibi is showing (when there is no TV / board frame on top to show it). */
+function ProductCard({ scene, product, nickname, editable }: { scene: SceneConfig; product: ProductInfo | null; nickname: string | null; editable: boolean }) {
+  const d = useOverlayDrag(editable, scene, "product");
+  if (!scene.product_card_enabled) return null;
+  const p: ProductInfo | null = product ?? (editable ? ({ id: "sample", name: "Sản phẩm Chibi đang cầm (mẫu)", sku: "MẪU", price: null } as unknown as ProductInfo) : null);
+  if (!p) return null;
+  const price = formatVnd(p.price);
+  return (
+    <div
+      ref={d.ref}
+      className={`product-card${editable ? " ov-edit" : ""}`}
+      data-testid="product-card"
+      data-product-id={p.id}
+      data-placed={d.placedStyle ? "1" : undefined}
+      style={d.placedStyle ?? undefined}
+      {...d.handlers}
+    >
+      {(p.card_image_url || p.image_url) && <img src={p.card_image_url || p.image_url!} alt={p.name} className={p.card_image_url ? "card-photo" : undefined} />}
+      <div className="product-card-body">
+        {nickname && <div className="product-card-who">{nickname} đang xem</div>}
+        <div className="product-card-name">{p.name}</div>
+        <div className="product-card-sku">SKU: {p.sku}</div>
+        {price && <div className="product-card-price">{price}</div>}
+      </div>
+      {editable && <EditHandles d={d} testId="product-card-resize" label="Đổi cỡ thẻ sản phẩm" />}
+    </div>
+  );
+}
+
 /** “Sắp diễn ra”: what is coming up, soonest first, with live countdowns — and how to join in. */
 function UpcomingBoard({ engine, safe, scene, editable }: { engine: GameEngine; safe: SafeArea; scene: SceneConfig; editable: boolean }) {
-  const d = useOverlayDrag(editable, { x: scene.upcoming_x, y: scene.upcoming_y, scale: scene.upcoming_scale }, "chibi-upcoming-board");
+  const d = useOverlayDrag(editable, scene, "upcoming");
   const [v, setV] = useState<UpcomingView | null>(engine.upcoming);
   const [now, setNow] = useState(() => Date.now());
   const [tip, setTip] = useState(0);
@@ -311,7 +444,7 @@ const GAME_HOW = { price: "Bình luận giá bạn đoán (nghìn đồng)", qui
 
 /** The mini-game round: the question, a countdown bar, how many answered — then the answer and the winners. */
 function GamePanel({ engine, safe, scene, editable }: { engine: GameEngine; safe: SafeArea; scene: SceneConfig; editable: boolean }) {
-  const d = useOverlayDrag(editable, { x: scene.game_x, y: scene.game_y, scale: scene.game_scale }, "chibi-game-board");
+  const d = useOverlayDrag(editable, scene, "game");
   const [g, setG] = useState<GameView | null>(engine.game);
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -327,7 +460,7 @@ function GamePanel({ engine, safe, scene, editable }: { engine: GameEngine; safe
     (editable && scene.minigame_enabled && engine.sceneVersion > 0 // (the shop's real settings, not the defaults before they load)
       ? { id: "x", kind: "quiz", title: "Đố vui", phase: "open", opens_at: now, closes_at: now + 30000, ends_at: now + 40000, answers: 12, question: "Câu hỏi mẫu để đặt chỗ bảng mini-game?", options: ["Đáp án A", "Đáp án B", "Đáp án C"] }
       : null);
-  if (!shown) return null;
+  if (!shown || !scene.game_board_enabled) return null;
   const left = Math.max(0, Math.ceil(((shown.phase === "intro" ? shown.closes_at : shown.closes_at) - now) / 1000));
   const total = Math.max(1, (shown.closes_at - shown.opens_at) / 1000);
   const frac = shown.phase === "open" ? Math.min(1, Math.max(0, (shown.closes_at - now) / 1000 / total)) : shown.phase === "intro" ? 1 : 0;
@@ -435,7 +568,7 @@ export function whenText(due: number | null, now: number, clock?: string): strin
 
 /** The dance stage line: who dances now, who is next — and how to join. */
 function StageBoard({ engine, safe, scene, editable }: { engine: GameEngine; safe: SafeArea; scene: SceneConfig; editable: boolean }) {
-  const d = useOverlayDrag(editable, { x: scene.stage_board_x, y: scene.stage_board_y, scale: scene.stage_board_scale }, "chibi-stage-board");
+  const d = useOverlayDrag(editable, scene, "stage");
   const [v, setV] = useState(engine.stage);
   const [enabled, setEnabled] = useState(engine.scene.stage_enabled);
   const tvTop = () => engine.scene.banner_enabled; // TV frame on top or the LED wall screen: stay below it
@@ -454,7 +587,7 @@ function StageBoard({ engine, safe, scene, editable }: { engine: GameEngine; saf
     }, 250);
     return () => clearInterval(id);
   }, [engine]);
-  if (!enabled) return null;
+  if (!enabled || !scene.stage_board_enabled) return null;
   const cur = v?.current ?? null;
   const next = v?.queue.slice(0, 4) ?? [];
   const more = Math.max(0, (v?.waiting ?? 0) - next.length);
@@ -510,7 +643,7 @@ const MEDAL = ["gold", "silver", "bronze"];
  * the host dragged it (edit mode: the dashboard's layout preview loads the page with edit=board). */
 function HonourBoard({ board, scene, hidden, editable }: { board: LeaderboardView | null; scene: SceneConfig; hidden: boolean; editable: boolean }) {
   const [tab, setTab] = useState<"gifts" | "buyers" | "games">("gifts");
-  const d = useOverlayDrag(editable, { x: scene.board_x, y: scene.board_y, scale: scene.board_scale }, "chibi-board");
+  const d = useOverlayDrag(editable, scene, "board");
   const hasGames = (board?.games?.length ?? 0) > 0; // the "Mini-game" tab once someone has won
   useEffect(() => {
     const id = setInterval(
@@ -624,7 +757,6 @@ export function LiveOverlay({
     return () => clearInterval(id);
   }, [engine]);
 
-  const price = st.product ? formatVnd(st.product.price) : null;
   // the LED style lives on the shop's back wall (3D), not over the frame
   const banner = st.scene.banner_enabled && st.scene.banner_style !== "led" && (!!st.product || st.bannerIds !== "");
   return (
@@ -638,19 +770,16 @@ export function LiveOverlay({
       }}
     >
       <div className="overlay-top">
-        {st.isDemo && (
-          <span className="badge-demo" data-testid="demo-badge">
-            DEMO · sự kiện mô phỏng
-          </span>
-        )}
-        {(!socketUp || BAD_STATUSES.has(st.liveStatus)) && (
-          <span className="badge-warn" data-testid="status-banner">
-            ⚠ {socketUp ? st.liveStatus : "Mất kết nối máy chủ"}
-          </span>
-        )}
+        <Badges
+          scene={st.scene}
+          isDemo={st.isDemo}
+          warning={!socketUp ? "Mất kết nối máy chủ" : BAD_STATUSES.has(st.liveStatus) ? st.liveStatus : null}
+          editable={editBoard}
+          sample={engine.sceneVersion > 0}
+        />
       </div>
-      {banner && <ProductBanner engine={engine} scene={st.scene} showcase={st.product} nickname={st.nickname} />}
-      {(st.scene.board_enabled || editBoard) && <HonourBoard board={st.board} scene={st.scene} hidden={st.teaShot} editable={editBoard} />}
+      {banner && <ProductBanner engine={engine} scene={st.scene} showcase={st.product} nickname={st.nickname} editable={editBoard} />}
+      {st.scene.board_enabled && <HonourBoard board={st.board} scene={st.scene} hidden={st.teaShot} editable={editBoard} />}
       <OwnerBubble engine={engine} />
       <StageBoard engine={engine} safe={safe} scene={st.scene} editable={editBoard} />
       {st.scene.upcoming_enabled && <UpcomingBoard engine={engine} safe={safe} scene={st.scene} editable={editBoard} />}
@@ -665,43 +794,8 @@ export function LiveOverlay({
             🔈 Bấm để bật âm thanh
           </button>
         )}
-        {speech?.clip && (
-          <div
-            className={`speech-caption speech-${speech.clip.kind}${speech.held ? " held" : ""}${chatHidden(speech.clip) ? " off-screen" : ""}`}
-            data-testid="speech-caption"
-            data-kind={speech.clip.kind}
-            data-hidden={chatHidden(speech.clip) ? "1" : undefined}
-          >
-            <span className="speech-label">
-              {speech.clip.label === "Trợ lý AI" ? "🤖" : "🔊"} {speech.clip.label}
-            </span>
-            {/* a poem / story is already in the owner's bubble: the caption only says what is playing */}
-            {!((speech.clip.kind === "poem" || speech.clip.kind === "story") && engine.scene.owner_enabled) && <span className="speech-text">{speech.clip.text}</span>}
-          </div>
-        )}
-        {st.product && !banner && (
-          <div
-            className="product-card"
-            data-testid="product-card"
-            data-product-id={st.product.id}
-          >
-            {(st.product.card_image_url || st.product.image_url) && (
-              <img
-                src={st.product.card_image_url || st.product.image_url!}
-                alt={st.product.name}
-                className={st.product.card_image_url ? "card-photo" : undefined}
-              />
-            )}
-            <div className="product-card-body">
-              {st.nickname && (
-                <div className="product-card-who">{st.nickname} đang xem</div>
-              )}
-              <div className="product-card-name">{st.product.name}</div>
-              <div className="product-card-sku">SKU: {st.product.sku}</div>
-              {price && <div className="product-card-price">{price}</div>}
-            </div>
-          </div>
-        )}
+        <Caption scene={st.scene} speech={speech} hiddenChat={chatHidden} ownerOn={engine.scene.owner_enabled} editable={editBoard} sample={engine.sceneVersion > 0} />
+        {!banner && (st.product || editBoard) && <ProductCard scene={st.scene} product={st.product} nickname={st.nickname} editable={editBoard && engine.sceneVersion > 0} />}
       </div>
     </div>
   );

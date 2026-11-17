@@ -217,6 +217,25 @@ export interface SceneConfig {
   level_minutes: number[];
   level_presence_min: number;
   level_voice: boolean;
+  // every box on the LIVE screen can be switched off and dragged (see game/overlayItems.ts)
+  stage_board_enabled: boolean;
+  game_board_enabled: boolean;
+  caption_enabled: boolean;
+  product_card_enabled: boolean;
+  owner_bubble_enabled: boolean;
+  status_badge_enabled: boolean;
+  banner_x: number | null;
+  banner_y: number | null;
+  banner_scale: number;
+  caption_x: number | null;
+  caption_y: number | null;
+  caption_scale: number;
+  product_card_x: number | null;
+  product_card_y: number | null;
+  product_card_scale: number;
+  badges_x: number | null;
+  badges_y: number | null;
+  badges_scale: number;
 }
 
 export interface LeaderboardView {
@@ -291,6 +310,24 @@ export const DEFAULT_SCENE: SceneConfig = {
   level_minutes: [5, 15, 30],
   level_presence_min: 10,
   level_voice: true,
+  stage_board_enabled: true,
+  game_board_enabled: true,
+  caption_enabled: true,
+  product_card_enabled: true,
+  owner_bubble_enabled: true,
+  status_badge_enabled: true,
+  banner_x: null,
+  banner_y: null,
+  banner_scale: 1,
+  caption_x: null,
+  caption_y: null,
+  caption_scale: 1,
+  product_card_x: null,
+  product_card_y: null,
+  product_card_scale: 1,
+  badges_x: null,
+  badges_y: null,
+  badges_scale: 1,
 };
 
 export interface SpeechClip {

@@ -715,3 +715,16 @@ input.mini { width: 4.2em; margin: 0 .35em; padding: 2px 4px; display: inline-bl
 .stage-next li { display: flex; justify-content: space-between; gap: .6vh; }
 .stage-next .sn-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .stage-next .sn-eta { color: #ffd27a; font-variant-numeric: tabular-nums; flex: none; font-size: .9em; }
+
+/* every box on the LIVE screen can be dragged in the dashboard's layout preview (edit=board) */
+.overlay-badges { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.ov-edit { pointer-events: auto; cursor: grab; outline: .3vh dashed #f2b6d8; outline-offset: .6vh; touch-action: none; user-select: none; position: relative; }
+.ov-edit:active { cursor: grabbing; }
+.ov-edit .hb-resize { right: .3vh; bottom: .3vh; } /* inside the box: a full-width box still has its handle in the frame */
+.badge-demo.sample { opacity: .85; border-style: dashed; }
+.speech-caption[data-placed] { max-width: 80%; }
+.product-card[data-placed] { width: 86%; max-width: none; }
+.overlay-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.overlay-list li { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 4px 0; border-bottom: 1px solid var(--line); }
+.overlay-list li.off b { color: var(--muted, #888); text-decoration: line-through; }
+.overlay-list button.small { padding: 2px 10px; font-size: 13px; }
