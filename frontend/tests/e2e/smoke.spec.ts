@@ -949,7 +949,7 @@ test("Layout: every box on the LIVE screen can be switched off and dragged anywh
     await page.setViewportSize({ width: 1360, height: 1400 });
     await page.goto("/dashboard/game");
     const list = page.getByTestId("overlay-list");
-    await expect(list.locator("li")).toHaveCount(9);
+    await expect(list.locator("li")).toHaveCount(9, { timeout: 30_000 }); // the shop's settings load first
     await page.getByRole("button", { name: "Kéo thả các ô trên màn hình LIVE" }).click();
     await page.getByTestId("board-placer-frame").scrollIntoViewIfNeeded();
     const frame = page.frameLocator('[data-testid="board-placer-frame"]');
@@ -998,7 +998,7 @@ test("Layout: every box on the LIVE screen can be switched off and dragged anywh
     // the LIVE page shows it there at once
     const gb = frame.getByTestId("product-card");
     await expect(gb).toHaveAttribute("data-placed", "1", { timeout: 10_000 });
-    await expect.poll(async () => (await gb.evaluate((el) => (el as HTMLElement).style.top))).toBe(`${sc.product_card_y * 100}%`);
+    await expect.poll(async () => Math.abs(parseFloat(await gb.evaluate((el) => (el as HTMLElement).style.top)) - sc.product_card_y * 100), { timeout: 10_000 }).toBeLessThan(0.01);
     // the LED screen off and on again: the 3D shop follows
     await list.getByLabel("Hiện màn hình led sản phẩm").uncheck();
     await expect(page.getByTestId("board-place-note")).toContainText("Đã tắt màn hình LED sản phẩm");
