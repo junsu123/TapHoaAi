@@ -49,11 +49,12 @@ class Avatar:
     shown_at: float = 0.0
     level: int = 0  # Chibi level from watch time (services/levels.py)
     medals: int = 0  # mini-game wins this LIVE (services/minigames.py)
+    visits: int = 0  # LIVEs this viewer came to (services/regulars.py); 3+ = khách quen
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "avatar_id": self.avatar_id, "nickname": self.nickname, "unique_id": self.unique_id,
-            "appearance_seed": self.appearance_seed, "is_demo": self.is_demo, "level": self.level, "medals": self.medals,
+            "appearance_seed": self.appearance_seed, "is_demo": self.is_demo, "level": self.level, "medals": self.medals, "visits": self.visits,
         }
 
 
@@ -66,6 +67,7 @@ class AvatarManager:
         self.session_id: str | None = None
         self.level_of = lambda key: 0  # set by the container (LevelService.level_of)
         self.medals_of = lambda key: 0  # set by the container (MiniGames.medals_of)
+        self.visits_of = lambda key: 0  # set by the container (Regulars.visits_of)
         self._by_key: dict[str, Avatar] = {}
         self._by_id: dict[str, Avatar] = {}
         self.overflow: deque[str] = deque()
@@ -150,7 +152,7 @@ class AvatarManager:
             avatar_id=f"av_{digest[:12]}", viewer_key=key, unique_id=user.unique_id,
             nickname=display_nickname(user), appearance_seed=int(digest[12:20], 16),
             is_demo=is_demo, created_at=now, last_active=now, last_spoke=now if reason != "join" else 0.0,
-            level=self.level_of(key), medals=self.medals_of(key),
+            level=self.level_of(key), medals=self.medals_of(key), visits=self.visits_of(key),
         )
         self._by_key[key] = av
         self._by_id[av.avatar_id] = av

@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Any
 
 from app.events.schema import EventUser
 from app.services.camera_director import PRIORITY_GIFT, PRIORITY_PRODUCT
+from app.services.text_safety import speakable_name
 
 if TYPE_CHECKING:
     from app.container import AppContainer
@@ -30,6 +31,11 @@ GAP_S = 2.0  # between two performers
 AGAIN_S = 60.0  # the same viewer may sign up again this long after dancing
 THANKS = "Cảm ơn {ten} đã nhảy tặng cả nhà ạ!"
 CALL = "Mời bạn {ten} lên sân khấu!"
+SOON = "{ten} ơi, sắp tới lượt bạn lên sân khấu rồi nha, đừng đi đâu nhé!"
+SOON_MANY = "{ten} ơi, sắp tới lượt các bạn lên sân khấu rồi nha, đừng đi đâu nhé!"
+SOON_AHEAD = 2  # "sắp tới lượt" when this many (or fewer) dance before you
+SOON_GAP_S = 15.0  # at most one such call every 15 s (names are put together)
+WALK_S = 8.0  # roughly: getting up on the stage
 
 
 @dataclass
@@ -39,6 +45,7 @@ class Entry:
     user: EventUser
     is_demo: bool
     at: float = field(default_factory=time.monotonic)
+    told_soon: bool = False  # "sắp tới lượt bạn" said already
 
 
 @dataclass
@@ -67,6 +74,9 @@ class StageService:
         self._dirty = True
         self._signed: list[str] = []  # names that just signed up (one owner bubble for several)
         self._signed_at = -1e9
+        self._soon_last = -1e9
+        self.soon_calls: list[dict[str, Any]] = []  # "sắp tới lượt bạn" said (dashboard / tests)
+        self._published_at = -1e9
 
     # ------------------------------------------------------------------ settings
     @property
@@ -182,6 +192,9 @@ class StageService:
             self._dirty = True
             self._call(self.current, now)
         self._flush_signed(now)
+        self._tell_soon(now)
+        if self.queue and now - self._published_at >= 10.0:
+            self._dirty = True  # the waiting times on the screen stay about right
         if self._dirty:
             self._dirty = False
             self.publish()
@@ -240,6 +253,40 @@ class StageService:
         self.c.owner.say(f"Đã ghi tên {name_list(names, more)} lên sân khấu ạ!", kind="stage")
 
     # ------------------------------------------------------------------ views
+    def turn_s(self) -> float:
+        """About how long one turn takes (dance + getting up there + the gap)."""
+        return self.seconds + WALK_S + GAP_S
+
+    def eta_s(self, index: int, now: float | None = None) -> int:
+        """Rough wait for the viewer at queue[index]: what is left of the current turn + the turns before."""
+        now = self.clock() if now is None else now
+        cur = self.current
+        left = 0.0
+        if cur is not None:
+            left = max(0.0, cur.ends_at - now) + GAP_S if cur.phase == "dancing" else self.seconds + WALK_S + GAP_S
+        return round(left + index * self.turn_s())
+
+    def _tell_soon(self, now: float) -> None:
+        """Two (or fewer) to dance before you: the owner calls your name, so you stay."""
+        if not self.enabled or now - self._soon_last < SOON_GAP_S:
+            return
+        ahead_now = 1 if self.current is not None else 0
+        names = []
+        for i, e in enumerate(list(self.queue)[:SOON_AHEAD + 1]):
+            if ahead_now + i <= SOON_AHEAD and ahead_now + i > 0 and not e.told_soon:
+                e.told_soon = True
+                names.append(e.name)
+        if not names:
+            return
+        self._soon_last = now
+        cfg = self.c.assistant.config
+        spoken = [speakable_name(n, cfg.banned_words) for n in names]
+        text = (SOON if len(spoken) == 1 else SOON_MANY).format(ten=" và ".join(spoken))
+        self.c.owner.say(text, kind="stage")
+        self.c.assistant.announce("stage", text)
+        self.soon_calls.append({"names": names, "at": time.time()})
+        del self.soon_calls[:-20]
+
     def view(self) -> dict[str, Any]:
         cur = self.current
         now = self.clock()
@@ -251,7 +298,7 @@ class StageService:
                 "name": cur.entry.name, "avatar_id": cur.avatar_id, "phase": cur.phase, "token": cur.token,
                 "sent": cur.sent, "seconds_left": max(0, round(cur.ends_at - now)) if cur.phase == "dancing" else None,
             },
-            "queue": [{"name": e.name, "key": e.key} for e in list(self.queue)[:50]],
+            "queue": [{"name": e.name, "key": e.key, "eta_s": self.eta_s(i, now)} for i, e in enumerate(list(self.queue)[:50])],
             "waiting": len(self.queue),
             "performed": self.performed,
             "skipped": self.skipped,
@@ -259,7 +306,8 @@ class StageService:
         }
 
     def publish(self) -> None:
+        self._published_at = self.clock()
         v = self.view()
-        game = {**v, "queue": [{"name": q["name"]} for q in v["queue"][:8]], "history": []}
+        game = {**v, "queue": [{"name": q["name"], "eta_s": q["eta_s"]} for q in v["queue"][:8]], "history": []}
         self.c.hub.send_game({"type": "STAGE_STATE", "stage": game})
         self.c.hub.send_dashboard({"type": "STAGE_STATE", "stage": v})

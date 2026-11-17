@@ -710,3 +710,8 @@ input.mini { width: 4.2em; margin: 0 .35em; padding: 2px 4px; display: inline-bl
 .quiz-editor .quiz-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 6px; margin: 4px 0; }
 .quiz-editor input.right { border-color: #3f9a4b; }
 @media (max-width: 760px) { .quiz-editor .quiz-row { grid-template-columns: 1fr; } }
+
+/* stage: waiting times */
+.stage-next li { display: flex; justify-content: space-between; gap: .6vh; }
+.stage-next .sn-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stage-next .sn-eta { color: #ffd27a; font-variant-numeric: tabular-nums; flex: none; font-size: .9em; }

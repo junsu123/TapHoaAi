@@ -417,6 +417,12 @@ function GamePanel({ engine, safe, scene, editable }: { engine: GameEngine; safe
   );
 }
 
+/** About how long until their turn: "~40 giây", "~3 phút". */
+export function etaText(s: number): string {
+  if (s < 60) return `~${Math.max(10, Math.round(s / 10) * 10)} giây`;
+  return `~${Math.round(s / 60)} phút`;
+}
+
 /** "đang diễn ra" / "45 giây" / "4 phút" / "22:10" (more than an hour away). */
 export function whenText(due: number | null, now: number, clock?: string): string {
   if (due == null) return "đang diễn ra";
@@ -479,7 +485,10 @@ function StageBoard({ engine, safe, scene, editable }: { engine: GameEngine; saf
       {next.length > 0 && (
         <ol className="stage-next" data-testid="stage-next">
           {next.map((q, i) => (
-            <li key={`${i}-${q.name}`}>{q.name}</li>
+            <li key={`${i}-${q.name}`}>
+              <span className="sn-name">{q.name}</span>
+              {q.eta_s != null && <span className="sn-eta">{etaText(q.eta_s)}</span>}
+            </li>
           ))}
           {more > 0 && <li className="more">+{more} bạn nữa</li>}
         </ol>

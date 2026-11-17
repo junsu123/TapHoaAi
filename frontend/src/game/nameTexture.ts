@@ -19,9 +19,19 @@ const cache = new Map<string, { texture: THREE.CanvasTexture; aspect: number }>(
 /** Level colours: 1 nón lá (green), 2 áo choàng (red), 3 vương miện (gold). */
 const LEVEL_COLOURS = ["#e2779c", "#5aa35a", "#d8434c", "#e0a925"];
 
-export function nameTexture(name: string, demo: boolean, level = 0): { texture: THREE.CanvasTexture; aspect: number } {
+/** Draws a heart (khách quen: 3+ LIVEs) centred at x, y. */
+function heart(ctx: CanvasRenderingContext2D, x: number, y: number, s: number) {
+  ctx.beginPath();
+  ctx.moveTo(x, y + s * 0.9);
+  ctx.bezierCurveTo(x - s * 1.4, y + s * 0.1, x - s * 0.9, y - s * 1.0, x, y - s * 0.35);
+  ctx.bezierCurveTo(x + s * 0.9, y - s * 1.0, x + s * 1.4, y + s * 0.1, x, y + s * 0.9);
+  ctx.closePath();
+  ctx.fill();
+}
+
+export function nameTexture(name: string, demo: boolean, level = 0, regular = false): { texture: THREE.CanvasTexture; aspect: number } {
   const label = sanitizeLabel(name);
-  const key = `${label}|${demo}|${level}`;
+  const key = `${label}|${demo}|${level}|${regular}`;
   const hit = cache.get(key);
   if (hit) return hit;
   const font = "800 88px system-ui, 'Segoe UI', Roboto, 'Noto Sans', sans-serif";
@@ -31,7 +41,8 @@ export function nameTexture(name: string, demo: boolean, level = 0): { texture: 
   const textW = Math.ceil(ctx.measureText(label).width);
   const padX = 44;
   const badge = level > 0 ? 112 : 0; // a round level badge before the name
-  canvas.width = textW + padX * 2 + badge;
+  const tail = regular ? 84 : 0; // a heart after the name: khách quen
+  canvas.width = textW + padX * 2 + badge + tail;
   canvas.height = 144;
   ctx.font = font;
   ctx.fillStyle = "rgba(255,255,255,0.96)";
@@ -58,6 +69,10 @@ export function nameTexture(name: string, demo: boolean, level = 0): { texture: 
   ctx.fillStyle = "#4a2b3c";
   ctx.textBaseline = "middle";
   ctx.fillText(label, padX + badge, canvas.height / 2 + 4);
+  if (regular) {
+    ctx.fillStyle = "#e2365b";
+    heart(ctx, padX + badge + textW + 46, canvas.height / 2 + 2, 30);
+  }
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = 4;

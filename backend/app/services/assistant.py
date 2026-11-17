@@ -458,6 +458,11 @@ class Assistant:
         self._trace("join", name, None, True, "Chờ gộp vào lời chào.")
         return True
 
+    def forget_welcome(self, key: str) -> None:
+        """A khách quen gets a welcome-back line of their own: not the usual hello too."""
+        self._welcome_pending = [p for p in self._welcome_pending if p[1] != key]
+        self._welcomed[key] = time.monotonic()
+
     def _prune(self) -> None:
         """Per-viewer "last time" maps: forget viewers not seen for 10 minutes (huge LIVEs)."""
         now = time.monotonic()

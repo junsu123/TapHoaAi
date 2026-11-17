@@ -100,6 +100,7 @@ class Orchestrator:
         self._persist_event(ev)
         self.counts[ev.type.value] += 1
         if ev.type != EventType.VIEWER_COUNT:
+            self.c.regulars.seen(ev.user)  # khách quen: looked up the first time in this LIVE
             self.c.levels.seen(ev.user)  # still watching (Chibi levels)
         is_demo = ev.capability == "simulated"
         if ev.type == EventType.COMMENT:

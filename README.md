@@ -136,6 +136,10 @@ Hình trên điện thoại chỉ nét khi nguồn game đủ **1080 × 1920 đi
 3. Trong phần mềm LIVE: khung hình 1080 × 1920, nguồn game phủ vừa khít khung (không phóng to), bitrate cao nhất mạng tải lên cho phép.
 4. Kiểm tra: Game 3D & OBS → *Hiệu năng màn hình game* ghi cỡ cửa sổ game và báo nếu chưa đủ 1080 × 1920.
 
+## Khách quen
+
+Máy chủ nhớ người xem qua các buổi LIVE. Ai quay lại được chủ quán chào đích danh (“A, Lan quay lại rồi! Buổi LIVE thứ 3 liên tiếp đó…”); khách đã tới từ 3 buổi có **♥** sau tên. Nếu máy chủ khởi động lại giữa LIVE (phiên mới trong vòng 20 phút), số phút xem và cấp Chibi được giữ nguyên. Thẻ **Khách quen** ở trang Người trực; API `GET /api/v1/regulars`.
+
 ## Mini-game
 
 Mỗi 15–20 phút (ngẫu nhiên) LIVE tự chạy một mini-game khoảng 1 phút: **Đoán giá** (bình luận con số, gần đúng nhất thắng), **Đố vui** (bình luận A/B/C, 3 người đúng nhanh nhất thắng), **Nhanh tay** (3 người gõ đúng chữ đầu tiên thắng). Người thắng được đeo huy chương trên Chibi và lên Bảng vàng (tab Mini-game). Người trực bắt đầu/dừng ở thẻ **Mini-game** (trang Người trực); cài đặt và câu đố của shop ở Không gian cửa hàng → *Mini-game*.
@@ -150,7 +154,7 @@ Người xem ở lại càng lâu, Chibi càng “xịn”: **5 phút nón lá �
 
 ## Sân khấu nhảy & chủ quán trò chuyện
 
-- **Sân khấu** (giữa quán — hoặc góc trước nếu chọn): người xem bình luận “nhảy” / “lên sân khấu” / “đăng ký nhảy” được xếp hàng, **ai bình luận trước lên nhảy trước**. Tới lượt, chủ quán mời lên, Chibi bước lên sân khấu nhảy một bài dưới đèn chiếu (mặc định 15 giây), camera quay sân khấu; xong thì cúi chào, bước xuống và người kế tiếp được mời. Bảng *Sân khấu* trên màn hình LIVE cho biết ai đang nhảy, ai kế tiếp — kéo thả tới chỗ khác và đổi cỡ được (Không gian cửa hàng → “Kéo thả bảng vàng và ô Sân khấu…”). Người trực xem/sửa hàng chờ ở thẻ **Sân khấu** (trang Người trực); cài đặt ở Game 3D & OBS → *Sân khấu*. Tắt sân khấu thì “nhảy” lại là nhảy tại chỗ như trước.
+- **Sân khấu** (giữa quán — hoặc góc trước nếu chọn): người xem bình luận “nhảy” / “lên sân khấu” / “đăng ký nhảy” được xếp hàng, **ai bình luận trước lên nhảy trước**. Tới lượt, chủ quán mời lên, Chibi bước lên sân khấu nhảy một bài dưới đèn chiếu (mặc định 15 giây), camera quay sân khấu; xong thì cúi chào, bước xuống và người kế tiếp được mời. Bảng *Sân khấu* trên màn hình LIVE cho biết ai đang nhảy, ai kế tiếp và **còn bao lâu tới lượt** (“~40 giây”); 2 người kế tiếp được chủ quán gọi tên trước để khỏi rời LIVE — kéo thả tới chỗ khác và đổi cỡ được (Không gian cửa hàng → “Kéo thả bảng vàng và ô Sân khấu…”). Người trực xem/sửa hàng chờ ở thẻ **Sân khấu** (trang Người trực); cài đặt ở Game 3D & OBS → *Sân khấu*. Tắt sân khấu thì “nhảy” lại là nhảy tại chỗ như trước.
 - **Chủ quán trò chuyện** (Trợ lý AI & giọng đọc → *Chủ quán trò chuyện*, cần bật “Phát trên LIVE”): chủ quán đọc bình luận và tự trả lời câu chào hỏi, khen, hỏi thăm (không gọi Claude); câu không tự trả lời được thì gọi Claude nếu bật. Bình luận của khách và câu chủ quán trả lời chỉ đọc bằng giọng, không hiện chữ (bật lại ở Không gian cửa hàng → “Hiện chữ bình luận của khách”).
 - **Thơ mỗi 10–15 phút:** khi đang LIVE và giọng đọc bật, chủ quán tự nghĩ một bài thơ lục bát mới (Claude) tặng cả nhà sau mỗi 10–15 phút (ngẫu nhiên), chờ lúc không ai đang được đọc câu hỏi. Khi có người nhảy: đèn trong quán dịu xuống, đèn màu quét theo nhịp, sàn đổi màu, pháo giấy.
 - **Làm thơ, kể chuyện:** khách bình luận “làm thơ đi” / “kể chuyện đi”, hoặc LIVE vắng một lúc, chủ quán đọc một bài thơ hay một truyện ngắn (có sẵn 8 + 8, thêm được của shop, hoặc để Claude làm thơ mới). Nút **Đọc thơ ngay** / **Kể chuyện ngay** để người trực gọi bất cứ lúc nào.

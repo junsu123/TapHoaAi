@@ -308,3 +308,24 @@ class KnowledgeVariant(Base):
     normalized: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     entry: Mapped[KnowledgeEntry] = relationship(back_populates="variants")
+
+
+class ViewerProfile(Base):
+    """A viewer across LIVEs (khách quen): how many LIVEs, how many in a row, the minutes this LIVE.
+
+    Created at start-up if missing (it is new; see services/regulars.py) and by migration 0004."""
+
+    __tablename__ = "viewer_profiles"
+    key: Mapped[str] = mapped_column(String(160), primary_key=True)  # EventUser.identity_key
+    kind: Mapped[str] = mapped_column(String(8), nullable=False, default="live")  # live | demo
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    first_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    visits: Mapped[int] = mapped_column(Integer, nullable=False, default=1)  # LIVEs attended
+    streak: Mapped[int] = mapped_column(Integer, nullable=False, default=1)  # LIVEs in a row
+    last_seq: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # number of the last LIVE attended
+    total_watch_s: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)  # earlier LIVEs
+    best_level: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    cur_watch_s: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)  # this LIVE (carried over a restart)
+    cur_level: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    __table_args__ = (Index("ix_viewer_profiles_last_seen", "last_seen"),)
