@@ -11,6 +11,7 @@ from urllib.parse import urlsplit
 ALLOWED_HOSTS = {"www.tiktok.com", "tiktok.com", "m.tiktok.com"}
 SHORT_LINK_HOSTS = {"vm.tiktok.com", "vt.tiktok.com"}
 _USERNAME = re.compile(r"^[A-Za-z0-9_.]{2,24}$")
+_LOOKS_LIKE_HOST = re.compile(r"\.(com|vn|net|org)$", re.IGNORECASE)  # "tiktok.com" is a link typed without https://
 
 
 class InvalidLiveUrl(ValueError):
@@ -33,6 +34,10 @@ def parse_live_url(raw: str) -> ParsedLiveUrl:
         raise InvalidLiveUrl("empty", "Vui lòng dán link TikTok LIVE.")
     if len(url) > 512:
         raise InvalidLiveUrl("too_long", "Link quá dài.")
+    # just the account name ("@shoptra" or "shoptra"): the LIVE link is built from it
+    bare = url.removeprefix("@")
+    if _USERNAME.match(bare) and not _LOOKS_LIKE_HOST.search(bare):
+        return ParsedLiveUrl(url=f"https://www.tiktok.com/@{bare}/live", unique_id=bare)
     try:
         parts = urlsplit(url)
     except ValueError as exc:

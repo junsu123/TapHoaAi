@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import json
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from sqlalchemy import select
@@ -8,8 +10,18 @@ from sqlalchemy import select
 from app.models import AuditLog, LiveEventRow
 from app.providers.demo_adapter import DemoProvider
 from app.providers.tiktoklive_adapter import TikTokLiveAdapter
-from app.providers.url_validator import InvalidLiveUrl, parse_live_url, resolve_short_link
-from app.schemas.api import BenchmarkIn, LoadTestIn, ConnectIn, DemoEventIn, LiveSettingsPatch
+from app.providers.url_validator import (
+    InvalidLiveUrl,
+    parse_live_url,
+    resolve_short_link,
+)
+from app.schemas.api import (
+    BenchmarkIn,
+    ConnectIn,
+    DemoEventIn,
+    LiveSettingsPatch,
+    LoadTestIn,
+)
 from app.security.crypto import mask_secret
 from app.security.sessions import AdminDep, CurrentAdmin
 
@@ -33,7 +45,44 @@ async def connect(body: ConnectIn, request: Request, admin: CurrentAdmin = Admin
     adapter = TikTokLiveAdapter(parsed.unique_id, sign_api_key=c.get_setting("tiktok_sign_api_key"),
                                 client_factory=c.tiktok_client_factory)
     await c.live.start(adapter, url=parsed.url, unique_id=parsed.unique_id)
+    _remember_account(c, parsed.unique_id)
     return c.live.status_dict()
+
+
+# ---------------------------------------------------------------- saved LIVE accounts
+ACCOUNTS_KEY = "live_accounts"
+MAX_ACCOUNTS = 10
+
+
+def _accounts(c) -> list[dict]:
+    try:
+        data = json.loads(c.get_setting(ACCOUNTS_KEY) or "[]")
+        return [a for a in data if isinstance(a, dict) and isinstance(a.get("unique_id"), str)]
+    except (ValueError, TypeError):
+        return []
+
+
+def _remember_account(c, unique_id: str | None) -> None:
+    """The shop's LIVE accounts, most recently used first, so the host does not type them again."""
+    if not unique_id:
+        return
+    now = datetime.now(UTC).isoformat()
+    rest = [a for a in _accounts(c) if a["unique_id"].lower() != unique_id.lower()]
+    c.set_setting(ACCOUNTS_KEY, json.dumps([{"unique_id": unique_id, "last_used": now}, *rest][:MAX_ACCOUNTS]),
+                  secret=False)
+
+
+@router.get("/live/accounts")
+def live_accounts(request: Request, admin: CurrentAdmin = AdminDep) -> dict:
+    return {"accounts": _accounts(request.app.state.container)}
+
+
+@router.delete("/live/accounts/{unique_id}")
+def forget_live_account(unique_id: str, request: Request, admin: CurrentAdmin = AdminDep) -> dict:
+    c = request.app.state.container
+    left = [a for a in _accounts(c) if a["unique_id"].lower() != unique_id.lower()]
+    c.set_setting(ACCOUNTS_KEY, json.dumps(left) if left else None, secret=False)
+    return {"accounts": left}
 
 
 @router.get("/settings/live")

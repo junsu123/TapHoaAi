@@ -230,8 +230,16 @@ function ConnectPage({ live }: { live: LiveStatus | null }) {
   const [checks, setChecks] = useState<boolean[]>(POLICY_ITEMS.map(() => false));
   const [settings, setSettings] = useState<{ sign_api_key: string | null; library_installed: boolean; sign_server: string } | null>(null);
   const [keyInput, setKeyInput] = useState("");
+  // the shop's LIVE accounts used before (most recent first): one click instead of typing again
+  const [accounts, setAccounts] = useState<{ unique_id: string; last_used: string }[]>([]);
+  const loadAccounts = () =>
+    api.get<{ accounts: { unique_id: string; last_used: string }[] }>("/live/accounts").then((r) => {
+      setAccounts(r.accounts);
+      return r.accounts;
+    });
   useEffect(() => {
     api.get<typeof settings>("/settings/live").then(setSettings);
+    loadAccounts().then((a) => a[0] && setUrl((u) => u || `@${a[0].unique_id}`));
   }, []);
   const allChecked = checks.every(Boolean);
   const run = async (fn: () => Promise<unknown>) => {
@@ -247,7 +255,7 @@ function ConnectPage({ live }: { live: LiveStatus | null }) {
   };
   return (
     <div className="stack">
-      <Card title="Buổi LIVE cần kết nối" desc="Dán link LIVE hoặc tên tài khoản TikTok của shop.">
+      <Card title="Buổi LIVE cần kết nối" desc="Gõ tên tài khoản TikTok của shop (vd. @shoptra) hoặc dán link LIVE. Tài khoản đã kết nối được nhớ lại cho lần sau.">
         {settings && !settings.library_installed && (
           <p className="error" role="alert">
             Chưa cài thư viện kết nối TikTok. Chạy <code>pip install -e "backend[tiktok]"</code> rồi khởi động lại phần mềm.
@@ -257,12 +265,12 @@ function ConnectPage({ live }: { live: LiveStatus | null }) {
           className="row"
           onSubmit={(e) => {
             e.preventDefault();
-            run(() => api.post("/live/connect", { url, policy_ack: allChecked }));
+            run(() => api.post("/live/connect", { url, policy_ack: allChecked }).then(loadAccounts));
           }}
         >
           <input
             aria-label="Link TikTok LIVE"
-            placeholder="https://www.tiktok.com/@tên_tài_khoản/live hoặc link vm.tiktok.com"
+            placeholder="@tên_tài_khoản, hoặc link https://www.tiktok.com/@tên_tài_khoản/live"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             className="grow"
@@ -274,6 +282,27 @@ function ConnectPage({ live }: { live: LiveStatus | null }) {
             Ngắt kết nối
           </button>
         </form>
+        {accounts.length > 0 && (
+          <div className="saved-accounts" data-testid="saved-accounts">
+            <span className="muted small">Tài khoản đã dùng:</span>
+            {accounts.map((a) => (
+              <span key={a.unique_id} className={`account-chip${url.replace(/^@/, "").toLowerCase() === a.unique_id.toLowerCase() ? " on" : ""}`}>
+                <button type="button" onClick={() => setUrl(`@${a.unique_id}`)} title={`Dùng tài khoản @${a.unique_id}`}>
+                  @{a.unique_id}
+                </button>
+                <button
+                  type="button"
+                  className="forget"
+                  aria-label={`Quên tài khoản @${a.unique_id}`}
+                  title="Xoá khỏi danh sách"
+                  onClick={() => api.del<{ accounts: typeof accounts }>(`/live/accounts/${encodeURIComponent(a.unique_id)}`).then((r) => setAccounts(r.accounts))}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
         <ErrorText err={err} />
         <fieldset className="policy">
           <legend>Xác nhận trước khi LIVE bán hàng (bắt buộc)</legend>

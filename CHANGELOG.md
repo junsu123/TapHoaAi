@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.29.0 — 2026-11-17 — Nhớ tài khoản LIVE
+
+- Trang **Kết nối TikTok** nhớ các tài khoản shop đã kết nối (tối đa 10, tài khoản dùng gần nhất lên đầu). Mở trang là ô đã điền sẵn tài khoản gần nhất; các tài khoản khác hiện thành nút “@tên”, bấm một lần là chọn; nút × để quên một tài khoản. Danh sách lưu trong máy, giữ nguyên khi tắt mở lại phần mềm.
+- Chỉ cần gõ tên tài khoản (`@shoptra` hoặc `shoptra`); không bắt buộc dán cả link LIVE nữa. Link `https://www.tiktok.com/@…/live` và `vm.tiktok.com` vẫn dùng được.
+- API: `GET /api/v1/live/accounts`, `DELETE /api/v1/live/accounts/{tên}`.
+- Danh sách xác nhận chính sách vẫn phải đánh dấu trước mỗi lần kết nối.
+
 ## 0.28.0 — 2026-11-17 — Màn hình LED sản phẩm gắn cố định trên tường
 
 - Màn hình chạy ảnh sản phẩm giờ luôn là **màn hình LED gắn cố định trên tường sau quầy** (trong quán 3D: Chibi đi phía trước, không che hình LIVE). Bỏ hai kiểu khung nổi trên màn hình LIVE (Tivi, Bảng gỗ) cùng thanh chỉnh chiều cao của chúng; cài đặt cũ đang dùng hai kiểu đó tự chuyển sang màn LED khi mở bản mới.
