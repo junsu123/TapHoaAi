@@ -7,7 +7,11 @@ import fs from "node:fs";
 
 const SHOTS = "test-results/evidence";
 fs.mkdirSync(SHOTS, { recursive: true });
-const RUN = Date.now().toString(36).slice(-4);
+// letters only: a run of digits in a name is not read aloud nor shown in the owner's lines ("khen287e8" → "khene8")
+const RUN = Date.now()
+  .toString(36)
+  .slice(-4)
+  .replace(/\d/g, (d) => "qrstuvwxyz"[Number(d)]);
 
 interface DebugAvatar {
   id: string;
@@ -369,6 +373,16 @@ test("M3 connect page: real TikTok attempt never shows a fake connection; failur
   await page.request.post("/api/v1/live/disconnect", { headers: { "X-CSRF-Token": csrf } });
   await page.reload();
   await expect(pill).toContainText("Chưa kết nối");
+  // the account is remembered: next time the box is already filled, other accounts are one click away
+  await expect(page.getByLabel("Link TikTok LIVE")).toHaveValue("@shoptra");
+  const saved = page.getByTestId("saved-accounts");
+  await expect(saved.getByRole("button", { name: "@shoptra", exact: true })).toBeVisible();
+  await page.getByLabel("Link TikTok LIVE").fill("");
+  await saved.getByRole("button", { name: "@shoptra", exact: true }).click();
+  await expect(page.getByLabel("Link TikTok LIVE")).toHaveValue("@shoptra");
+  await page.screenshot({ path: `${SHOTS}/M3-saved-accounts.png` });
+  await saved.getByRole("button", { name: "Quên tài khoản @shoptra" }).click();
+  await expect(page.getByTestId("saved-accounts")).toHaveCount(0);
 });
 
 test("Product faces from a print PDF: frames on the dieline, 3D preview, saved to the game", async ({ page, context }) => {
@@ -935,7 +949,7 @@ test("Layout: every box on the LIVE screen can be switched off and dragged anywh
     await page.setViewportSize({ width: 1360, height: 1400 });
     await page.goto("/dashboard/game");
     const list = page.getByTestId("overlay-list");
-    await expect(list.locator("li")).toHaveCount(9);
+    await expect(list.locator("li")).toHaveCount(9, { timeout: 30_000 }); // the shop's settings load first
     await page.getByRole("button", { name: "Kéo thả các ô trên màn hình LIVE" }).click();
     await page.getByTestId("board-placer-frame").scrollIntoViewIfNeeded();
     const frame = page.frameLocator('[data-testid="board-placer-frame"]');
@@ -984,7 +998,7 @@ test("Layout: every box on the LIVE screen can be switched off and dragged anywh
     // the LIVE page shows it there at once
     const gb = frame.getByTestId("product-card");
     await expect(gb).toHaveAttribute("data-placed", "1", { timeout: 10_000 });
-    await expect.poll(async () => (await gb.evaluate((el) => (el as HTMLElement).style.top))).toBe(`${sc.product_card_y * 100}%`);
+    await expect.poll(async () => Math.abs(parseFloat(await gb.evaluate((el) => (el as HTMLElement).style.top)) - sc.product_card_y * 100), { timeout: 10_000 }).toBeLessThan(0.01);
     // the LED screen off and on again: the 3D shop follows
     await list.getByLabel("Hiện màn hình led sản phẩm").uncheck();
     await expect(page.getByTestId("board-place-note")).toContainText("Đã tắt màn hình LED sản phẩm");

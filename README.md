@@ -263,7 +263,7 @@ Lỗi giống nhau lặp lại trong 2 phút gộp thành một dòng “×N”.
 
 ## Kết nối TikTok LIVE
 
-Dashboard → **Kết nối TikTok** → dán link LIVE (hoặc link `vm.tiktok.com`) → đánh dấu danh sách chính sách → **Kết nối**. Trước khi dùng cho buổi bán hàng, làm bài thử 9 bước trong [`docs/provider-limitations.md`](docs/provider-limitations.md) — trong đó có tóm tắt giấy phép TikTokLive (dùng cho cửa hàng của bạn được; **không** đem làm dịch vụ SaaS cho người khác) và việc tên tài khoản LIVE được gửi tới máy chủ ký Euler Stream.
+Dashboard → **Kết nối TikTok** → gõ tên tài khoản (vd. `@shoptra`) hoặc dán link LIVE (cả link `vm.tiktok.com`) → đánh dấu danh sách chính sách → **Kết nối**. Tài khoản đã kết nối được nhớ (tối đa 10, mới dùng nhất lên đầu): lần sau ô đã điền sẵn tài khoản gần nhất, các tài khoản khác bấm một lần là chọn, nút × để quên. Trước khi dùng cho buổi bán hàng, làm bài thử 9 bước trong [`docs/provider-limitations.md`](docs/provider-limitations.md) — trong đó có tóm tắt giấy phép TikTokLive (dùng cho cửa hàng của bạn được; **không** đem làm dịch vụ SaaS cho người khác) và việc tên tài khoản LIVE được gửi tới máy chủ ký Euler Stream.
 
 Khi người xem rời LIVE: TikTok không báo ai đã thoát, nên Chibi rời cửa hàng khi người đó không tương tác trong vài phút (chỉnh ở Dashboard → Game 3D & OBS), khi số người xem giảm, hoặc khi LIVE kết thúc.
 

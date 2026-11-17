@@ -672,3 +672,9 @@ input.mini { width: 4.2em; margin: 0 .35em; padding: 2px 4px; display: inline-bl
 .overlay-list li.off b { color: var(--muted, #888); text-decoration: line-through; }
 .overlay-list button.small { padding: 2px 10px; font-size: 13px; }
 @keyframes banner-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+/* LIVE accounts used before, on the connect page */
+.saved-accounts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+.account-chip { display: inline-flex; align-items: stretch; border: 1px solid var(--line-strong); border-radius: 999px; overflow: hidden; background: var(--paper, #fff); }
+.account-chip button { border: 0; border-radius: 0; background: transparent; padding: 3px 10px; font-weight: 600; min-height: 0; }
+.account-chip button.forget { padding: 3px 8px; color: var(--muted); border-left: 1px solid var(--line); font-weight: 400; }
+.account-chip.on { border-color: var(--jade); background: var(--jade-50); }
