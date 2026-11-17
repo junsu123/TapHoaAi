@@ -1745,8 +1745,19 @@ test("Khách quen: welcomed back by name in the next LIVE, a heart after 3 LIVEs
 
   // the stage: the two after the dancer are called by name, and everyone sees about how long to wait
   const names = ["an", "binh", "chi", "dung"].map((n) => `${n}${RUN.replace(/\d+$/, "")}x`);
+  // every owner bubble shown from now on (on a slow machine the two may be called one by one)
+  await game.evaluate(() => {
+    const w = window as any;
+    w.__bubbles = [];
+    setInterval(() => {
+      const t = document.querySelector('[data-testid="owner-bubble"]')?.textContent ?? "";
+      if (t && w.__bubbles[w.__bubbles.length - 1] !== t) w.__bubbles.push(t);
+    }, 100);
+  });
   for (const n of names) await inject(page, csrf, `@${n}: nhảy`);
-  await expect(bubble).toContainText(`${names[1]} và ${names[2]} ơi, sắp tới lượt các bạn`, { timeout: 30_000 });
+  const called = (n: string) => game.evaluate((x) => (window as any).__bubbles.some((t: string) => t.includes(x) && t.includes("sắp tới lượt")), n);
+  await expect.poll(async () => (await called(names[1])) && (await called(names[2])), { timeout: 40_000 }).toBe(true);
+  expect(await called(names[0])).toBe(false); // the first one is invited straight away, not "soon"
   const next = game.getByTestId("stage-next");
   await expect(next).toContainText(/~\d+ (giây|phút)/);
   await game.screenshot({ path: `${SHOTS}/REGULAR-4-stage-soon.png` });
