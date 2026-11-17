@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.28.0 — 2026-11-17 — Màn hình LED sản phẩm gắn cố định trên tường
+
+- Màn hình chạy ảnh sản phẩm giờ luôn là **màn hình LED gắn cố định trên tường sau quầy** (trong quán 3D: Chibi đi phía trước, không che hình LIVE). Bỏ hai kiểu khung nổi trên màn hình LIVE (Tivi, Bảng gỗ) cùng thanh chỉnh chiều cao của chúng; cài đặt cũ đang dùng hai kiểu đó tự chuyển sang màn LED khi mở bản mới.
+- Trong *Bố cục màn hình LIVE*, mục **Màn hình LED sản phẩm** chỉ bật/tắt, không kéo thả (như bong bóng chủ quán). Thẻ sản phẩm (ảnh, tên, giá khi Chibi cầm hàng) vẫn kéo thả được như trước.
+- Mục cài đặt đổi tên thành *Màn hình LED sản phẩm*: vẫn chọn chạy liên tục hay lần lượt, tốc độ, hiện giá, sản phẩm nào lên màn hình.
+
 ## 0.27.0 — 2026-11-17 — Mọi ô trên màn hình LIVE kéo thả & bật tắt được
 
 - Game 3D & OBS → Không gian cửa hàng có mục mới **Bố cục màn hình LIVE**, liệt kê đủ 9 ô trên màn hình LIVE, mỗi ô một công tắc **Hiện** (lưu ngay, màn hình LIVE đổi liền):

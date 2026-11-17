@@ -663,7 +663,7 @@ test("Welcome: ten viewers join at once and every name is greeted; ordinary comm
   await game.close();
 });
 
-test("Herbal-tea shop look and product banner: rotates, follows the Chibi, settings switch it off/theme", async ({ page, context }) => {
+test("Herbal-tea shop look and the LED product screen on the wall: runs, one at a time, settings switch it off/theme", async ({ page, context }) => {
   test.setTimeout(180_000);
   const csrf = await login(page.request);
   const put = async (patch: object) => {
@@ -671,39 +671,28 @@ test("Herbal-tea shop look and product banner: rotates, follows the Chibi, setti
     const r = await page.request.put("/api/v1/settings/scene", { data: { ...cur, ...patch }, headers: { "X-CSRF-Token": csrf } });
     expect(r.ok()).toBeTruthy();
   };
+  // the product screen is the LED screen fixed on the back wall (an old "tv" setting is read as the wall screen)
   await put({ theme: "herbal", banner_enabled: true, banner_style: "tv", banner_mode: "scroll", banner_seconds: 4, banner_product_ids: [], wall_posters: true });
+  expect((await (await page.request.get("/api/v1/settings/scene")).json()).config.banner_style).toBe("led");
   const game = await context.newPage();
   await game.setViewportSize({ width: 540, height: 960 });
   await game.goto("/game/live?debug=1&quality=medium");
   await game.waitForFunction(() => (window as any).__chibiDebug?.state().scene?.theme === "herbal");
-  const banner = game.getByTestId("product-banner");
-  await expect(banner).toHaveAttribute("data-mode", "scroll", { timeout: 40_000 }); // after any showcase left over from earlier tests
-  // continuous: the strip keeps moving, every product is on it
-  const track = game.getByTestId("banner-track");
-  await expect(track.locator(".scroll-card[data-product-id=TRA_CA_GAI_LEO]").first()).toBeAttached();
-  await expect(track.locator(".scroll-card[data-product-id=TRA_BA_KICH]").first()).toBeAttached();
-  const x = () => track.evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).m41);
-  const x1 = await x();
-  await game.waitForTimeout(700);
-  const x2 = await x();
-  await game.waitForTimeout(700);
-  const x3 = await x();
-  expect(x2).toBeLessThan(x1);
-  expect(x3).toBeLessThan(x2);
-  await game.screenshot({ path: `${SHOTS}/SCENE-herbal-banner.png` });
+  await expect(game.getByTestId("product-banner")).toHaveCount(0); // nothing floats over the LIVE picture
+  // continuous: the strip keeps running (after any showcase left over from earlier tests)
+  await game.waitForFunction(() => (window as any).__chibiDebug.state().led.mode === "scroll", null, { timeout: 40_000 });
+  await game.waitForTimeout(2500);
+  await game.screenshot({ path: `${SHOTS}/SCENE-led-wall.png` });
 
   // one-at-a-time mode still available
   await put({ banner_mode: "slide", banner_seconds: 3 });
-  await expect(banner).toHaveAttribute("data-mode", "slide");
-  await expect(banner.locator("img")).toBeVisible();
-  const first = await banner.getAttribute("data-product-id");
-  await expect(banner).not.toHaveAttribute("data-product-id", first!, { timeout: 8_000 }); // rotates
-  await game.screenshot({ path: `${SHOTS}/SCENE-herbal-banner-slide.png` });
+  await game.waitForFunction(() => (window as any).__chibiDebug.state().led.mode === "slide", null, { timeout: 20_000 });
+  await game.waitForTimeout(1500);
+  await game.screenshot({ path: `${SHOTS}/SCENE-led-wall-slide.png` });
   await put({ banner_mode: "scroll", banner_seconds: 6 });
 
-  // banner off → the sign board and the wall posters are visible again
+  // screen off → the sign board and the wall posters are visible again
   await put({ banner_enabled: false });
-  await expect(banner).toHaveCount(0);
   await game.waitForFunction(() => (window as any).__chibiDebug.state().scene.banner === false);
   await game.waitForTimeout(2500);
   await game.screenshot({ path: `${SHOTS}/SCENE-herbal-no-banner.png` });
@@ -713,12 +702,7 @@ test("Herbal-tea shop look and product banner: rotates, follows the Chibi, setti
   await game.waitForFunction(() => (window as any).__chibiDebug.state().scene.theme === "kawaii");
   await game.waitForTimeout(1500);
   await game.screenshot({ path: `${SHOTS}/SCENE-kawaii-banner.png` });
-  // default: an LED screen fixed on the back wall (in the 3D shop), nothing over the frame
-  await put({ theme: "herbal", banner_enabled: true, banner_style: "led", banner_mode: "scroll", banner_seconds: 6 });
-  await expect(banner).toHaveCount(0);
-  await game.waitForFunction(() => (window as any).__chibiDebug.state().led.mode === "scroll", null, { timeout: 40_000 });
-  await game.waitForTimeout(2500);
-  await game.screenshot({ path: `${SHOTS}/SCENE-led-wall.png` });
+  await put({ theme: "herbal", banner_enabled: true, banner_mode: "scroll", banner_seconds: 6 });
 
   // dashboard settings card
   await page.setViewportSize({ width: 1360, height: 1100 });
@@ -934,12 +918,12 @@ test("Layout: every box on the LIVE screen can be switched off and dragged anywh
   const H = { "X-CSRF-Token": csrf };
   const cur = (await (await page.request.get("/api/v1/settings/scene")).json()).config;
   const reset = {
-    banner_x: null, banner_y: null, banner_scale: 1, caption_x: null, caption_y: null, caption_scale: 1, product_card_x: null, product_card_y: null, product_card_scale: 1,
+    caption_x: null, caption_y: null, caption_scale: 1, product_card_x: null, product_card_y: null, product_card_scale: 1,
     badges_x: null, badges_y: null, badges_scale: 1, board_x: null, board_y: null, board_scale: 1, stage_board_x: null, stage_board_y: null, stage_board_scale: 1,
     upcoming_x: null, upcoming_y: null, upcoming_scale: 1, game_x: null, game_y: null, game_scale: 1,
   };
   await page.request.put("/api/v1/settings/scene", {
-    data: { ...cur, ...reset, banner_enabled: true, banner_style: "tv", board_enabled: true, stage_enabled: true, stage_board_enabled: true, caption_enabled: true, upcoming_enabled: false, minigame_enabled: false, owner_bubble_enabled: true, status_badge_enabled: true },
+    data: { ...cur, ...reset, banner_enabled: true, board_enabled: true, stage_enabled: true, stage_board_enabled: true, caption_enabled: true, upcoming_enabled: false, minigame_enabled: false, owner_bubble_enabled: true, status_badge_enabled: true },
     headers: H,
   });
   try {
@@ -947,7 +931,6 @@ test("Layout: every box on the LIVE screen can be switched off and dragged anywh
     await game.setViewportSize({ width: 540, height: 960 });
     await game.goto("/game/live?debug=1&quality=low");
     await game.waitForFunction(() => (window as any).__chibiDebug?.state().layoutVersion > 0);
-    await expect(game.getByTestId("product-banner")).toBeVisible({ timeout: 20_000 });
 
     await page.setViewportSize({ width: 1360, height: 1400 });
     await page.goto("/dashboard/game");
@@ -970,17 +953,20 @@ test("Layout: every box on the LIVE screen can be switched off and dragged anywh
     };
     await frame.locator("body").evaluate(() => new Promise((r) => setTimeout(r, 1000))); // the shop's settings have loaded
 
-    // the product screen (TV frame) goes down to the middle of the frame, at a smaller size
-    const b0 = await drag("product-banner", 0, 150);
-    await expect(page.getByTestId("board-place-note")).toContainText("Đã lưu vị trí màn hình sản phẩm", { timeout: 10_000 });
+    // the LED product screen is fixed on the shop's wall: on/off only, nothing to drag
+    await expect(frame.getByTestId("product-banner")).toHaveCount(0);
+    await expect(list.getByTestId("overlay-item-banner")).toContainText("gắn cố định trên tường");
+    // the product card (a sample here) goes up to the middle of the frame, at a smaller size
+    const b0 = await drag("product-card", 0, -250);
+    await expect(page.getByTestId("board-place-note")).toContainText("Đã lưu vị trí thẻ sản phẩm", { timeout: 10_000 });
     let sc = (await (await page.request.get("/api/v1/settings/scene")).json()).config;
-    expect(sc.banner_y).toBeGreaterThan((b0.y - iframeBox.y) / iframeBox.height + 0.15);
-    const rh = (await frame.getByTestId("banner-resize").boundingBox())!;
+    expect(sc.product_card_y).toBeLessThan((b0.y - iframeBox.y) / iframeBox.height - 0.25);
+    const rh = (await frame.getByTestId("product-card-resize").boundingBox())!;
     await page.mouse.move(rh.x + rh.width / 2, rh.y + rh.height / 2);
     await page.mouse.down();
     await page.mouse.move(rh.x - 60, rh.y, { steps: 8 });
     await page.mouse.up();
-    await expect(page.getByTestId("board-place-note")).toContainText(/màn hình sản phẩm \(cỡ [4-9]\d%\)/, { timeout: 10_000 });
+    await expect(page.getByTestId("board-place-note")).toContainText(/thẻ sản phẩm \(cỡ [4-9]\d%\)/, { timeout: 10_000 });
 
     // the line of what is read aloud (a sample here) goes up to the top
     const c0 = await drag("speech-caption", 0, -330);
@@ -992,13 +978,19 @@ test("Layout: every box on the LIVE screen can be switched off and dragged anywh
     await expect(page.getByTestId("board-place-note")).toContainText("Đã lưu vị trí nhãn trạng thái", { timeout: 10_000 });
     sc = (await (await page.request.get("/api/v1/settings/scene")).json()).config;
     expect(sc.badges_y).toBeGreaterThan(0.4);
-    expect(sc.banner_scale).toBeLessThan(1);
+    expect(sc.product_card_scale).toBeLessThan(1);
     await page.screenshot({ path: `${SHOTS}/LAYOUT-1-dashboard.png`, fullPage: true });
 
-    // the OBS page follows at once
-    const gb = game.getByTestId("product-banner");
+    // the LIVE page shows it there at once
+    const gb = frame.getByTestId("product-card");
     await expect(gb).toHaveAttribute("data-placed", "1", { timeout: 10_000 });
-    await expect.poll(async () => (await gb.evaluate((el) => (el as HTMLElement).style.top))).toBe(`${sc.banner_y * 100}%`);
+    await expect.poll(async () => (await gb.evaluate((el) => (el as HTMLElement).style.top))).toBe(`${sc.product_card_y * 100}%`);
+    // the LED screen off and on again: the 3D shop follows
+    await list.getByLabel("Hiện màn hình led sản phẩm").uncheck();
+    await expect(page.getByTestId("board-place-note")).toContainText("Đã tắt màn hình LED sản phẩm");
+    await game.waitForFunction(() => (window as any).__chibiDebug.state().scene.banner === false, null, { timeout: 10_000 });
+    await list.getByLabel("Hiện màn hình led sản phẩm").check();
+    await game.waitForFunction(() => (window as any).__chibiDebug.state().scene.banner === true, null, { timeout: 10_000 });
 
     // switch boxes off: they leave the LIVE screen; the stage itself keeps running
     await list.getByLabel("Hiện bảng vàng").uncheck();
@@ -1029,12 +1021,12 @@ test("Layout: every box on the LIVE screen can be switched off and dragged anywh
     await page.getByRole("button", { name: "Đưa tất cả về chỗ mặc định" }).click();
     await expect(page.getByTestId("board-place-note")).toContainText("Đã đưa mọi ô về chỗ mặc định");
     sc = (await (await page.request.get("/api/v1/settings/scene")).json()).config;
-    expect([sc.banner_x, sc.caption_x, sc.badges_x, sc.banner_scale]).toEqual([null, null, null, 1]);
+    expect([sc.product_card_x, sc.caption_x, sc.badges_x, sc.product_card_scale]).toEqual([null, null, null, 1]);
     await expect(gb).not.toHaveAttribute("data-placed", "1", { timeout: 10_000 });
     await game.close();
   } finally {
     // the shop's own layout back, whatever happened above (later tests need the boxes)
-    await page.request.put("/api/v1/settings/scene", { data: { ...cur, ...reset }, headers: H });
+    await page.request.put("/api/v1/settings/scene", { data: { ...cur, ...reset, banner_enabled: cur.banner_enabled }, headers: H });
   }
 });
 

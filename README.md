@@ -116,16 +116,16 @@ Trang **Game 3D & OBS** → thẻ **🍵 Không gian cửa hàng & banner sản 
 
 Lưu là màn hình LIVE (và khung xem trước) đổi ngay, không cần tải lại OBS.
 
-## Chủ quán, tivi sản phẩm & bảng vàng
+## Chủ quán, màn hình LED sản phẩm & bảng vàng
 
 Trên màn hình LIVE (đổi trong thẻ **Không gian cửa hàng & banner sản phẩm**, trang Game 3D & OBS):
 
-- **Màn hình LED trên tường (mặc định):** ảnh sản phẩm chạy trên một màn hình LED lớn gắn phẳng lên tường sau quầy, nằm trong cảnh 3D (Chibi đi trước màn hình, camera quay cận vẫn thấy). Chạy liên tục hoặc lần lượt; khi Chibi cầm sản phẩm ra, LED chỉ hiện sản phẩm đó kèm tên khách. Muốn ảnh nét tối đa thì chọn kiểu *tivi* hoặc *bảng gỗ* phủ phía trên màn hình LIVE.
+- **Màn hình LED gắn cố định trên tường:** ảnh sản phẩm chạy trên một màn hình LED lớn gắn phẳng lên tường sau quầy, nằm trong cảnh 3D (Chibi đi trước màn hình, không che hình LIVE). Chạy liên tục hoặc lần lượt; khi Chibi cầm sản phẩm ra, LED chỉ hiện sản phẩm đó kèm tên khách. Màn hình chỉ bật/tắt, không kéo đi chỗ khác (các kiểu *tivi* / *bảng gỗ* nổi trên màn hình LIVE trước đây đã bỏ; cài đặt cũ tự chuyển sang màn LED).
 - **Chibi chủ quán:** ngồi pha trà ở bàn trà giữa quán. Có người vào LIVE, chủ quán đứng dậy, cúi chào và hiện bong bóng “Xin chào quý khách {tên} đã vào quán!”. Nhiều người vào cùng lúc được gộp tên (3 tên một bong bóng, đông quá thì “… và N bạn khác”); mỗi người chỉ được chào một lần trong 10 phút. Bong bóng hiện cả khi chưa bật giọng đọc.
 - **Mời trà khách tặng quà:** Chibi của khách tặng quà đi tới ngồi đối diện chủ quán; chủ quán rót trà, mời nước (“Mời {tên} dùng trà ạ! Cảm ơn {tên} đã tặng {quà}!”), camera quay cận bàn trà vài giây. Khách ngồi khoảng 12 giây rồi đứng dậy đi tiếp; nhiều người tặng quà thì lần lượt từng người.
 - **Bảng vàng:** top người tặng quà (theo số xu, không rõ xu thì theo số quà) và top người mua hàng, hai bảng thay phiên nhau ở góc dưới màn hình. Tính theo từng buổi LIVE hoặc mọi buổi LIVE. Đơn mua hàng do người trực **ghi nhận** (thẻ Bảng vàng ở trang Người trực, hoặc nút “Ghi đơn” cạnh bình luận) — phần mềm không tự đoán đơn từ bình luận hay quà. Ghi đơn thì chủ quán cảm ơn khách trên LIVE.
 - Các câu của chủ quán sửa được, dùng `{ten}`, `{qua}`, `{san_pham}`.
-- **Đặt bảng vàng ở đâu cũng được:** trong phần Bảng vàng, bấm **Kéo thả bảng vàng tới chỗ muốn đặt** — một khung xem trước màn hình LIVE mở ra; kéo bảng vàng tới chỗ muốn đặt, kéo chấm vàng ở góc để phóng to/thu nhỏ (60–180%). Thả tay là lưu, màn hình OBS đổi ngay. **Về góc mặc định** đưa bảng về góc đã chọn.
+- **Đặt bảng vàng ở đâu cũng được:** xem *Bố cục màn hình LIVE* bên dưới.
 
 ## Hình LIVE nét trên điện thoại
 
@@ -138,7 +138,7 @@ Hình trên điện thoại chỉ nét khi nguồn game đủ **1080 × 1920 đi
 
 ## Bố cục màn hình LIVE
 
-Game 3D & OBS → Không gian cửa hàng → *Bố cục màn hình LIVE*: mỗi ô trên màn hình LIVE (màn hình sản phẩm, nhãn DEMO & cảnh báo, bảng vàng, ô Sân khấu, bảng Sắp diễn ra, bảng mini-game, dòng chữ đang đọc, thẻ sản phẩm, bong bóng lời chủ quán) có công tắc **Hiện**. Bấm **Kéo thả các ô trên màn hình LIVE** để dời từng ô và kéo chấm tròn ở góc để đổi cỡ; thả tay là lưu, màn hình OBS đổi ngay. Nhãn DEMO luôn hiện khi chạy Demo.
+Game 3D & OBS → Không gian cửa hàng → *Bố cục màn hình LIVE*: mỗi ô trên màn hình LIVE (màn hình LED sản phẩm, nhãn DEMO & cảnh báo, bảng vàng, ô Sân khấu, bảng Sắp diễn ra, bảng mini-game, dòng chữ đang đọc, thẻ sản phẩm, bong bóng lời chủ quán) có công tắc **Hiện**. Bấm **Kéo thả các ô trên màn hình LIVE** để dời từng ô và kéo chấm tròn ở góc để đổi cỡ; thả tay là lưu, màn hình OBS đổi ngay. Nhãn DEMO luôn hiện khi chạy Demo. Màn hình LED (gắn trên tường quán) và bong bóng chủ quán chỉ bật/tắt.
 
 ## Khách quen
 

@@ -1,7 +1,8 @@
 import type { SceneConfig } from "../types/protocol";
 
-/** Every box drawn over the LIVE picture: each one can be switched off, and (all but the owner's
- * bubble, which follows the owner's head) dragged and resized in the dashboard's layout preview. */
+/** Every box drawn over the LIVE picture: each one can be switched off, and dragged and resized in
+ * the dashboard's layout preview — all but the LED screen (fixed on the shop's back wall) and the
+ * owner's bubble (it follows the owner's head). */
 export type OverlayKey = "banner" | "badges" | "board" | "stage" | "upcoming" | "game" | "caption" | "product" | "owner";
 
 type Bool = { [K in keyof SceneConfig]: SceneConfig[K] extends boolean ? K : never }[keyof SceneConfig];
@@ -24,11 +25,11 @@ export interface OverlayItem {
 export const OVERLAY_ITEMS: OverlayItem[] = [
   {
     key: "banner",
-    label: "Màn hình sản phẩm",
-    name: "màn hình sản phẩm",
-    hint: "Ảnh sản phẩm chạy qua (kiểu Tivi hoặc Bảng; kiểu Màn LED nằm trên tường quán nên không kéo được)",
+    label: "Màn hình LED sản phẩm",
+    name: "màn hình LED sản phẩm",
+    hint: "Ảnh sản phẩm chạy trên màn LED gắn cố định trên tường quán (trong cảnh 3D, nên chỉ bật/tắt)",
     show: "banner_enabled",
-    place: { x: "banner_x", y: "banner_y", scale: "banner_scale" },
+    place: null,
   },
   {
     key: "badges",

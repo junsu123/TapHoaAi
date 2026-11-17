@@ -59,12 +59,11 @@ class SceneConfig(BaseModel):
     banner_mode: Literal["scroll", "slide"] = "scroll"
     banner_focus_on_show: bool = True  # show only the product a Chibi is holding while it is shown
     banner_seconds: int = Field(6, ge=2, le=30)  # per product (slide) / time for one product to pass (scroll)
-    banner_height: float = Field(0.24, ge=0.15, le=0.4)  # fraction of the 9:16 frame
     banner_show_price: bool = True
     banner_product_ids: list[str] = Field(default_factory=list, max_length=200)  # empty = every product with a photo
     wall_posters: bool = True
-    # led = a big LED screen fixed flat on the back wall (in the 3D shop); tv / board = a frame
-    # drawn over the top of the LIVE screen
+    # the product screen is always the LED screen fixed on the shop's back wall (in the 3D shop).
+    # "tv" / "board" (a frame floating over the top of the LIVE screen, before 0.28) are read as "led".
     banner_style: Literal["led", "tv", "board"] = "led"
     # the shop-owner Chibi: brews tea, stands and bows to greet, serves tea to gift givers
     owner_enabled: bool = True
@@ -139,9 +138,6 @@ class SceneConfig(BaseModel):
     product_card_enabled: bool = True  # the card of the product a Chibi is showing (no TV frame on top)
     owner_bubble_enabled: bool = True  # the speech bubble over the owner's head
     status_badge_enabled: bool = True  # "Mất kết nối…" warning (the DEMO label always shows in a demo)
-    banner_x: float | None = Field(None, ge=0.0, le=0.95)
-    banner_y: float | None = Field(None, ge=0.0, le=0.95)
-    banner_scale: float = Field(1.0, ge=0.4, le=1.8)
     caption_x: float | None = Field(None, ge=0.0, le=0.95)
     caption_y: float | None = Field(None, ge=0.0, le=0.95)
     caption_scale: float = Field(1.0, ge=0.4, le=1.8)
@@ -151,6 +147,12 @@ class SceneConfig(BaseModel):
     badges_x: float | None = Field(None, ge=0.0, le=0.95)
     badges_y: float | None = Field(None, ge=0.0, le=0.95)
     badges_scale: float = Field(1.0, ge=0.4, le=1.8)
+
+    @field_validator("banner_style", mode="before")
+    @classmethod
+    def _wall_screen(cls, v):
+        """The product screen stays on the wall: the floating TV / board frames are gone."""
+        return "led"
 
     @field_validator("minigame_questions", mode="before")
     @classmethod

@@ -1,4 +1,4 @@
-// Shop look (herbal-tea / pink Chibi) and the big product banner on the LIVE frame.
+// Shop look (herbal-tea / pink Chibi) and the LED product screen on the shop's back wall.
 
 import { useEffect, useState } from "react";
 import { api, ApiError, formatVnd } from "../lib/api";
@@ -69,18 +69,10 @@ export function SceneSettings() {
         <input value={cfg.tagline} maxLength={48} onChange={(e) => set({ tagline: e.target.value })} placeholder="VD: Trà sạch · Thảo mộc Việt" />
       </label>
 
-      <h3>Banner ảnh sản phẩm</h3>
+      <h3>Màn hình LED sản phẩm</h3>
       <label className="check">
-        <input type="checkbox" checked={cfg.banner_enabled} onChange={(e) => set({ banner_enabled: e.target.checked })} />
-        Hiện ảnh sản phẩm (màn hình LED trên tường, hoặc khung phía trên màn hình LIVE)
-      </label>
-      <label>
-        Kiểu khung
-        <select value={cfg.banner_style} onChange={(e) => set({ banner_style: e.target.value as SceneConfig["banner_style"] })} aria-label="Kiểu khung banner">
-          <option value="led">Màn hình LED gắn trên tường quán</option>
-          <option value="tv">Tivi phủ phía trên màn hình LIVE</option>
-          <option value="board">Bảng gỗ phủ phía trên màn hình LIVE</option>
-        </select>
+        <input type="checkbox" checked={cfg.banner_enabled} onChange={(e) => set({ banner_enabled: e.target.checked })} aria-label="Màn hình LED sản phẩm" />
+        Hiện ảnh sản phẩm trên màn hình LED gắn cố định trên tường quán (nằm trong quán 3D: Chibi đi phía trước, không che hình LIVE)
       </label>
       <fieldset className="banner-mode">
         <legend>Cách chạy</legend>
@@ -95,16 +87,8 @@ export function SceneSettings() {
       </fieldset>
       <label className="check">
         <input type="checkbox" checked={cfg.banner_focus_on_show} onChange={(e) => set({ banner_focus_on_show: e.target.checked })} />
-        Khi Chibi cầm sản phẩm ra cho khách xem: banner dừng lại, chỉ hiện sản phẩm đó (tắt = banner vẫn chạy, sản phẩm đó được viền đỏ)
+        Khi Chibi cầm sản phẩm ra cho khách xem: màn LED dừng lại, chỉ hiện sản phẩm đó (tắt = màn LED vẫn chạy)
       </label>
-      {cfg.banner_style !== "led" && (
-      <label>
-          <span>
-            Chiều cao banner: <b>{Math.round(cfg.banner_height * 100)}%</b> màn hình
-          </span>
-          <input type="range" min={0.15} max={0.4} step={0.01} value={cfg.banner_height} onChange={(e) => set({ banner_height: Number(e.target.value) })} aria-label="Chiều cao banner" />
-        </label>
-      )}
       <label>
         <span>
           {cfg.banner_mode === "scroll" ? "Tốc độ: mỗi sản phẩm trượt qua trong " : "Đổi sản phẩm sau: "}
@@ -118,7 +102,7 @@ export function SceneSettings() {
         Hiện giá (chỉ giá đã xác nhận)
       </label>
       <div>
-        <div className="small">Sản phẩm trên banner {cfg.banner_product_ids.length ? `(${cfg.banner_product_ids.length} đã chọn, theo thứ tự bấm)` : "(chưa chọn → hiện tất cả sản phẩm có ảnh)"}</div>
+        <div className="small">Sản phẩm trên màn LED {cfg.banner_product_ids.length ? `(${cfg.banner_product_ids.length} đã chọn, theo thứ tự bấm)` : "(chưa chọn → hiện tất cả sản phẩm có ảnh)"}</div>
         {withPhoto.length === 0 && <p className="muted small">Chưa có sản phẩm nào có ảnh — thêm ảnh ở mục Sản phẩm.</p>}
         <div className="banner-pick">
           {withPhoto.map((p) => {
@@ -418,7 +402,6 @@ function LayoutPlacer({ cfg, onPatch, onSaved }: { cfg: SceneConfig; onPatch: (p
     return () => window.removeEventListener("message", on);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
-  const ledBanner = cfg.banner_style === "led";
   return (
     <div className="board-placer">
       <p className="muted small">Bật / tắt từng ô trên màn hình LIVE (lưu ngay), rồi bấm “Kéo thả…” để đặt chúng ở chỗ khác và đổi cỡ.</p>
@@ -470,7 +453,6 @@ function LayoutPlacer({ cfg, onPatch, onSaved }: { cfg: SceneConfig; onPatch: (p
                 <span>
                   <b>{it.label}</b>
                   <span className="muted small"> — {it.hint}</span>
-                  {it.key === "banner" && ledBanner && on && <span className="muted small"> (đang dùng kiểu Màn LED trên tường)</span>}
                 </span>
               </label>
               {moved && (

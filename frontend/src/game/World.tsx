@@ -52,19 +52,13 @@ function useWindowSize(): [number, number] {
 const OVERVIEW_POS = new THREE.Vector3(0, 17.5, 12.2);
 const OVERVIEW_LOOK = new THREE.Vector3(0, 0, 0.2);
 // with the product banner across the top of the frame: tilt up a little so the shop sits below it
-const BANNER_POS = new THREE.Vector3(0, 18.6, 12.6);
-const BANNER_LOOK = new THREE.Vector3(0, 0, -1.6);
 // LED screen on the back wall: a lower, more frontal view so the wall screen is big and readable
 const LED_POS = new THREE.Vector3(0, 11.4, 14.6);
 const LED_LOOK = new THREE.Vector3(0, 1.1, -2.0);
-/** a frame (TV / board) is drawn over the top of the LIVE screen */
-const overlayBanner = (engine: GameEngine) => engine.scene.banner_enabled && engine.scene.banner_style !== "led";
 const overviewOf = (engine: GameEngine) =>
   ledOn(engine.scene)
     ? { pos: LED_POS, look: LED_LOOK }
-    : overlayBanner(engine)
-      ? { pos: BANNER_POS, look: BANNER_LOOK }
-      : { pos: OVERVIEW_POS, look: OVERVIEW_LOOK };
+    : { pos: OVERVIEW_POS, look: OVERVIEW_LOOK };
 
 /** GAME-07: overview → follow the Chibi → close-up on the box → back, all smoothed. */
 function CameraRig({ engine }: { engine: GameEngine }) {
@@ -90,36 +84,31 @@ function CameraRig({ engine }: { engine: GameEngine }) {
         const t = a.phase === "show" ? Math.min(1, a.fsm.elapsed / 3) : 0;
         const ease = t * t * (3 - 2 * t);
         const dist = 2.0 - 0.85 * ease;
-        // with the banner on top, aim a bit higher so the Chibi and the box sit below it
-        const lift = overlayBanner(engine) ? 0.42 - 0.12 * ease : 0;
-        goalLook.set(fx, 0.5 - 0.1 * ease + lift, fz);
-        goalPos.set(fx + Math.sin(a.yaw) * (dist + lift * 0.6), 0.85 - 0.25 * ease + lift * 0.5, fz + Math.cos(a.yaw) * (dist + lift * 0.6));
+        goalLook.set(fx, 0.5 - 0.1 * ease, fz);
+        goalPos.set(fx + Math.sin(a.yaw) * dist, 0.85 - 0.25 * ease, fz + Math.cos(a.yaw) * dist);
         shot = "closeup";
       } else {
-        const lift = overlayBanner(engine) ? 1.0 : 0;
-        goalLook.set(a.pos.x, 0.55 + lift, a.pos.z - lift * 0.8);
-        goalPos.set(a.pos.x * 0.7, 4.4 + lift * 0.4, a.pos.z + 6.4 + lift * 0.6);
+        goalLook.set(a.pos.x, 0.55, a.pos.z);
+        goalPos.set(a.pos.x * 0.7, 4.4, a.pos.z + 6.4);
         shot = "follow";
       }
     } else if (engine.spot && engine.tea.cameraOnTable()) {
       // tea is being served to a gift giver: frame the table
       const T = engine.spot.table;
-      const lift = overlayBanner(engine) ? 0.55 : 0;
-      goalLook.set(T.x, 0.45 + lift, T.z);
-      goalPos.set(T.x, 3.1 + lift * 0.6, T.z + 5.0);
+      goalLook.set(T.x, 0.45, T.z);
+      goalPos.set(T.x, 3.1, T.z + 5.0);
       shot = "tea";
     } else if (engine.stageSpot && engine.stageShot()) {
       // someone is dancing on the stage: frame the stage (with a bit of the shop around it)
       const S = engine.stageSpot;
-      const lift = overlayBanner(engine) ? 0.6 : 0;
       if (S.shape === "round") {
         // the stage in the middle: a little higher and wider, so the light show and the shop around it show too
         // (the dancer a little left of the middle: the "Sân khấu" box sits on the right)
-        goalLook.set(S.center.x + 0.4, S.height + 0.95 + lift, S.center.z - 0.2 - lift * 0.5);
-        goalPos.set(S.center.x + 0.4, S.height + 4.6 + lift * 0.6, S.center.z + 6.6 + lift * 0.5);
+        goalLook.set(S.center.x + 0.4, S.height + 0.95, S.center.z - 0.2);
+        goalPos.set(S.center.x + 0.4, S.height + 4.6, S.center.z + 6.6);
       } else {
-        goalLook.set(S.center.x * 0.85, S.height + 0.75 + lift, S.center.z - lift * 0.5);
-        goalPos.set(S.center.x * 0.55, S.height + 3.4 + lift * 0.6, S.center.z + 5.6 + lift * 0.5);
+        goalLook.set(S.center.x * 0.85, S.height + 0.75, S.center.z);
+        goalPos.set(S.center.x * 0.55, S.height + 3.4, S.center.z + 5.6);
       }
       shot = "stage";
     } else {
