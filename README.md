@@ -136,6 +136,10 @@ Hình trên điện thoại chỉ nét khi nguồn game đủ **1080 × 1920 đi
 3. Trong phần mềm LIVE: khung hình 1080 × 1920, nguồn game phủ vừa khít khung (không phóng to), bitrate cao nhất mạng tải lên cho phép.
 4. Kiểm tra: Game 3D & OBS → *Hiệu năng màn hình game* ghi cỡ cửa sổ game và báo nếu chưa đủ 1080 × 1920.
 
+## Bố cục màn hình LIVE
+
+Game 3D & OBS → Không gian cửa hàng → *Bố cục màn hình LIVE*: mỗi ô trên màn hình LIVE (màn hình sản phẩm, nhãn DEMO & cảnh báo, bảng vàng, ô Sân khấu, bảng Sắp diễn ra, bảng mini-game, dòng chữ đang đọc, thẻ sản phẩm, bong bóng lời chủ quán) có công tắc **Hiện**. Bấm **Kéo thả các ô trên màn hình LIVE** để dời từng ô và kéo chấm tròn ở góc để đổi cỡ; thả tay là lưu, màn hình OBS đổi ngay. Nhãn DEMO luôn hiện khi chạy Demo.
+
 ## Khách quen
 
 Máy chủ nhớ người xem qua các buổi LIVE. Ai quay lại được chủ quán chào đích danh (“A, Lan quay lại rồi! Buổi LIVE thứ 3 liên tiếp đó…”); khách đã tới từ 3 buổi có **♥** sau tên. Nếu máy chủ khởi động lại giữa LIVE (phiên mới trong vòng 20 phút), số phút xem và cấp Chibi được giữ nguyên. Thẻ **Khách quen** ở trang Người trực; API `GET /api/v1/regulars`.

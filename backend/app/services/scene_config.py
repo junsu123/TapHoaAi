@@ -81,7 +81,7 @@ class SceneConfig(BaseModel):
     # (None = the corner chosen in board_position), and its size
     board_x: float | None = Field(None, ge=0.0, le=0.95)
     board_y: float | None = Field(None, ge=0.0, le=0.95)
-    board_scale: float = Field(1.0, ge=0.6, le=1.8)
+    board_scale: float = Field(1.0, ge=0.4, le=1.8)
     # Chibi behaviour (spec V3 §5, §11): autonomous life on/off and how often each kind of
     # activity is picked (relative weights), and how many Chibis may be on screen at once
     chibi_autonomous: bool = True
@@ -102,7 +102,7 @@ class SceneConfig(BaseModel):
     # the "Sân khấu" box on the LIVE screen, where the host dragged it (None = default spot)
     stage_board_x: float | None = Field(None, ge=0.0, le=0.95)
     stage_board_y: float | None = Field(None, ge=0.0, le=0.95)
-    stage_board_scale: float = Field(1.0, ge=0.6, le=1.8)
+    stage_board_scale: float = Field(1.0, ge=0.4, le=1.8)
     # Chibis level up with watch time: minutes for nón lá / áo choàng / vương miện; a silent viewer
     # keeps counting for level_presence_min minutes after their last like/comment/gift
     # "Sắp diễn ra" box on the LIVE screen (next poem, level-ups, stage line, the shop's schedule)
@@ -113,7 +113,7 @@ class SceneConfig(BaseModel):
     shop_utc_offset: float = Field(7.0, ge=-12.0, le=14.0)
     upcoming_x: float | None = Field(None, ge=0.0, le=0.95)
     upcoming_y: float | None = Field(None, ge=0.0, le=0.95)
-    upcoming_scale: float = Field(1.0, ge=0.6, le=1.8)
+    upcoming_scale: float = Field(1.0, ge=0.4, le=1.8)
     # mini-games: a short round every minigame_every_min–max minutes (random), to keep viewers
     minigame_enabled: bool = True
     minigame_every_min: int = Field(15, ge=3, le=120)
@@ -124,13 +124,33 @@ class SceneConfig(BaseModel):
     minigame_questions: list[QuizQuestion] = Field(default_factory=list, max_length=30)
     game_x: float | None = Field(None, ge=0.0, le=0.95)
     game_y: float | None = Field(None, ge=0.0, le=0.95)
-    game_scale: float = Field(1.0, ge=0.6, le=1.8)
+    game_scale: float = Field(1.0, ge=0.4, le=1.8)
     levels_enabled: bool = True
     level_minutes: list[int] = Field(default_factory=lambda: [5, 15, 30])
     level_presence_min: int = Field(10, ge=2, le=60)
     level_voice: bool = True
     # a viewer's comment (and the owner's reply to it) is only read aloud: no bubble, no caption text
     chat_on_screen: bool = False
+    # every box on the LIVE screen can be switched off and dragged (top-left corner, fraction of the
+    # 9:16 frame; None = its default spot). The boxes above keep their own *_enabled / *_x fields.
+    stage_board_enabled: bool = True  # the "Sân khấu" box (the stage itself: stage_enabled)
+    game_board_enabled: bool = True  # the mini-game panel (the games themselves: minigame_enabled)
+    caption_enabled: bool = True  # the line of what is being read aloud, at the bottom
+    product_card_enabled: bool = True  # the card of the product a Chibi is showing (no TV frame on top)
+    owner_bubble_enabled: bool = True  # the speech bubble over the owner's head
+    status_badge_enabled: bool = True  # "Mất kết nối…" warning (the DEMO label always shows in a demo)
+    banner_x: float | None = Field(None, ge=0.0, le=0.95)
+    banner_y: float | None = Field(None, ge=0.0, le=0.95)
+    banner_scale: float = Field(1.0, ge=0.4, le=1.8)
+    caption_x: float | None = Field(None, ge=0.0, le=0.95)
+    caption_y: float | None = Field(None, ge=0.0, le=0.95)
+    caption_scale: float = Field(1.0, ge=0.4, le=1.8)
+    product_card_x: float | None = Field(None, ge=0.0, le=0.95)
+    product_card_y: float | None = Field(None, ge=0.0, le=0.95)
+    product_card_scale: float = Field(1.0, ge=0.4, le=1.8)
+    badges_x: float | None = Field(None, ge=0.0, le=0.95)
+    badges_y: float | None = Field(None, ge=0.0, le=0.95)
+    badges_scale: float = Field(1.0, ge=0.4, le=1.8)
 
     @field_validator("minigame_questions", mode="before")
     @classmethod

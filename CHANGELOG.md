@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.27.0 — 2026-11-17 — Mọi ô trên màn hình LIVE kéo thả & bật tắt được
+
+- Game 3D & OBS → Không gian cửa hàng có mục mới **Bố cục màn hình LIVE**, liệt kê đủ 9 ô trên màn hình LIVE, mỗi ô một công tắc **Hiện** (lưu ngay, màn hình LIVE đổi liền):
+  - Màn hình sản phẩm, Nhãn DEMO & cảnh báo, Bảng vàng, Ô Sân khấu, Bảng Sắp diễn ra, Bảng mini-game, Dòng chữ đang đọc, Thẻ sản phẩm, Bong bóng lời chủ quán.
+  - Tắt ô Sân khấu hay bảng mini-game thì chỉ ẩn ô đó: sân khấu và mini-game vẫn chạy, chủ quán vẫn đọc. Tắt dòng chữ đang đọc thì giọng vẫn đọc.
+  - Nhãn **DEMO** luôn hiện khi chạy Demo, để người xem biết đó là sự kiện mô phỏng; công tắc của nhãn chỉ ẩn cảnh báo “Mất kết nối”.
+- Nút **Kéo thả các ô trên màn hình LIVE** mở khung xem trước. Ngoài 4 bảng kéo được từ trước, giờ kéo được và đổi cỡ được cả màn hình sản phẩm (kiểu Tivi / Bảng), nhãn DEMO & cảnh báo, dòng chữ đang đọc, thẻ sản phẩm. Ô nào lúc đó chưa có nội dung thì hiện bản mẫu để đặt chỗ. Mọi ô thu nhỏ được tới 40%.
+- Ô đã dời có nút “… về chỗ mặc định”; thêm nút **Đưa tất cả về chỗ mặc định**.
+- Bong bóng lời chủ quán đi theo đầu chủ quán nên chỉ bật/tắt, không kéo. Màn hình sản phẩm kiểu Màn LED nằm trên tường quán (3D) nên cũng chỉ bật/tắt.
+
 ## 0.26.0 — 2026-11-17 — Khách quen & gọi trước lượt sân khấu
 
 - **Khách quen được nhớ qua các buổi LIVE:** máy chủ ghi lại mỗi người xem (bảng `viewer_profiles`): đã tới mấy buổi, mấy buổi liên tiếp, tổng thời gian xem, cấp cao nhất. Người quay lại ở buổi LIVE sau được chủ quán chào đích danh (bong bóng + giọng): “A, Lan quay lại với quán rồi, vui quá!”, hoặc “… Buổi LIVE thứ 3 liên tiếp đó, cảm ơn bạn nha!” khi tới liền nhiều buổi. Nhiều người quay lại cùng lúc được chào chung một câu; giữa hai lời chào cách nhau ít nhất 20 giây. Lời chào khách quen thay cho câu chào thường, không chào hai lần.

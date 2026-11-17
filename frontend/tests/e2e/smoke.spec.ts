@@ -48,7 +48,10 @@ test.beforeEach(async ({ playwright, baseURL }, info) => {
     const csrf = await login(r);
     const H = { "X-CSRF-Token": csrf };
     const cur = (await (await r.get("/api/v1/settings/scene")).json()).config;
-    if (cur.minigame_enabled) await r.put("/api/v1/settings/scene", { data: { ...cur, minigame_enabled: false }, headers: H });
+    // every box on the LIVE screen back on (a failed layout test must not hide them from the others)
+    const boxes = { stage_board_enabled: true, game_board_enabled: true, caption_enabled: true, product_card_enabled: true, owner_bubble_enabled: true, status_badge_enabled: true };
+    const off = Object.entries(boxes).some(([k]) => cur[k] === false);
+    if (cur.minigame_enabled || off) await r.put("/api/v1/settings/scene", { data: { ...cur, ...boxes, minigame_enabled: false }, headers: H });
     await r.post("/api/v1/games/stop", { headers: H });
   } finally {
     await r.dispose();
@@ -847,7 +850,8 @@ test("Honour board: drag it anywhere on the LIVE screen and resize it from the d
 
   await page.setViewportSize({ width: 1360, height: 1300 });
   await page.goto("/dashboard/game");
-  await page.getByRole("button", { name: "Kéo thả bảng vàng và ô Sân khấu tới chỗ muốn đặt" }).click();
+  await page.getByRole("button", { name: "Kéo thả các ô trên màn hình LIVE" }).click();
+  await page.getByTestId("board-placer-frame").scrollIntoViewIfNeeded();
   const frame = page.frameLocator('[data-testid="board-placer-frame"]');
   const board = frame.getByTestId("honour-board");
   await expect(board).toBeVisible({ timeout: 20_000 });
@@ -922,6 +926,116 @@ test("Honour board: drag it anywhere on the LIVE screen and resize it from the d
   await expect(page.getByTestId("board-place-note")).toContainText("ô Sân khấu về chỗ mặc định");
   await expect(gs).not.toHaveAttribute("data-placed", "1", { timeout: 10_000 });
   await game.close();
+});
+
+test("Layout: every box on the LIVE screen can be switched off and dragged anywhere", async ({ page, context }) => {
+  test.setTimeout(480_000); // two 3D pages drawn in software on CI
+  const csrf = await login(page.request);
+  const H = { "X-CSRF-Token": csrf };
+  const cur = (await (await page.request.get("/api/v1/settings/scene")).json()).config;
+  const reset = {
+    banner_x: null, banner_y: null, banner_scale: 1, caption_x: null, caption_y: null, caption_scale: 1, product_card_x: null, product_card_y: null, product_card_scale: 1,
+    badges_x: null, badges_y: null, badges_scale: 1, board_x: null, board_y: null, board_scale: 1, stage_board_x: null, stage_board_y: null, stage_board_scale: 1,
+    upcoming_x: null, upcoming_y: null, upcoming_scale: 1, game_x: null, game_y: null, game_scale: 1,
+  };
+  await page.request.put("/api/v1/settings/scene", {
+    data: { ...cur, ...reset, banner_enabled: true, banner_style: "tv", board_enabled: true, stage_enabled: true, stage_board_enabled: true, caption_enabled: true, upcoming_enabled: false, minigame_enabled: false, owner_bubble_enabled: true, status_badge_enabled: true },
+    headers: H,
+  });
+  try {
+    const game = await context.newPage();
+    await game.setViewportSize({ width: 540, height: 960 });
+    await game.goto("/game/live?debug=1&quality=low");
+    await game.waitForFunction(() => (window as any).__chibiDebug?.state().layoutVersion > 0);
+    await expect(game.getByTestId("product-banner")).toBeVisible({ timeout: 20_000 });
+
+    await page.setViewportSize({ width: 1360, height: 1400 });
+    await page.goto("/dashboard/game");
+    const list = page.getByTestId("overlay-list");
+    await expect(list.locator("li")).toHaveCount(9);
+    await page.getByRole("button", { name: "Kéo thả các ô trên màn hình LIVE" }).click();
+    await page.getByTestId("board-placer-frame").scrollIntoViewIfNeeded();
+    const frame = page.frameLocator('[data-testid="board-placer-frame"]');
+    const iframeBox = (await page.getByTestId("board-placer-frame").boundingBox())!;
+    const drag = async (testId: string, dx: number, dy: number) => {
+      const el = frame.getByTestId(testId).first();
+      await expect(el).toBeVisible({ timeout: 20_000 });
+      const b = (await el.boundingBox())!;
+      await page.mouse.move(b.x + 12, b.y + 8);
+      await page.mouse.down();
+      await page.mouse.move(b.x + 12 + dx / 2, b.y + 8 + dy / 2, { steps: 6 });
+      await page.mouse.move(b.x + 12 + dx, b.y + 8 + dy, { steps: 6 });
+      await page.mouse.up();
+      return b;
+    };
+    await frame.locator("body").evaluate(() => new Promise((r) => setTimeout(r, 1000))); // the shop's settings have loaded
+
+    // the product screen (TV frame) goes down to the middle of the frame, at a smaller size
+    const b0 = await drag("product-banner", 0, 150);
+    await expect(page.getByTestId("board-place-note")).toContainText("Đã lưu vị trí màn hình sản phẩm", { timeout: 10_000 });
+    let sc = (await (await page.request.get("/api/v1/settings/scene")).json()).config;
+    expect(sc.banner_y).toBeGreaterThan((b0.y - iframeBox.y) / iframeBox.height + 0.15);
+    const rh = (await frame.getByTestId("banner-resize").boundingBox())!;
+    await page.mouse.move(rh.x + rh.width / 2, rh.y + rh.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(rh.x - 60, rh.y, { steps: 8 });
+    await page.mouse.up();
+    await expect(page.getByTestId("board-place-note")).toContainText(/màn hình sản phẩm \(cỡ [4-9]\d%\)/, { timeout: 10_000 });
+
+    // the line of what is read aloud (a sample here) goes up to the top
+    const c0 = await drag("speech-caption", 0, -330);
+    await expect(page.getByTestId("board-place-note")).toContainText("Đã lưu vị trí dòng chữ đang đọc", { timeout: 10_000 });
+    sc = (await (await page.request.get("/api/v1/settings/scene")).json()).config;
+    expect(sc.caption_y).toBeLessThan((c0.y - iframeBox.y) / iframeBox.height - 0.25);
+    // the DEMO / warning label goes to the bottom right
+    await drag("overlay-badges", 120, 420);
+    await expect(page.getByTestId("board-place-note")).toContainText("Đã lưu vị trí nhãn trạng thái", { timeout: 10_000 });
+    sc = (await (await page.request.get("/api/v1/settings/scene")).json()).config;
+    expect(sc.badges_y).toBeGreaterThan(0.4);
+    expect(sc.banner_scale).toBeLessThan(1);
+    await page.screenshot({ path: `${SHOTS}/LAYOUT-1-dashboard.png`, fullPage: true });
+
+    // the OBS page follows at once
+    const gb = game.getByTestId("product-banner");
+    await expect(gb).toHaveAttribute("data-placed", "1", { timeout: 10_000 });
+    await expect.poll(async () => (await gb.evaluate((el) => (el as HTMLElement).style.top))).toBe(`${sc.banner_y * 100}%`);
+
+    // switch boxes off: they leave the LIVE screen; the stage itself keeps running
+    await list.getByLabel("Hiện bảng vàng").uncheck();
+    await expect(page.getByTestId("board-place-note")).toContainText("Đã tắt bảng vàng");
+    await expect(game.getByTestId("honour-board")).toHaveCount(0, { timeout: 10_000 });
+    await list.getByLabel("Hiện ô sân khấu").uncheck();
+    await expect(page.getByTestId("board-place-note")).toContainText("Đã tắt ô Sân khấu");
+    await expect(game.getByTestId("stage-board")).toHaveCount(0, { timeout: 10_000 });
+    await list.getByLabel("Hiện dòng chữ đang đọc").uncheck();
+    await expect(page.getByTestId("board-place-note")).toContainText("Đã tắt dòng chữ đang đọc");
+    await list.getByLabel("Hiện bong bóng lời chủ quán").uncheck();
+    await expect(page.getByTestId("board-place-note")).toContainText("Đã tắt bong bóng lời chủ quán");
+    sc = (await (await page.request.get("/api/v1/settings/scene")).json()).config;
+    expect([sc.board_enabled, sc.stage_board_enabled, sc.caption_enabled, sc.owner_bubble_enabled, sc.stage_enabled]).toEqual([false, false, false, false, true]);
+    await expect(frame.getByTestId("speech-caption")).toHaveCount(0); // no sample either
+    await expect(list.getByTestId("overlay-item-board")).toHaveClass(/off/);
+    await game.waitForTimeout(1500);
+    await game.screenshot({ path: `${SHOTS}/LAYOUT-2-live-moved-and-off.png` });
+    await page.getByTestId("overlay-list").scrollIntoViewIfNeeded();
+    await page.screenshot({ path: `${SHOTS}/LAYOUT-3-list.png` });
+
+    // back on, and every box back to its default spot
+    for (const l of ["Hiện bảng vàng", "Hiện ô sân khấu", "Hiện dòng chữ đang đọc", "Hiện bong bóng lời chủ quán"]) {
+      await list.getByLabel(l).check();
+      await expect(page.getByTestId("board-place-note")).toContainText("Đã bật");
+    }
+    await expect(game.getByTestId("honour-board")).toBeVisible({ timeout: 10_000 });
+    await page.getByRole("button", { name: "Đưa tất cả về chỗ mặc định" }).click();
+    await expect(page.getByTestId("board-place-note")).toContainText("Đã đưa mọi ô về chỗ mặc định");
+    sc = (await (await page.request.get("/api/v1/settings/scene")).json()).config;
+    expect([sc.banner_x, sc.caption_x, sc.badges_x, sc.banner_scale]).toEqual([null, null, null, 1]);
+    await expect(gb).not.toHaveAttribute("data-placed", "1", { timeout: 10_000 });
+    await game.close();
+  } finally {
+    // the shop's own layout back, whatever happened above (later tests need the boxes)
+    await page.request.put("/api/v1/settings/scene", { data: { ...cur, ...reset }, headers: H });
+  }
 });
 
 test("Behaviour V3: Chibis live on their own, take product commands, queue dance, leave on 'về thôi' (with demo frames)", async ({ page, context }) => {
