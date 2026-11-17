@@ -1,7 +1,8 @@
-// 2D overlay inside the 9:16 frame: product card, DEMO label, connection banner.
+// 2D overlay inside the 9:16 frame: product card, DEMO label, connection banner, the boards.
+// (The product screen is the LED screen on the shop's back wall: LedWall, in the 3D scene.)
 // Everything sits inside configurable safe areas so TikTok's own UI never covers it (H4).
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import { isChatClip, type SpeechView } from "./SpeechPlayer";
 import { formatVnd } from "../lib/api";
 import type { GameView, LeaderboardView, ProductInfo, SceneConfig, SpeechClip, UpcomingView } from "../types/protocol";
@@ -24,135 +25,6 @@ interface OverlayState {
   bannerIds: string;
   board: LeaderboardView | null;
   teaShot: boolean;
-}
-
-/** Big product photo across the top of the frame: rotates through the products and jumps to the
- * one a viewer is looking at. */
-function ScrollCard({ p, showPrice, hot }: { p: ProductInfo; showPrice: boolean; hot: boolean }) {
-  const img = p.card_image_url || p.image_url;
-  const price = showPrice ? formatVnd(p.price) : null;
-  return (
-    <div className={`scroll-card${hot ? " hot" : ""}`} data-product-id={p.id}>
-      <div className="scroll-photo">{img ? <img src={img} alt={p.name} /> : <span className="banner-noimg">🍵</span>}</div>
-      <div className="scroll-caption">
-        <span className="scroll-name">{p.name}</span>
-        {price && <span className="scroll-price">{price}</span>}
-      </div>
-    </div>
-  );
-}
-
-/** Product photos running past continuously, like a conveyor; the strip is doubled so the loop is seamless. */
-function ScrollTrack({ list, scene, hotId }: { list: ProductInfo[]; scene: SceneConfig; hotId: string | null }) {
-  const reps = Math.max(1, Math.ceil(5 / list.length));
-  const half = Array.from({ length: reps }, () => list).flat();
-  const seconds = half.length * scene.banner_seconds;
-  return (
-    <div className="scroll-viewport">
-      <div
-        className="scroll-track"
-        key={`${list.map((p) => p.id).join(",")}|${seconds}`}
-        style={{ animationDuration: `${seconds}s` }}
-        data-testid="banner-track"
-      >
-        {[...half, ...half].map((p, k) => (
-          <ScrollCard key={`${k}-${p.id}`} p={p} showPrice={scene.banner_show_price} hot={p.id === hotId} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/** Big product photos across the top of the frame. "scroll": they slide past continuously;
- * "slide": one at a time. While a Chibi shows a product the banner can switch to just that one. */
-function ProductBanner({
-  engine,
-  scene,
-  showcase,
-  nickname,
-  editable,
-}: {
-  engine: GameEngine;
-  scene: SceneConfig;
-  showcase: ProductInfo | null;
-  nickname: string | null;
-  editable: boolean;
-}) {
-  const [i, setI] = useState(0);
-  const d = useOverlayDrag(editable, scene, "banner");
-  const list = engine.bannerProducts();
-  const focus = !!showcase && (scene.banner_focus_on_show || list.length === 0);
-  const scrolling = scene.banner_mode === "scroll" && !focus && list.length > 0;
-  useEffect(() => {
-    if (focus || scrolling) return;
-    const id = setInterval(() => setI((x) => x + 1), scene.banner_seconds * 1000);
-    return () => clearInterval(id);
-  }, [scene.banner_seconds, focus, scrolling]);
-  const herbal = scene.theme === "herbal";
-  const tv = scene.banner_style === "tv";
-  const frame = (mode: string, children: ReactNode, productId?: string) => (
-    <div
-      ref={d.ref}
-      className={`product-banner${herbal ? " herbal" : ""}${tv ? " tv" : ""}${showcase ? " showcase" : ""}${mode === "scroll" ? " scrolling" : ""}${editable ? " ov-edit" : ""}`}
-      style={d.placedStyle ? { ...d.placedStyle, width: "94%", height: `${scene.banner_height * 100}%` } : { flex: `0 0 ${scene.banner_height * 100}%` }}
-      data-testid="product-banner"
-      data-placed={d.placedStyle ? "1" : undefined}
-      {...d.handlers}
-      data-mode={mode}
-      data-style={tv ? "tv" : "board"}
-      data-product-id={productId}
-      data-showcase={showcase ? "1" : "0"}
-    >
-      {tv ? (
-        <>
-          <span className="tv-cord left" aria-hidden />
-          <span className="tv-cord right" aria-hidden />
-          <div className="tv-screen">{children}</div>
-          <div className="tv-chin" aria-hidden>
-            <span className="tv-brand">{scene.sign_text}</span>
-            <span className="tv-led" />
-          </div>
-        </>
-      ) : (
-        children
-      )}
-      {editable && <EditHandles d={d} testId="banner-resize" label="Đổi cỡ màn hình sản phẩm" />}
-    </div>
-  );
-  if (scrolling)
-    return frame(
-      "scroll",
-      <>
-        <ScrollTrack list={list} scene={scene} hotId={showcase?.id ?? null} />
-        {showcase && nickname && <div className="banner-who-tag">👀 {nickname} đang xem {showcase.name}</div>}
-      </>,
-      showcase?.id,
-    );
-  const p = focus ? showcase! : list.length ? list[i % list.length] : showcase;
-  if (!p) return null;
-  const img = p.card_image_url || p.image_url;
-  const price = scene.banner_show_price ? formatVnd(p.price) : null;
-  return frame(
-    focus ? "focus" : "slide",
-    <>
-      <div className="banner-photo" key={`img-${p.id}`}>
-        {img ? <img src={img} alt={p.name} /> : <span className="banner-noimg">🍵</span>}
-      </div>
-      <div className="banner-body" key={`txt-${p.id}`}>
-        {showcase && nickname ? <div className="banner-who">👀 {nickname} đang xem</div> : <div className="banner-shop">{scene.sign_text}</div>}
-        <div className="banner-name">{p.name}</div>
-        {price && <div className="banner-price">{price}</div>}
-        {!focus && list.length > 1 && (
-          <div className="banner-dots">
-            {list.map((q) => (
-              <span key={q.id} className={q.id === p.id ? "on" : ""} />
-            ))}
-          </div>
-        )}
-      </div>
-    </>,
-    p.id,
-  );
 }
 
 const BAD_STATUSES = new Set([
@@ -757,8 +629,6 @@ export function LiveOverlay({
     return () => clearInterval(id);
   }, [engine]);
 
-  // the LED style lives on the shop's back wall (3D), not over the frame
-  const banner = st.scene.banner_enabled && st.scene.banner_style !== "led" && (!!st.product || st.bannerIds !== "");
   return (
     <div
       className="overlay"
@@ -778,7 +648,6 @@ export function LiveOverlay({
           sample={engine.sceneVersion > 0}
         />
       </div>
-      {banner && <ProductBanner engine={engine} scene={st.scene} showcase={st.product} nickname={st.nickname} editable={editBoard} />}
       {st.scene.board_enabled && <HonourBoard board={st.board} scene={st.scene} hidden={st.teaShot} editable={editBoard} />}
       <OwnerBubble engine={engine} />
       <StageBoard engine={engine} safe={safe} scene={st.scene} editable={editBoard} />
@@ -795,7 +664,7 @@ export function LiveOverlay({
           </button>
         )}
         <Caption scene={st.scene} speech={speech} hiddenChat={chatHidden} ownerOn={engine.scene.owner_enabled} editable={editBoard} sample={engine.sceneVersion > 0} />
-        {!banner && (st.product || editBoard) && <ProductCard scene={st.scene} product={st.product} nickname={st.nickname} editable={editBoard && engine.sceneVersion > 0} />}
+        {(st.product || editBoard) && <ProductCard scene={st.scene} product={st.product} nickname={st.nickname} editable={editBoard && engine.sceneVersion > 0} />}
       </div>
     </div>
   );

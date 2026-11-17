@@ -160,11 +160,10 @@ export interface SceneConfig {
   banner_mode: "scroll" | "slide";
   banner_focus_on_show: boolean;
   banner_seconds: number;
-  banner_height: number; // fraction of the 9:16 frame
   banner_show_price: boolean;
   banner_product_ids: string[]; // empty = every product with a photo
   wall_posters: boolean;
-  banner_style: "led" | "tv" | "board";
+  banner_style: "led" | "tv" | "board"; // always "led": the screen fixed on the back wall
   owner_enabled: boolean;
   owner_name: string;
   owner_greet_template: string;
@@ -224,9 +223,6 @@ export interface SceneConfig {
   product_card_enabled: boolean;
   owner_bubble_enabled: boolean;
   status_badge_enabled: boolean;
-  banner_x: number | null;
-  banner_y: number | null;
-  banner_scale: number;
   caption_x: number | null;
   caption_y: number | null;
   caption_scale: number;
@@ -256,7 +252,6 @@ export const DEFAULT_SCENE: SceneConfig = {
   banner_mode: "scroll",
   banner_focus_on_show: true,
   banner_seconds: 6,
-  banner_height: 0.24,
   banner_show_price: true,
   banner_product_ids: [],
   wall_posters: true,
@@ -316,9 +311,6 @@ export const DEFAULT_SCENE: SceneConfig = {
   product_card_enabled: true,
   owner_bubble_enabled: true,
   status_badge_enabled: true,
-  banner_x: null,
-  banner_y: null,
-  banner_scale: 1,
   caption_x: null,
   caption_y: null,
   caption_scale: 1,

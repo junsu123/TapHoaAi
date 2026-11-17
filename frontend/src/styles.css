@@ -379,24 +379,6 @@ a.button { display: inline-block; padding: 6px 12px; border: 1px solid var(--lin
 .log-trace { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; }
 
 /* product banner across the top of the LIVE frame */
-.product-banner { display: flex; gap: 3%; align-items: stretch; margin: 1.5% 3% auto; padding: 1.8%; min-height: 0; border-radius: 22px; background: rgba(255, 255, 255, .96); border: 4px solid var(--pink); box-shadow: 0 10px 28px rgba(160, 60, 100, .25); }
-.product-banner.herbal { background: linear-gradient(135deg, #fffaf0, #f3e6c6); border: 6px solid #3b2a1a; box-shadow: inset 0 0 0 3px #e8c46a, 0 12px 30px rgba(40, 28, 10, .35); }
-.banner-photo { flex: 0 0 56%; min-width: 0; background: #fff; border-radius: 14px; display: flex; align-items: center; justify-content: center; overflow: hidden; animation: banner-in .5s ease-out; }
-.product-banner.herbal .banner-photo { box-shadow: inset 0 0 0 2px #d9c290; }
-.banner-photo img { width: 100%; height: 100%; object-fit: contain; display: block; }
-.banner-noimg { font-size: 6vh; }
-.banner-body { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: .5vh; animation: banner-in .5s ease-out; }
-.banner-shop { font-size: clamp(10px, 1.5vh, 30px); font-weight: 800; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--pink-d); text-transform: uppercase; }
-.product-banner.herbal .banner-shop { color: #3f6b3f; }
-.banner-name { font-size: clamp(16px, 3.4vh, 66px); font-weight: 900; color: var(--ink); line-height: 1.1; overflow-wrap: anywhere; }
-.product-banner.herbal .banner-name { color: #2f2414; font-family: Georgia, "Times New Roman", serif; }
-.banner-price { align-self: flex-start; font-size: clamp(14px, 2.8vh, 54px); font-weight: 900; color: #fff; background: var(--pink-d); padding: .1em .55em; border-radius: 999px; }
-.product-banner.herbal .banner-price { background: #b84a32; }
-.banner-dots { display: flex; gap: .5vh; margin-top: .4vh; }
-.banner-dots span { width: 1vh; height: 1vh; border-radius: 50%; background: #d9c9a3; }
-.banner-dots span.on { background: #3f6b3f; }
-.product-banner.showcase { border-color: #b84a32; animation: pop .35s ease-out; }
-@keyframes banner-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .scene-form label { display: flex; flex-direction: column; gap: 4px; }
 .scene-form label.check { flex-direction: row; align-items: center; }
 .scene-form h3 { margin: 6px 0 0; font-size: 15px; }
@@ -405,23 +387,7 @@ a.button { display: inline-block; padding: 6px 12px; border: 1px solid var(--lin
 .banner-pick-item img { width: 100%; aspect-ratio: 1; object-fit: contain; background: #fffaf0; border-radius: 8px; }
 .banner-pick-item.on { border: 2px solid #3f6b3f; background: #f1f7ea; }
 .banner-pick-n { position: absolute; top: 4px; left: 4px; background: #3f6b3f; color: #fff; border-radius: 999px; min-width: 20px; text-align: center; font-size: 12px; }
-.banner-who { font-size: clamp(11px, 1.7vh, 32px); font-weight: 800; color: #b84a32; overflow-wrap: anywhere; }
 /* conveyor banner: product photos slide past continuously */
-.product-banner.scrolling { position: relative; padding: 1.2% 0; }
-.scroll-viewport { overflow: hidden; width: 100%; height: 100%; border-radius: 14px; }
-.scroll-track { display: flex; gap: 2.4vh; height: 100%; width: max-content; padding: 0 1.2vh; animation-name: banner-scroll; animation-timing-function: linear; animation-iteration-count: infinite; will-change: transform; }
-@keyframes banner-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-.scroll-card { height: 100%; aspect-ratio: 0.82; display: flex; flex-direction: column; background: #fff; border-radius: 14px; overflow: hidden; box-shadow: 0 2px 8px rgba(60, 40, 10, .18); }
-.product-banner.herbal .scroll-card { box-shadow: inset 0 0 0 2px #d9c290, 0 2px 8px rgba(60, 40, 10, .18); }
-.scroll-card.hot { outline: 4px solid #b84a32; outline-offset: -4px; }
-.scroll-photo { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 4%; }
-.scroll-photo img { width: 100%; height: 100%; object-fit: contain; display: block; }
-.scroll-caption { display: flex; flex-direction: column; align-items: center; gap: .3vh; padding: .5vh 1vh .7vh; background: #fbf5e6; min-width: 0; }
-.product-banner:not(.herbal) .scroll-caption { background: #fff3f7; }
-.scroll-name { max-width: 100%; font-size: clamp(11px, 1.7vh, 32px); font-weight: 800; color: #2f2414; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.scroll-price { flex: 0 0 auto; font-size: clamp(11px, 1.6vh, 30px); font-weight: 900; color: #fff; background: #b84a32; padding: .05em .5em; border-radius: 999px; }
-.product-banner:not(.herbal) .scroll-price { background: var(--pink-d); }
-.banner-who-tag { position: absolute; left: 50%; bottom: -1.6vh; transform: translateX(-50%); white-space: nowrap; font-size: clamp(11px, 1.7vh, 32px); font-weight: 800; color: #fff; background: #b84a32; padding: .2em .8em; border-radius: 999px; box-shadow: 0 4px 12px rgba(0,0,0,.25); }
 .banner-mode { border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; display: flex; flex-direction: column; gap: 4px; }
 .banner-mode legend { font-size: 13px; padding: 0 4px; }
 
@@ -510,31 +476,8 @@ label.check.big { font-size: 15px; }
 
 /* ============================================================== LIVE screen: TV, owner bubble, honour board */
 .overlay-bottom { margin-top: auto; }
-.product-banner { margin-bottom: 0; }
 
 /* the product banner as a big TV hung on the back wall */
-.product-banner.tv { position: relative; flex-direction: column; gap: 0; margin-top: 3.6%; padding: 1.3% 1.3% 0; border: 0; border-radius: 1.6vh; background: linear-gradient(180deg, #232826, #141716); box-shadow: 0 1.4vh 3vh rgba(10, 14, 12, .45), inset 0 0 0 .25vh #39403c; }
-.product-banner.tv.herbal { border: 0; background: linear-gradient(180deg, #232826, #141716); box-shadow: 0 1.4vh 3vh rgba(10, 14, 12, .45), inset 0 0 0 .25vh #39403c; }
-.tv-screen { position: relative; flex: 1; min-height: 0; display: flex; gap: 3%; padding: 1.6%; border-radius: .7vh; overflow: hidden; background: radial-gradient(120% 140% at 30% 10%, #1f3d34 0%, #12241f 55%, #0b1714 100%); }
-.tv-screen::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(115deg, rgba(255, 255, 255, .13) 0%, rgba(255, 255, 255, .03) 28%, rgba(255, 255, 255, 0) 40%); }
-.tv-chin { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; position: relative; height: 2.6vh; }
-.tv-brand { font-size: clamp(8px, 1.05vh, 20px); letter-spacing: .12em; color: #8c968f; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%; }
-.tv-led { position: absolute; right: 3%; width: .7vh; height: .7vh; border-radius: 50%; background: #5fd38a; box-shadow: 0 0 .8vh #5fd38a; }
-.tv-cord { position: absolute; top: -3.4vh; width: .35vh; height: 3.5vh; background: linear-gradient(#3b2a1a, #2a1d12); border-radius: .2vh; }
-.tv-cord.left { left: 22%; transform: rotate(8deg); transform-origin: bottom; }
-.tv-cord.right { right: 22%; transform: rotate(-8deg); transform-origin: bottom; }
-.tv-cord::before { content: ""; position: absolute; top: -.6vh; left: -.45vh; width: 1.2vh; height: 1.2vh; border-radius: 50%; background: #c49a62; box-shadow: inset 0 0 0 .25vh #8d6037; }
-.product-banner.tv.scrolling { padding: 1.3% 1.3% 0; }
-.tv .scroll-viewport { border-radius: .5vh; }
-.tv .scroll-card { box-shadow: 0 .4vh 1.2vh rgba(0, 0, 0, .35); }
-.tv .banner-photo { box-shadow: none; }
-.tv .banner-shop { color: #9fd3b4; }
-.tv .banner-who { color: #ffb4a6; }
-.tv .banner-name { color: #ffffff; }
-.tv .banner-dots span { background: #3d5a4f; }
-.tv .banner-dots span.on { background: #9fd3b4; }
-.product-banner.tv.showcase { box-shadow: 0 0 0 .5vh #b84a32, 0 1.4vh 3vh rgba(10, 14, 12, .45); }
-.tv .banner-who-tag { bottom: 1vh; }
 
 /* shop owner's speech bubble */
 .owner-bubble-anchor { position: absolute; width: 0; height: 0; z-index: 3; }
@@ -728,3 +671,4 @@ input.mini { width: 4.2em; margin: 0 .35em; padding: 2px 4px; display: inline-bl
 .overlay-list li { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 4px 0; border-bottom: 1px solid var(--line); }
 .overlay-list li.off b { color: var(--muted, #888); text-decoration: line-through; }
 .overlay-list button.small { padding: 2px 10px; font-size: 13px; }
+@keyframes banner-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
