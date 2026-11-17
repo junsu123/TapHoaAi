@@ -94,6 +94,22 @@ class LevelService:
                 w.name = user.nickname
         self.active.add(key)
 
+    def carry(self, key: str, name: str, watch_s: float, level: int) -> None:
+        """The same LIVE after a server restart: the minutes and the level carry on (never lower)."""
+        w = self.watchers.get(key)
+        if w is None:
+            w = self.watchers[key] = Watcher(key, name, last_seen=self.clock())
+            self.active.add(key)
+        w.watch_s = max(w.watch_s, watch_s)
+        if level > w.level:
+            w.level = level
+            av = self.c.avatars._by_key.get(key)
+            if av:
+                av.level = level
+                if av.visible:
+                    self.c.hub.send_game({"type": "AVATAR_LEVEL", "avatar_id": av.avatar_id, "level": level, "up": False,
+                                          "item": ITEMS[level - 1]})
+
     def _forget_oldest(self) -> None:
         idle = sorted((w for k, w in self.watchers.items() if k not in self.active), key=lambda w: w.last_seen)
         for w in idle[: max(1, len(self.watchers) // 10)]:

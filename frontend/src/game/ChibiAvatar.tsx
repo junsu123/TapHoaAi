@@ -56,8 +56,12 @@ export function ChibiAvatar({
   const look = useMemo(() => appearanceFromSeed(ctl.info.appearance_seed), [ctl.info.appearance_seed]);
   // watch-time level (nón lá / áo choàng / vương miện): re-render only when it changes
   const [level, setLevel] = useState(ctl.level);
+  const [regular, setRegular] = useState((ctl.info.visits ?? 0) >= 3);
   const [medal, setMedal] = useState(ctl.medals > 0);
-  const { texture, aspect } = useMemo(() => nameTexture(ctl.info.nickname, ctl.info.is_demo, level), [ctl.info.nickname, ctl.info.is_demo, level]);
+  const { texture, aspect } = useMemo(
+    () => nameTexture(ctl.info.nickname, ctl.info.is_demo, level, regular),
+    [ctl.info.nickname, ctl.info.is_demo, level, regular],
+  );
   const gear = useRef<THREE.Group>(null);
   const bar = useRef<THREE.Sprite>(null!);
   const barMat = useMemo(() => new THREE.SpriteMaterial({ depthTest: false, transparent: true }), []);
@@ -339,6 +343,7 @@ export function ChibiAvatar({
 
     // ---- level: new gear pops in; a thin bar under the name when the next level is near
     if (ctl.level !== level) setLevel(ctl.level);
+    if ((ctl.info.visits ?? 0) >= 3 !== regular) setRegular(!regular);
     if (ctl.medals > 0 !== medal) setMedal(ctl.medals > 0);
     if (gear.current) {
       const since = ctl.sinceLevelUp;

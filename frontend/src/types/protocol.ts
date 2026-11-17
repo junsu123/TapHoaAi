@@ -56,6 +56,8 @@ export interface AvatarInfo {
   level?: number;
   /** mini-game wins this LIVE (a medal on the Chibi) */
   medals?: number;
+  /** LIVEs this viewer came to (3+: khách quen, a heart by the name) */
+  visits?: number;
 }
 
 export interface CharacterAction {
@@ -143,7 +145,7 @@ export interface StageView {
   seconds: number;
   max_queue: number;
   current: { name: string; avatar_id: string | null; phase: "calling" | "dancing"; token: string; sent: boolean; seconds_left: number | null } | null;
-  queue: { name: string; key?: string }[];
+  queue: { name: string; key?: string; eta_s?: number }[];
   waiting: number;
   performed: number;
   skipped: number;

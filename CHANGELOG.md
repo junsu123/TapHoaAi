@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.26.0 — 2026-11-17 — Khách quen & gọi trước lượt sân khấu
+
+- **Khách quen được nhớ qua các buổi LIVE:** máy chủ ghi lại mỗi người xem (bảng `viewer_profiles`): đã tới mấy buổi, mấy buổi liên tiếp, tổng thời gian xem, cấp cao nhất. Người quay lại ở buổi LIVE sau được chủ quán chào đích danh (bong bóng + giọng): “A, Lan quay lại với quán rồi, vui quá!”, hoặc “… Buổi LIVE thứ 3 liên tiếp đó, cảm ơn bạn nha!” khi tới liền nhiều buổi. Nhiều người quay lại cùng lúc được chào chung một câu; giữa hai lời chào cách nhau ít nhất 20 giây. Lời chào khách quen thay cho câu chào thường, không chào hai lần.
+- **Trái tim ♥ sau tên** cho khách đã tới từ 3 buổi LIVE trở lên.
+- **Máy chủ khởi động lại giữa LIVE không mất số phút:** phiên mới bắt đầu trong vòng 20 phút sau phiên trước vẫn tính là cùng một buổi LIVE; số phút xem và cấp Chibi (nón lá / áo choàng / vương miện) được giữ, không chúc mừng lên cấp lần nữa và không chào “quay lại”.
+- **Sân khấu gọi trước:** 2 người kế tiếp trong hàng chờ được chủ quán gọi tên trước lượt (“Bình và Chi ơi, sắp tới lượt các bạn lên sân khấu rồi nha, đừng đi đâu nhé!”), mỗi người một lần, cách nhau ít nhất 15 giây. Ô *Sân khấu* trên LIVE và thẻ Sân khấu của người trực hiện **thời gian chờ ước tính** cho từng người (“~40 giây”, “~2 phút”).
+- Trang Người trực có thẻ **Khách quen**: buổi LIVE thứ mấy, số khách mới / quay lại, khách quen đang xem, ai vừa quay lại, khách tới nhiều buổi nhất. API: `GET /api/v1/regulars`.
+- Bảng dữ liệu mới có migration `0004_viewer_profiles`; bản desktop tự tạo bảng khi khởi động nên không cần chạy migration tay.
+
 ## 0.25.0 — 2026-11-17 — Mini-game
 
 - **Mini-game tự chạy mỗi 15–20 phút** (ngẫu nhiên, chỉnh được; không lặp một loại hai lần liền), mỗi lượt khoảng 1 phút:

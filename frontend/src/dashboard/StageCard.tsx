@@ -43,6 +43,7 @@ export function StageCard({ stage }: { stage: StageView | null }) {
           {stage.queue.map((q, i) => (
             <li key={q.key ?? `${q.name}-${i}`}>
               <span>{q.name}</span>
+              {q.eta_s != null && <span className="muted small"> ~{q.eta_s < 60 ? `${Math.max(10, Math.round(q.eta_s / 10) * 10)} giây` : `${Math.round(q.eta_s / 60)} phút`} </span>}
               {q.key && (
                 <button type="button" className="link" onClick={() => call("remove", { key: q.key })} aria-label={`Bỏ ${q.name} khỏi hàng chờ`}>
                   Bỏ

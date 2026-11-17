@@ -491,6 +491,7 @@ export class GameEngine {
         pose: a.pose,
         elevation: +a.elevation.toFixed(2),
         level: a.level,
+        visits: a.info.visits ?? 0,
         medals: a.medals,
         levelProgress: a.levelProgress,
       })),

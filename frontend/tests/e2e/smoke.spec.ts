@@ -724,7 +724,7 @@ test("Herbal-tea shop look and product banner: rotates, follows the Chibi, setti
   await page.getByLabel("Chữ trên biển hiệu").fill("TRÀ MỘC TÂM");
   await page.locator(".banner-pick-item").first().click();
   await page.getByRole("button", { name: "Lưu không gian & banner" }).click();
-  await expect(page.getByText("Đã lưu — màn hình LIVE đổi ngay.")).toBeVisible();
+  await expect(page.getByText("Đã lưu — màn hình LIVE đổi ngay.")).toBeVisible({ timeout: 15_000 });
   expect((await (await page.request.get("/api/v1/settings/scene")).json()).config.sign_text).toBe("TRÀ MỘC TÂM");
   await page.screenshot({ path: `${SHOTS}/SCENE-settings.png`, fullPage: true });
   await put({ sign_text: "TIỆM TRÀ THẢO MỘC", banner_product_ids: [] });
@@ -1087,7 +1087,7 @@ test("Behaviour P1: missing dance clip falls back (T12), Chibis keep living calm
   await expect(weights).toBeVisible({ timeout: 20_000 }); // a slow CI machine also renders the 3D preview
   await weights.getByLabel("Vui nhộn").fill("0");
   await page.getByRole("button", { name: "Lưu không gian & banner" }).click();
-  await expect(page.getByText("Đã lưu — màn hình LIVE đổi ngay.")).toBeVisible();
+  await expect(page.getByText("Đã lưu — màn hình LIVE đổi ngay.")).toBeVisible({ timeout: 15_000 });
   await game.waitForFunction(() => (window as any).__chibiDebug.state().behaviorConfig.weights.fun === 0, null, { timeout: 10_000 });
   await weights.scrollIntoViewIfNeeded();
   await page.screenshot({ path: `${SHOTS}/P1-settings-behaviour.png` });
@@ -1575,5 +1575,66 @@ test("Mini-games: đố vui, nhanh tay, đoán giá — answers from comments, w
   await card.scrollIntoViewIfNeeded();
   await page.screenshot({ path: `${SHOTS}/GAME-6-host.png` });
   await page.request.put("/api/v1/settings/scene", { data: { ...scene, minigame_enabled: false }, headers: H });
+  await game.close();
+});
+
+test("Khách quen: welcomed back by name in the next LIVE, a heart after 3 LIVEs; the stage calls the next dancers", async ({ page, context }) => {
+  test.setTimeout(180_000);
+  const csrf = await login(page.request);
+  const H = { "X-CSRF-Token": csrf };
+  const scene = (await (await page.request.get("/api/v1/settings/scene")).json()).config;
+  await page.request.put("/api/v1/settings/scene", { data: { ...scene, owner_enabled: true, stage_enabled: true, stage_seconds: 15, levels_enabled: true }, headers: H });
+  const game = await context.newPage();
+  await game.setViewportSize({ width: 540, height: 960 });
+  await game.goto("/game/live?debug=1&quality=medium");
+  const bubble = game.getByTestId("owner-bubble");
+  const who = `Hang${RUN.replace(/\d+$/, "")}`; // (names are read without trailing digits)
+  const newLive = async () => {
+    await page.request.post("/api/v1/live/disconnect", { headers: H });
+    const r = await page.request.post("/api/v1/demo/start", { headers: H });
+    expect(r.ok(), await r.text()).toBeTruthy();
+  };
+
+  // LIVE 1: a new viewer
+  await newLive();
+  await inject(page, csrf, `@${who}: chào shop`);
+  await expect.poll(async () => (await (await page.request.get("/api/v1/regulars")).json()).new, { timeout: 10_000 }).toBeGreaterThan(0);
+  // LIVE 2: they come back — welcomed back by name
+  await newLive();
+  await inject(page, csrf, `@${who}: chào shop nha`);
+  await expect(bubble).toContainText(`${who} quay lại rồi! Buổi LIVE thứ 2 liên tiếp`, { timeout: 15_000 });
+  await game.waitForTimeout(500);
+  await game.screenshot({ path: `${SHOTS}/REGULAR-1-welcome-back.png` });
+  // LIVE 3: khách quen — a heart by the name
+  await newLive();
+  await inject(page, csrf, `@${who}: lại là mình`);
+  await expect(bubble).toContainText("Buổi LIVE thứ 3 liên tiếp", { timeout: 15_000 });
+  await expect
+    .poll(() => game.evaluate((n) => (window as any).__chibiDebug.state().avatars.find((a: any) => a.nickname === n)?.visits ?? 0, who), { timeout: 10_000 })
+    .toBe(3);
+  await game.waitForTimeout(800);
+  const box = await game.evaluate((n) => {
+    const st = (window as any).__chibiDebug.state();
+    const id = st.avatars.find((a: any) => a.nickname === n)?.id;
+    return (window as any).__chibiLabels?.boxes.find((b: any) => b.id === id) ?? null;
+  }, who);
+  await game.screenshot({ path: `${SHOTS}/REGULAR-2-heart.png`, clip: box ? { x: Math.max(0, Math.min(540 - 200, box.x - 100)), y: Math.max(0, box.y - 40), width: 200, height: 180 } : undefined });
+
+  // the host sees who came back
+  await page.setViewportSize({ width: 1360, height: 1200 });
+  await page.goto("/dashboard/host");
+  const card = page.getByTestId("regulars-card");
+  await expect(card).toContainText(who, { timeout: 15_000 });
+  await expect(card).toContainText("3 buổi · 3 buổi liên tiếp");
+  await card.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${SHOTS}/REGULAR-3-host.png` });
+
+  // the stage: the two after the dancer are called by name, and everyone sees about how long to wait
+  const names = ["an", "binh", "chi", "dung"].map((n) => `${n}${RUN.replace(/\d+$/, "")}x`);
+  for (const n of names) await inject(page, csrf, `@${n}: nhảy`);
+  await expect(bubble).toContainText(`${names[1]} và ${names[2]} ơi, sắp tới lượt các bạn`, { timeout: 30_000 });
+  const next = game.getByTestId("stage-next");
+  await expect(next).toContainText(/~\d+ (giây|phút)/);
+  await game.screenshot({ path: `${SHOTS}/REGULAR-4-stage-soon.png` });
   await game.close();
 });

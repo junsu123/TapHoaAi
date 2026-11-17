@@ -176,3 +176,9 @@ def games_start(body: GameStart, request: Request, admin: CurrentAdmin = AdminDe
 @router.post("/games/stop")
 def games_stop(request: Request, admin: CurrentAdmin = AdminDep) -> dict:
     return {"ok": request.app.state.container.games.stop()}
+
+
+@router.get("/regulars")
+def regulars(request: Request, admin: CurrentAdmin = AdminDep) -> dict:
+    """Khách quen: who came back this LIVE, how many LIVEs in a row."""
+    return request.app.state.container.regulars.view()

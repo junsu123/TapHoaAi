@@ -38,6 +38,7 @@ from app.services.orchestrator import Orchestrator
 from app.services.owner_talk import OwnerTalk
 from app.services.perf import PerfMonitor
 from app.services.product_matcher import ProductMatcher
+from app.services.regulars import Regulars
 from app.services.scene_config import apply_avatar_cap, load_scene
 from app.services.speech_queue import SpeechQueue
 from app.services.stage import StageService
@@ -99,6 +100,8 @@ class AppContainer:
         self.stage = StageService(self)
         self.talk = OwnerTalk(self)
         self.levels = LevelService(self)
+        self.regulars = Regulars(self)
+        self.avatars.visits_of = self.regulars.visits_of
         self.games = MiniGames(self)
         self.avatars.medals_of = self.games.medals_of
         self.upcoming = UpcomingService(self)
@@ -145,6 +148,7 @@ class AppContainer:
                 self._persist_command(cmd)
         self.avatars.reset(session_id)
         self.stage.reset()
+        self.regulars.reset(session_id)  # (first: it saves the minutes of the LIVE that ends)
         self.levels.reset(session_id)
         self.games.reset()
         self.avatars.viewer_cap = None
@@ -306,6 +310,7 @@ class AppContainer:
         self.assistant.start()
         self.owner.start()
         self.talk.start()
+        self.regulars.start()
         self._tasks = [
             asyncio.create_task(self.orchestrator.run(), name="orchestrator"),
             asyncio.create_task(self._ticker(), name="ticker"),
@@ -321,6 +326,7 @@ class AppContainer:
         await self.assistant.stop()
         await self.owner.stop()
         await self.talk.stop()
+        await self.regulars.stop()
         for t in self._tasks:
             t.cancel()
         for t in self._tasks:

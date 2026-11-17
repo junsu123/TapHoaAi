@@ -16,6 +16,7 @@ import { BoardCard, type PurchasePrefill } from "./BoardCard";
 import { StageCard } from "./StageCard";
 import { LevelsCard } from "./LevelsCard";
 import { GameCard } from "./GameCard";
+import { RegularsCard } from "./RegularsCard";
 import type { LeaderboardView, StageView } from "../types/protocol";
 import { Brand, OnAirTile, PageHeader, SideNav, UserFoot } from "./Shell";
 import { ShelfEditor } from "./ShelfEditor";
@@ -468,6 +469,9 @@ function HostPage({
         </Card>
         <Card title="Mini-game" desc="Đoán giá, đố vui, nhanh tay — tự chạy mỗi 15–20 phút, hoặc bắt đầu ngay.">
           <GameCard />
+        </Card>
+        <Card title="Khách quen" desc="Người xem quay lại từ các buổi LIVE trước — chủ quán chào họ bằng tên.">
+          <RegularsCard />
         </Card>
         <Card title="Ở lại lâu nhất" desc="Người xem ở lại càng lâu, Chibi càng lên cấp (nón lá → áo choàng → vương miện).">
           <LevelsCard />
