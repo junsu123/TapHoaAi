@@ -535,7 +535,8 @@ test("Autopilot: one switch reads comments and answers them without the host", a
   await expect(toggle).toContainText("đang bật");
 
   await inject(page, csrf, `@chao${RUN}: chào shop nha`);
-  await expect(caption).toContainText(`chao${RUN}`, { timeout: 20_000 });
+  // (a name is read without trailing digits: "chao1k2" → "chao1k")
+  await expect(caption).toContainText(`chao${RUN.replace(/\d+$/, "")}`, { timeout: 20_000 });
   await expect(caption).toContainText("Trợ lý AI");
   await game.screenshot({ path: `${SHOTS}/AUTO-greeting.png` });
 
@@ -850,6 +851,8 @@ test("Honour board: drag it anywhere on the LIVE screen and resize it from the d
   const frame = page.frameLocator('[data-testid="board-placer-frame"]');
   const board = frame.getByTestId("honour-board");
   await expect(board).toBeVisible({ timeout: 20_000 });
+  await expect(frame.getByTestId("game-panel")).toHaveCount(0); // mini-games are off here: no sample panel over the board
+  await frame.locator("body").evaluate(() => new Promise((r) => setTimeout(r, 800))); // the shop's settings have loaded
   const iframeBox = (await page.getByTestId("board-placer-frame").boundingBox())!;
   const b = (await board.boundingBox())!;
   // drag the board up and to the right

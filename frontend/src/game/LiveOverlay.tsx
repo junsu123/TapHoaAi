@@ -324,7 +324,7 @@ function GamePanel({ engine, safe, scene, editable }: { engine: GameEngine; safe
   // edit mode: a sample round to place the panel
   const shown: GameView | null =
     g ??
-    (editable && scene.minigame_enabled
+    (editable && scene.minigame_enabled && engine.sceneVersion > 0 // (the shop's real settings, not the defaults before they load)
       ? { id: "x", kind: "quiz", title: "Đố vui", phase: "open", opens_at: now, closes_at: now + 30000, ends_at: now + 40000, answers: 12, question: "Câu hỏi mẫu để đặt chỗ bảng mini-game?", options: ["Đáp án A", "Đáp án B", "Đáp án C"] }
       : null);
   if (!shown) return null;
