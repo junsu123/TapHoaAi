@@ -678,3 +678,13 @@ input.mini { width: 4.2em; margin: 0 .35em; padding: 2px 4px; display: inline-bl
 .account-chip button { border: 0; border-radius: 0; background: transparent; padding: 3px 10px; font-weight: 600; min-height: 0; }
 .account-chip button.forget { padding: 3px 8px; color: var(--muted); border-left: 1px solid var(--line); font-weight: 400; }
 .account-chip.on { border-color: var(--jade); background: var(--jade-50); }
+
+/* under a comment on the host desk: teach the owner a reply / ban a word */
+.comment-tools { margin-top: 4px; }
+.comment-tools > .row > button.small { padding: 1px 8px; font-size: 12px; min-height: 0; }
+.comment-tools form { display: grid; gap: 6px; margin-top: 6px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); }
+.comment-tools textarea { width: 100%; }
+.word-picks { display: flex; flex-wrap: wrap; gap: 4px; }
+.word-picks button { padding: 1px 8px; font-size: 13px; min-height: 0; }
+.banned-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.banned-list .bw { padding: 3px 10px; font-weight: 600; }

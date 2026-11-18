@@ -44,9 +44,22 @@ def _banned_forms(banned: tuple[str, ...], builtin: bool) -> tuple[str, ...]:
 
 
 def contains_banned(text: str, banned: list[str], builtin: bool = True) -> bool:
+    return find_banned(text, banned, builtin) is not None
+
+
+def find_banned(text: str, banned: list[str], builtin: bool = True) -> str | None:
+    """The banned word in the text: the shop's own word as the shop wrote it, else a built-in one."""
     folded = f" {fold(text)} "
     squeezed = f" {fold(re.sub(r'[._*-]', '', text))} "  # "đ.m", "v-c-l"
-    return any(w in folded or w in squeezed for w in _banned_forms(tuple(banned), builtin))
+    for w in banned:
+        f = f" {fold(w)} "
+        if f.strip() and (f in folded or f in squeezed):
+            return w.strip()
+    if builtin:
+        for w in _banned_forms((), True):
+            if w in folded or w in squeezed:
+                return w.strip()
+    return None
 
 
 def sanitize_comment(text: str, banned: list[str], max_len: int = 160) -> str | None:

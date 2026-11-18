@@ -301,9 +301,9 @@ export function AiSettingsPage() {
             <Field label="Thông tin chung của shop" hint="Ship, thanh toán, đổi trả, giờ làm việc… AI chỉ dùng thông tin ở đây và trong danh mục sản phẩm (giá, công bố, lưu ý).">
               <textarea rows={5} value={cfg.shop_facts} onChange={(e) => set("shop_facts", e.target.value)} aria-label="Thông tin chung của shop" placeholder={"Ship toàn quốc 2–4 ngày, phí ship 30.000 đồng, miễn phí từ 2 hộp.\nNhận hàng rồi thanh toán (COD) hoặc chuyển khoản.\nĐổi trả trong 7 ngày nếu hàng lỗi."} />
             </Field>
-            <Field label="Từ cấm (mỗi dòng một từ)" hint="Bình luận có từ cấm không bao giờ được đọc to.">
-              <LinesInput rows={3} commas value={cfg.banned_words} onChange={(v) => set("banned_words", v)} label="Từ cấm" />
-            </Field>
+            <p className="muted small">
+              Từ cấm và câu nhắc nhở: trang <b>Hội thoại & câu đã học</b> → <b>Từ cấm & nhắc nhở</b> (hoặc bấm “Cấm từ…” dưới bình luận ở trang Người trực).
+            </p>
             <div className="row wrap">
               <button onClick={testClaude} disabled={!!busy}>
                 {busy === "claude" ? "Đang thử…" : "Thử kết nối Claude"}
