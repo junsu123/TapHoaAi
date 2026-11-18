@@ -42,6 +42,11 @@ class AiConfig(BaseModel):
     shop_name: str = Field("shop", max_length=80)
     shop_facts: str = Field("", max_length=3000)  # shipping, payment, returns… written by the owner
     banned_words: list[str] = Field(default_factory=list, max_length=200)
+    # a comment with a banned word is never read nor answered; besides, the owner may remind the viewer
+    banned_action: Literal["skip", "remind"] = "remind"
+    banned_remind_template: str = Field("Bạn {ten} ơi, quán mình nói chuyện nhẹ nhàng, dễ thương với nhau nha!",
+                                        max_length=160)
+    banned_mute_after: int = Field(3, ge=0, le=20)  # after this many, none of the viewer's comments this LIVE (0 = never)
     # --- voice (AI-06: off until the owner turns it on and confirms the policy checklist) ----------
     voice_enabled: bool = False
     voice_policy_confirmed: bool = False

@@ -34,6 +34,7 @@ from app.services.levels import LevelService
 from app.services.live_session import LiveSessionService
 from app.services.loadgen import LoadGenerator
 from app.services.minigames import MiniGames
+from app.services.moderation import Moderation
 from app.services.orchestrator import Orchestrator
 from app.services.owner_talk import OwnerTalk
 from app.services.perf import PerfMonitor
@@ -101,6 +102,7 @@ class AppContainer:
         self.talk = OwnerTalk(self)
         self.levels = LevelService(self)
         self.regulars = Regulars(self)
+        self.moderation = Moderation(self)
         self.avatars.visits_of = self.regulars.visits_of
         self.games = MiniGames(self)
         self.avatars.medals_of = self.games.medals_of
@@ -151,6 +153,7 @@ class AppContainer:
         self.regulars.reset(session_id)  # (first: it saves the minutes of the LIVE that ends)
         self.levels.reset(session_id)
         self.games.reset()
+        self.moderation.reset()
         self.avatars.viewer_cap = None
         self.actions.reset(session_id)
         self.camera.current = None

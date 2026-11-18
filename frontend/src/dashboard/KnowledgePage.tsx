@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api, ApiError } from "../lib/api";
+import { ModerationTab } from "./ModerationTab";
 
 interface Variant {
   id: number;
@@ -329,7 +330,7 @@ function HistoryTab({ reloadStats }: { reloadStats: () => void }) {
 }
 
 export function KnowledgePage() {
-  const [tab, setTab] = useState<"knowledge" | "history">("knowledge");
+  const [tab, setTab] = useState<"knowledge" | "history" | "banned">("knowledge");
   const [stats, setStats] = useState<Stats | null>(null);
   const [products, setProducts] = useState<ProductLite[]>([]);
   const reloadStats = useCallback(() => {
@@ -356,8 +357,17 @@ export function KnowledgePage() {
         <button className={tab === "history" ? "primary" : ""} onClick={() => setTab("history")}>
           Lịch sử hội thoại LIVE
         </button>
+        <button className={tab === "banned" ? "primary" : ""} onClick={() => setTab("banned")}>
+          Từ cấm & nhắc nhở
+        </button>
       </div>
-      {tab === "knowledge" ? <KnowledgeTab products={products} reloadStats={reloadStats} /> : <HistoryTab reloadStats={reloadStats} />}
+      {tab === "knowledge" ? (
+        <KnowledgeTab products={products} reloadStats={reloadStats} />
+      ) : tab === "history" ? (
+        <HistoryTab reloadStats={reloadStats} />
+      ) : (
+        <ModerationTab />
+      )}
     </div>
   );
 }

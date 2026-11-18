@@ -17,6 +17,7 @@ import { StageCard } from "./StageCard";
 import { LevelsCard } from "./LevelsCard";
 import { GameCard } from "./GameCard";
 import { RegularsCard } from "./RegularsCard";
+import { CommentTools } from "./CommentTools";
 import type { LeaderboardView, StageView } from "../types/protocol";
 import { Brand, OnAirTile, PageHeader, SideNav, UserFoot } from "./Shell";
 import { ShelfEditor } from "./ShelfEditor";
@@ -413,6 +414,12 @@ const CommentRow = memo(function CommentRow({ c, onOrder }: { c: CommentRecord; 
       {c.is_demo && <span className="chip">DEMO</span>}: {c.text}
       {c.product_name && <span className="muted"> → {c.product_name}</span>}
       {c.action_outcome === "no_location" && <span className="error"> (chưa gắn kệ)</span>}
+      {c.blocked && (
+        <span className="chip chip-warn" data-testid="comment-blocked">
+          🚫 {c.blocked}
+        </span>
+      )}
+      <CommentTools c={c} />
     </li>
   );
 });

@@ -1044,6 +1044,64 @@ test("Layout: every box on the LIVE screen can be switched off and dragged anywh
   }
 });
 
+test("Từ cấm: the host bans a word picked from a comment; the next one is not read, the owner reminds; the owner learns a reply", async ({ page }) => {
+  test.setTimeout(180_000);
+  const csrf = await login(page.request);
+  const H = { "X-CSRF-Token": csrf };
+  await page.request.post("/api/v1/demo/start", { headers: H });
+  await page.request.put("/api/v1/moderation", { data: { action: "remind", remind_template: "Bạn {ten} ơi, quán mình nói chuyện nhẹ nhàng, dễ thương với nhau nha!", mute_after: 3 }, headers: H });
+  await page.setViewportSize({ width: 1360, height: 1100 });
+  await page.goto("/dashboard/host");
+  const troll = `troll${RUN}`;
+  await inject(page, csrf, `@${troll}: shop bán đồ dỏm à`);
+  const row = page.getByTestId("comment-row").filter({ hasText: "shop bán đồ dỏm à" }).first();
+  await expect(row).toBeVisible({ timeout: 15_000 });
+  // pick the two words → "đồ dỏm" → banned
+  await row.getByRole("button", { name: "Cấm từ…" }).click();
+  await row.getByTestId("word-picks").getByRole("button", { name: "đồ", exact: true }).click();
+  await row.getByTestId("word-picks").getByRole("button", { name: "dỏm", exact: true }).click();
+  await expect(row.getByLabel("Từ cấm mới")).toHaveValue("đồ dỏm");
+  await page.screenshot({ path: `${SHOTS}/BANNED-1-pick.png` });
+  await row.getByRole("button", { name: "Thêm vào từ cấm" }).click();
+  await expect(row.getByTestId("comment-tools-note")).toContainText("Đã cấm “đồ dỏm”");
+
+  // the next comment with it (written without diacritics): not read, marked, the owner reminds by name
+  await inject(page, csrf, `@${troll}: DO DOM thật`);
+  const blocked = page.getByTestId("comment-row").filter({ hasText: "DO DOM thật" }).first();
+  await expect(blocked.getByTestId("comment-blocked")).toContainText("Có từ cấm “đồ dỏm” — chủ quán đã nhắc nhở", { timeout: 15_000 });
+  await expect(blocked.getByRole("button", { name: "Dạy chủ quán trả lời" })).toHaveCount(0);
+
+  // the owner learns how to answer a comment
+  const mai = `mai${RUN}`;
+  await inject(page, csrf, `@${mai}: mấy giờ shop live tiếp vậy`);
+  const q = page.getByTestId("comment-row").filter({ hasText: "mấy giờ shop live tiếp vậy" }).first();
+  await expect(q).toBeVisible({ timeout: 15_000 });
+  await q.getByRole("button", { name: "Dạy chủ quán trả lời" }).click();
+  await q.getByLabel("Câu chủ quán trả lời").fill("Dạ tối nào shop cũng live lúc 8 giờ ạ!");
+  await q.getByRole("button", { name: "Lưu câu trả lời" }).click();
+  await expect(q.getByTestId("comment-tools-note")).toContainText("Chủ quán đã học");
+  await page.screenshot({ path: `${SHOTS}/BANNED-2-host.png` });
+
+  // the "Từ cấm & nhắc nhở" tab: the word, the comment caught, the reminder
+  await page.goto("/dashboard/knowledge");
+  await page.getByRole("button", { name: "Từ cấm & nhắc nhở" }).click();
+  const mod = page.getByTestId("moderation");
+  await expect(mod.getByTestId("banned-list")).toContainText("đồ dỏm");
+  await expect(mod.getByTestId("blocked-table")).toContainText("DO DOM thật");
+  await expect(mod.getByTestId("blocked-table")).toContainText("Đã nhắc nhở");
+  await page.screenshot({ path: `${SHOTS}/BANNED-3-tab.png`, fullPage: true });
+  await mod.getByLabel("Thêm từ cấm").fill("hàng giả");
+  await mod.getByRole("button", { name: "Thêm từ cấm" }).click();
+  await expect(mod.getByTestId("banned-list")).toContainText("hàng giả");
+
+  // clean up for the other tests
+  for (const w of ["đồ dỏm", "hàng giả"]) await mod.getByRole("button", { name: `Bỏ từ cấm ${w}` }).click();
+  await expect(mod.getByTestId("banned-list")).not.toContainText("đồ dỏm");
+  const kn = (await (await page.request.get("/api/v1/knowledge")).json()) as { items?: { id: number; answer: string }[] } | { id: number; answer: string }[];
+  const items = Array.isArray(kn) ? kn : (kn.items ?? []);
+  for (const e of items.filter((x) => x.answer.includes("8 giờ"))) await page.request.delete(`/api/v1/knowledge/${e.id}`, { headers: H });
+});
+
 test("Behaviour V3: Chibis live on their own, take product commands, queue dance, leave on 'về thôi' (with demo frames)", async ({ page, context }) => {
   test.setTimeout(240_000);
   const csrf = await login(page.request);

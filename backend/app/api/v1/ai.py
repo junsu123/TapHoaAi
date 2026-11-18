@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field, field_validator
@@ -19,6 +20,7 @@ from app.services.ai_config import (
     mask,
 )
 from app.services.tts_vbee import FakeTts, TtsError, VbeeTts, list_voices
+from app.text_norm import fold
 
 router = APIRouter(tags=["ai"])
 log = logging.getLogger("chibi.voice")
@@ -96,7 +98,12 @@ def put_settings(body: AiSettingsIn, request: Request, admin: CurrentAdmin = Adm
     if cfg.voice_enabled and not cfg.voice_policy_confirmed:
         raise HTTPException(422, detail={"code": "policy_not_confirmed",
                                          "message": "Hãy đánh dấu đủ danh sách chính sách trước khi bật giọng đọc."})
-    cfg.banned_words = sorted({w.strip() for w in cfg.banned_words if w.strip()})[:200]
+    # the banned words and what to do with them have their own page (/moderation): a settings form
+    # loaded before a word was taught from a comment must not drop it
+    cur = c.assistant.config
+    cfg = cfg.model_copy(update={"banned_words": cur.banned_words, "banned_action": cur.banned_action,
+                                 "banned_remind_template": cur.banned_remind_template,
+                                 "banned_mute_after": cur.banned_mute_after})
     changed = []
     for key, value in ((SECRET_CLAUDE_KEY, body.claude_api_key), (SECRET_VBEE_APP_ID, body.vbee_app_id),
                        (SECRET_VBEE_TOKEN, body.vbee_token)):
@@ -324,3 +331,71 @@ async def autopilot(body: AutopilotIn, request: Request, admin: CurrentAdmin = A
     status = a.status()
     c.hub.send_dashboard({"type": "AI_STATUS", "ai": status})
     return {"ai": status}
+
+
+# ---------------------------------------------------------------- banned words (Từ cấm)
+class ModerationIn(BaseModel):
+    action: Literal["skip", "remind"]
+    remind_template: str = Field(min_length=1, max_length=160)
+    mute_after: int = Field(ge=0, le=20)
+
+    @field_validator("remind_template")
+    @classmethod
+    def _tpl(cls, v: str) -> str:
+        try:
+            v.format(ten="Lan")
+        except (KeyError, IndexError, ValueError) as exc:
+            raise ValueError("Câu nhắc nhở chỉ dùng được {ten} (tên người xem).") from exc
+        return v.strip()
+
+
+class BannedWordIn(BaseModel):
+    word: str = Field(min_length=1, max_length=40)
+
+
+class UnmuteIn(BaseModel):
+    key: str = Field(min_length=1, max_length=200)
+
+
+@router.get("/moderation")
+def moderation(request: Request, admin: CurrentAdmin = AdminDep) -> dict:
+    return request.app.state.container.moderation.view()
+
+
+@router.put("/moderation")
+def put_moderation(body: ModerationIn, request: Request, admin: CurrentAdmin = AdminDep) -> dict:
+    c = request.app.state.container
+    cfg = c.assistant.config
+    c.assistant.update_config(cfg.model_copy(update={"banned_action": body.action, "banned_remind_template": body.remind_template,
+                                                     "banned_mute_after": body.mute_after}))
+    return c.moderation.view()
+
+
+@router.post("/moderation/words")
+def add_banned_word(body: BannedWordIn, request: Request, admin: CurrentAdmin = AdminDep) -> dict:
+    """Teach a banned word (e.g. picked from a viewer's comment on the host desk)."""
+    c = request.app.state.container
+    if len(fold(body.word)) < 2:
+        raise HTTPException(422, detail={"code": "word_too_short", "message": "Từ cấm cần ít nhất 2 chữ cái."})
+    if len(c.assistant.config.banned_words) >= 200:
+        raise HTTPException(422, detail={"code": "too_many", "message": "Danh sách đã đủ 200 từ cấm."})
+    c.moderation.add_word(body.word)
+    with c.db.session() as s:
+        s.add(AuditLog(admin_id=admin.id, action="banned_word_add", resource=body.word[:40]))
+    return c.moderation.view()
+
+
+@router.delete("/moderation/words")
+def remove_banned_word(word: str, request: Request, admin: CurrentAdmin = AdminDep) -> dict:
+    c = request.app.state.container
+    c.moderation.remove_word(word)
+    with c.db.session() as s:
+        s.add(AuditLog(admin_id=admin.id, action="banned_word_remove", resource=word[:40]))
+    return c.moderation.view()
+
+
+@router.post("/moderation/unmute")
+def unmute(body: UnmuteIn, request: Request, admin: CurrentAdmin = AdminDep) -> dict:
+    c = request.app.state.container
+    c.moderation.unmute(body.key)
+    return c.moderation.view()

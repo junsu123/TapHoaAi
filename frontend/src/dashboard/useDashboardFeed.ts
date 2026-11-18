@@ -18,6 +18,8 @@ export interface CommentRecord {
   candidates: { product_id: string; name: string; score: number }[];
   action_outcome: string | null;
   is_demo: boolean;
+  /** why it was not read nor answered: a banned word, or a viewer muted for this LIVE */
+  blocked?: string | null;
 }
 
 export interface HostItem extends CommentRecord {

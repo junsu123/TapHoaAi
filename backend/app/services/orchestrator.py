@@ -171,7 +171,14 @@ class Orchestrator:
         outcome = None
         command_id = None
         game = None
-        if self.c.games.active:
+        viewer_key = av.viewer_key if av else (ev.user.identity_key if ev.user else None)
+        # a banned word / a muted viewer: no game answer, no errand, not read, not answered
+        blocked = self.c.moderation.check(
+            {"event_id": ev.event_id, "nickname": ev.user.nickname if ev.user else None,
+             "unique_id": ev.user.unique_id if ev.user else None, "text": text, "is_demo": is_demo}, viewer_key)
+        if blocked:
+            outcome = "blocked"
+        elif self.c.games.active:
             gname = (ev.user.nickname or ev.user.unique_id or "bạn") if ev.user else "bạn"
             game = self.c.games.answer(ev.user, gname, text, av.avatar_id if av else None)
         if game:
@@ -179,6 +186,8 @@ class Orchestrator:
             outcome = "game_" + game
             if av and game == "answer":
                 self._direct(av.avatar_id, "think")
+        elif blocked:
+            pass
         elif intent.moves_chibi and av:
             self.product_counts[intent.product_id] += 1
             cmd, outcome = self.c.actions.submit(
@@ -226,9 +235,11 @@ class Orchestrator:
             "avatar_id": av.avatar_id if av else None, "action_outcome": outcome, "command_id": command_id,
             "is_demo": is_demo,
         }
+        if blocked:
+            record["blocked"] = blocked
         self.recent_comments.append(record)
-        important = (intent.moves_chibi or intent.needs_host or outcome in ("no_location", "leave")
-                     or intent.kind in (IntentKind.QUESTION, IntentKind.AMBIGUOUS))
+        important = bool(blocked) or (intent.moves_chibi or intent.needs_host or outcome in ("no_location", "leave")
+                                      or intent.kind in (IntentKind.QUESTION, IntentKind.AMBIGUOUS))
         if important or self._dash_chat.allow():
             self.c.hub.send_dashboard({"type": "COMMENT", "comment": record})
         else:
@@ -236,7 +247,8 @@ class Orchestrator:
             if now - self._dash_skipped_sent >= 1.0:
                 self._dash_skipped_sent = now
                 self.c.hub.send_dashboard({"type": "COMMENTS_SKIPPED", "total": self.dash_skipped})
-        viewer_key = av.viewer_key if av else (ev.user.identity_key if ev.user else None)
+        if blocked:
+            return
         chat = (not game and not intent.needs_host and outcome != "no_location"
                 and self.c.assistant.wants_chat(intent, viewer_key))
         if not game and (intent.needs_host or outcome == "no_location" or chat):

@@ -136,6 +136,14 @@ Hình trên điện thoại chỉ nét khi nguồn game đủ **1080 × 1920 đi
 3. Trong phần mềm LIVE: khung hình 1080 × 1920, nguồn game phủ vừa khít khung (không phóng to), bitrate cao nhất mạng tải lên cho phép.
 4. Kiểm tra: Game 3D & OBS → *Hiệu năng màn hình game* ghi cỡ cửa sổ game và báo nếu chưa đủ 1080 × 1920.
 
+## Từ cấm & dạy chủ quán trả lời
+
+- Trang **Người trực**, dưới mỗi bình luận:
+  - **Dạy chủ quán trả lời** — gõ câu trả lời; lần sau bình luận tương tự được chủ quán tự trả lời.
+  - **Cấm từ…** — bấm chọn từ nhạy cảm trong bình luận → **Thêm vào từ cấm**.
+- Bình luận có từ cấm (có dấu hay không dấu) không được đọc, không được trả lời. Chủ quán nhắc nhở nhẹ nhàng (hoặc im lặng, tuỳ bạn). Người dùng từ cấm tới lần thứ 3 trong buổi thì tạm không đọc bình luận của họ tới hết buổi.
+- Quản lý ở **Hội thoại & câu đã học → Từ cấm & nhắc nhở**.
+
 ## Bố cục màn hình LIVE
 
 Game 3D & OBS → Không gian cửa hàng → *Bố cục màn hình LIVE*: mỗi ô trên màn hình LIVE (màn hình LED sản phẩm, nhãn DEMO & cảnh báo, bảng vàng, ô Sân khấu, bảng Sắp diễn ra, bảng mini-game, dòng chữ đang đọc, thẻ sản phẩm, bong bóng lời chủ quán) có công tắc **Hiện**. Bấm **Kéo thả các ô trên màn hình LIVE** để dời từng ô và kéo chấm tròn ở góc để đổi cỡ; thả tay là lưu, màn hình OBS đổi ngay. Nhãn DEMO luôn hiện khi chạy Demo. Màn hình LED (gắn trên tường quán) và bong bóng chủ quán chỉ bật/tắt.

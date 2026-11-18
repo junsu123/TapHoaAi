@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.30.0 — 2026-11-18 — Từ cấm & dạy chủ quán trả lời bình luận
+
+- **Dạy chủ quán trả lời:** dưới mỗi bình luận ở trang Người trực có nút **Dạy chủ quán trả lời**. Bạn gõ câu chủ quán nên nói, bấm lưu; lần sau ai bình luận giống vậy, chủ quán tự trả lời bằng câu đó (không gọi Claude). Câu đã dạy nằm trong *Câu đã học*, sửa hoặc xoá được như mọi câu đã học.
+- **Cấm từ ngay từ bình luận:** nút **Cấm từ…** dưới mỗi bình luận hiện các từ của bình luận đó. Bấm chọn một hay nhiều từ (thành một cụm) rồi **Thêm vào từ cấm**. Từ đó trở đi, bình luận có từ này (viết có dấu hay không dấu, hoa hay thường) không được đọc to, chủ quán không trả lời, không học, không tính là câu trả lời mini-game, không sai Chibi đi lấy hàng. Trên trang Người trực, bình luận bị chặn có nhãn 🚫 và lý do.
+- **Chủ quán nhắc nhở:** mặc định, khi khách dùng từ cấm, chủ quán nhắc nhẹ nhàng bằng bong bóng và giọng (“Bạn … ơi, quán mình nói chuyện nhẹ nhàng, dễ thương với nhau nha!”), gọi tên nhưng không nhắc lại từ đó. Mỗi người tối đa 1 lần / 5 phút, cả buổi tối đa 1 lần / 30 giây. Chọn được “bỏ qua im lặng” và sửa câu nhắc nhở.
+- **Tạm không đọc người cố tình:** dùng từ cấm tới lần thứ 3 (chỉnh được, 0 = tắt) trong một buổi LIVE thì mọi bình luận của người đó tạm không được đọc tới hết buổi; có nút “Cho đọc lại”.
+- Trang **Hội thoại & câu đã học** có tab mới **Từ cấm & nhắc nhở**: danh sách từ cấm (thêm / bỏ), 23 từ chửi tục có sẵn luôn bị chặn, cách xử lý, người đang bị tạm không đọc, và bảng bình luận đã chặn gần đây. Ô “Từ cấm” ở trang Trợ lý AI chuyển sang tab này; lưu trang Trợ lý AI không còn làm mất từ vừa cấm.
+- API: `GET/PUT /api/v1/moderation`, `POST/DELETE /api/v1/moderation/words`, `POST /api/v1/moderation/unmute`.
+
 ## 0.29.0 — 2026-11-17 — Nhớ tài khoản LIVE
 
 - Trang **Kết nối TikTok** nhớ các tài khoản shop đã kết nối (tối đa 10, tài khoản dùng gần nhất lên đầu). Mở trang là ô đã điền sẵn tài khoản gần nhất; các tài khoản khác hiện thành nút “@tên”, bấm một lần là chọn; nút × để quên một tài khoản. Danh sách lưu trong máy, giữ nguyên khi tắt mở lại phần mềm.

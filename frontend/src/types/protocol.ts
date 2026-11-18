@@ -324,7 +324,7 @@ export const DEFAULT_SCENE: SceneConfig = {
 
 export interface SpeechClip {
   id: string;
-  kind: "question" | "answer" | "test" | "comment" | "greeting" | "product" | "welcome" | "stage" | "poem" | "story" | "level" | "game";
+  kind: "question" | "answer" | "test" | "comment" | "greeting" | "product" | "welcome" | "stage" | "poem" | "story" | "level" | "game" | "remind";
   label: string;
   text: string;
   url: string | null;
