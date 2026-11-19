@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.31.0 — 2026-11-19 — Chibi to hơn, đẹp hơn
+
+- **Nhân vật to hơn:** mọi Chibi (cả chủ quán) được vẽ to gấp khoảng 1,45 lần, nhìn rõ trong cảnh toàn quán trên điện thoại. Đường đi, chỗ đứng trước kệ, chỗ ngồi ghế dài và đệm bàn trà giữ nguyên; Chibi ngồi đúng mặt ghế / đệm theo cỡ mới. Nhãn tên, bong bóng biểu tượng, thanh lên cấp và bong bóng lời chủ quán dời lên theo đầu.
+- **Camera theo cỡ mới:** cận cảnh khi Chibi giới thiệu sản phẩm lùi ra đúng tỉ lệ (khung hình như trước); camera đi theo Chibi cao hơn một chút để người đứng trước không che. Hộp sản phẩm trên tay to lên một chút khi cầm (về kệ thì trở lại cỡ thật).
+- **Mặt vẽ kiểu anime:** mắt to có tròng màu chuyển sắc (5 màu mắt), con ngươi, hai đốm sáng long lanh, mi mắt dày có đuôi, má hồng có nét “///”, miệng cười.
+- **Biểu cảm theo động tác:** chớp mắt mỗi vài giây (mỗi người một nhịp); cười híp mắt “^ ^” khi nhảy, ăn mừng, cổ vũ, xoay, tạo dáng; há miệng cười khi cầm và giới thiệu hàng, khi vẫy tay; tròn mắt “o” khi ngạc nhiên; ngáp thì nhắm mắt há miệng. Chủ quán mấp máy miệng khi nói, cười híp mắt khi cúi chào.
+- **Tóc, quần áo:** tóc mái tỉa từng lọn (tóc dựng thì mái nhọn), có vệt bóng trên tóc; kiểu tóc bob dày ở sau và hai bên; giày tròn (5 màu), cạp quần, huy hiệu nhỏ trên ngực áo.
+- **Ánh sáng & bóng:** Chibi có viền sáng nhẹ quanh dáng (nổi trên sàn gỗ và kệ), vùng tối dịu hơn; bóng dưới chân tròn mềm thay cho vòng tròn phẳng.
+- Hiệu năng: cả khuôn mặt chỉ còn 1 hình (thay cho 7 hình mắt / miệng / má), vật liệu và ảnh mặt dùng chung cho mọi Chibi, Chibi ở xa dùng bản ít chi tiết của các phần mới. Đo với 20 Chibi: số lệnh vẽ tăng khoảng 7%, số tam giác khoảng 5%.
+
 ## 0.30.2 — 2026-11-19 — Không bị cắt hai bên trên điện thoại
 
 - TikTok phát khung 9:16 nhưng điện thoại người xem hẹp hơn (khoảng 9:19,5 tới 9:20,5), nên app TikTok **cắt hai bên hình**, mỗi bên khoảng 9–11%. Trước đây các ô sát mép (Sân khấu, Sắp diễn ra, Bảng vàng) và kệ hàng, màn LED hai bên bị cắt mất trên điện thoại.

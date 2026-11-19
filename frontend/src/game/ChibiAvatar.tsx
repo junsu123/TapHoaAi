@@ -7,7 +7,8 @@ import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import type { ProductInfo } from "../types/protocol";
 import type { AvatarController } from "./AvatarController";
-import { appearanceFromSeed, GEO, GEO_LOW, LabelRegistryContext, OUTLINE_MAT, RenderContext, toon, WHITE } from "./palette";
+import { appearanceFromSeed, GEO, GEO_LOW, LabelRegistryContext, OUTLINE_MAT, RenderContext, toon } from "./palette";
+import { BANG_OFFSET, bangsMat, CHIBI_SCALE, chibiMat, expressionFor, EYE_COLOURS, faceMat, LOOK_GEO, shadowMat, shade, SHOE_COLOURS } from "./chibiLook";
 import { LOD, lodTier, type LodTier } from "./lod";
 import { ProductVisual } from "./ProductBox";
 import { nameTexture } from "./nameTexture";
@@ -15,8 +16,13 @@ import { nameTexture } from "./nameTexture";
 const tmp = new THREE.Vector3();
 const tmpHand = new THREE.Vector3();
 const ease = (t: number) => t * t * (3 - 2 * t);
-const LABEL_Y = 1.42;
-const sphere = new THREE.Sphere(new THREE.Vector3(), 0.95);
+const S = CHIBI_SCALE;
+const LABEL_Y = 1.42 * S;
+const sphere = new THREE.Sphere(new THREE.Vector3(), 0.95 * S);
+// seat tops: the bench plank (StoreScene) and the tea cushion; the torso's bottom sits on them
+const BENCH_LIFT = 0.245 / S - 0.11;
+const CUSHION_LIFT = -0.08;
+const HELD_SCALE = 1 + (S - 1) * 0.6;
 
 export function ChibiAvatar({
   ctl,
@@ -38,6 +44,7 @@ export function ChibiAvatar({
   const legL = useRef<THREE.Group>(null!);
   const legR = useRef<THREE.Group>(null!);
   const hand = useRef<THREE.Object3D>(null!); // rightHandSocket
+  const face = useRef<THREE.Mesh>(null!);
   const label = useRef<THREE.Sprite>(null!);
   const emote = useRef<THREE.Sprite>(null!);
   const emoteIcon = useRef<string | null>(null);
@@ -116,7 +123,7 @@ export function ChibiAvatar({
     // ---- level of detail (T16): never reduce the focused Chibi or one carrying a box
     const focused = focusedId() === ctl.info.avatar_id;
     const dist = camera.position.distanceTo(root.current.position);
-    sphere.center.set(ctl.pos.x, 0.6, ctl.pos.z);
+    sphere.center.set(ctl.pos.x, 0.6 * S, ctl.pos.z);
     const tier = lodTier(dist, LOD.frustum.intersectsSphere(sphere), focused || !!ctl.held);
     LOD.counts[tier] += 1;
     if (tier === "hidden") {
@@ -281,7 +288,7 @@ export function ChibiAvatar({
       }
     }
     // bench seat is higher than the tea cushion
-    body.current.position.y = bob - sit * (ctl.sittingOnBench ? -0.06 : 0.12);
+    body.current.position.y = bob + sit * (ctl.sittingOnBench ? BENCH_LIFT : CUSHION_LIFT);
     body.current.rotation.x = lean;
     body.current.rotation.z = bodyRoll;
     head.current.rotation.z = headTilt;
@@ -294,6 +301,9 @@ export function ChibiAvatar({
     legL.current.rotation.x = sit ? -1.45 * sit + swing : legSwing;
     legR.current.rotation.x = sit ? -1.45 * sit - swing : -legSwing;
     cup.current.visible = ctl.prop === "cup";
+    // painted face: expression for the pose, blinking now and then (material swap only on change)
+    const fm = faceMat(eyeColour, expressionFor(st, t, ctl.info.appearance_seed));
+    if (face.current.material !== fm) face.current.material = fm;
     } // samplePose
 
     // ---- emote bubble beside the head (never over the name label)
@@ -306,7 +316,7 @@ export function ChibiAvatar({
     emote.current.visible = !!em;
     if (em) {
       const pop = 1 + Math.max(0, Math.sin(t * 4)) * 0.06;
-      emote.current.scale.set(0.32 * pop, 0.32 * pop, 1);
+      emote.current.scale.set(0.32 * S * pop, 0.32 * S * pop, 1);
     }
 
     // ---- held product: slot → right hand → slot (always the commanding avatar's own hand)
@@ -319,7 +329,7 @@ export function ChibiAvatar({
       hand.current.getWorldPosition(tmpHand);
       if (ctl.state === "show") {
         // present the box in front of the chest, front face towards the camera
-        tmpHand.set(ctl.pos.x + Math.sin(ctl.yaw) * 0.34, 0.36 + bob, ctl.pos.z + Math.cos(ctl.yaw) * 0.34);
+        tmpHand.set(ctl.pos.x + Math.sin(ctl.yaw) * 0.34 * S, (0.36 + bob) * S, ctl.pos.z + Math.cos(ctl.yaw) * 0.34 * S);
       }
       tmp.set(held.slot.x, held.slot.y + s.h / 2 + 0.025, held.slot.z);
       const k = ease(held.t);
@@ -327,6 +337,8 @@ export function ChibiAvatar({
       // while presenting, turn the box gently left and right so viewers see its sides too
       const sway = ctl.state === "show" ? Math.sin(t * 0.9) * 0.45 : 0;
       box.rotation.set(0, (held.mode === "inHand" ? ctl.yaw : THREE.MathUtils.lerp(0, ctl.yaw, k)) + sway, 0);
+      // in the (bigger) Chibi's hands the box grows a little, so it still reads well next to them
+      box.scale.setScalar(THREE.MathUtils.lerp(1, HELD_SCALE, k));
       box.visible = true;
     } else {
       box.visible = false;
@@ -336,8 +348,8 @@ export function ChibiAvatar({
     // close-up hygiene: other Chibis right in front of the lens are hidden, and the focused
     // Chibi's own label is dropped (the product card already names the viewer)
     const cv = clearView?.();
-    root.current.visible = focused || (dist > 1.7 && !(cv && cv.keep !== ctl.info.avatar_id && dist < cv.dist));
-    label.current.visible = !(focused && dist < 3.2);
+    root.current.visible = focused || (dist > 1.7 * S && !(cv && cv.keep !== ctl.info.avatar_id && dist < cv.dist));
+    label.current.visible = !(focused && dist < 3.2 * S);
     const sc = THREE.MathUtils.clamp(dist * 0.045, 0.34, 1.7);
     label.current.scale.set(sc * aspect * 0.42, sc * 0.42, 1);
 
@@ -365,27 +377,35 @@ export function ChibiAvatar({
     }
   }, -1);
 
-  const skin = toon(look.skin);
-  const hairM = toon(look.hair);
-  const shirt = toon(look.shirt);
-  const pants = toon(look.pants);
-  const eyeM = toon("#2b1d24");
+  const skin = chibiMat(look.skin);
+  const hairM = chibiMat(look.hair);
+  const shirt = chibiMat(look.shirt);
+  const pants = chibiMat(look.pants);
+  const shoe = chibiMat(SHOE_COLOURS[look.shoe]);
+  const eyeColour = EYE_COLOURS[look.eye];
   return (
     <>
       <group ref={root}>
-        <mesh geometry={GEO.shadow} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.006, 0]}>
-          <meshBasicMaterial color="#5a3040" transparent opacity={0.22} depthWrite={false} />
-        </mesh>
+        <group scale={S}>
+        <mesh geometry={GEO.shadow} material={shadowMat("#5a3040", 0.34)} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.006, 0]} />
         <group ref={body}>
-          {/* legs */}
-          <group ref={legL} position={[-0.08, 0.2, 0]}>
-            <Part geometry={GEO.leg} material={pants} position={[0, -0.09, 0]} />
-          </group>
-          <group ref={legR} position={[0.08, 0.2, 0]}>
-            <Part geometry={GEO.leg} material={pants} position={[0, -0.09, 0]} />
-          </group>
-          {/* torso */}
+          {/* legs with rounded shoes */}
+          {[-1, 1].map((sx) => (
+            <group key={sx} ref={sx < 0 ? legL : legR} position={[sx * 0.08, 0.2, 0]}>
+              <Part geometry={GEO.leg} material={pants} position={[0, -0.09, 0]} />
+              <group position={[0, -0.158, 0.03]} scale={[1, 0.62, 1.35]}>
+                <Part geometry={LOOK_GEO.shoe} material={shoe} outlineScale={1.1} />
+              </group>
+            </group>
+          ))}
+          {/* torso: shirt with the trousers' waistband and a little badge on the chest */}
           <Part geometry={GEO.body} material={shirt} position={[0, 0.36, 0]} />
+          <Part geometry={LOOK_GEO.hips} material={pants} position={[0, 0.245, 0]} outlineScale={1.05} />
+          {!medal && (
+            <mesh geometry={LOOK_GEO.badge} position={[0.075, 0.43, 0.156]} rotation={[0, 0.46, 0]} userData={{ detail: true }}>
+              <meshBasicMaterial color={shade(look.shirt, 0.7)} />
+            </mesh>
+          )}
           {level >= 2 && <Cape />}
           {medal && <Medal />}
           {/* arms: pivot at the shoulder; hand socket at the end of the right arm */}
@@ -410,7 +430,14 @@ export function ChibiAvatar({
           {/* head */}
           <group ref={head} position={[0, 0.8, 0]}>
             <Part geometry={GEO.head} material={skin} />
-            <Part geometry={GEO.hairCap} material={hairM} position={[0, 0.02, -0.01]} rotation={[-0.25, 0, 0]} outlineScale={1.03} />
+            {/* painted anime face (eyes, mouth, blush): one mesh, expression = material */}
+            <mesh ref={face} geometry={LOOK_GEO.face} material={faceMat(eyeColour, { eyes: "open", mouth: "smile" })} renderOrder={1} />
+            <Part geometry={GEO.hairCap} material={hairM} position={BANG_OFFSET} rotation={[-0.53, 0, 0]} outlineScale={1.03} />
+            <mesh geometry={LOOK_GEO.bangs} material={bangsMat(look.hair, look.hairStyle === 3)} position={BANG_OFFSET} />
+            {look.hairStyle === 0 && (
+              // bob: fuller hair at the back and the sides
+              <mesh geometry={LOOK_GEO.backHair} material={hairM} position={[0, 0, -0.012]} scale={[1.09, 1, 1.08]} />
+            )}
             {look.hairStyle === 1 && (
               <>
                 <Part geometry={GEO.bun} material={hairM} position={[-0.22, 0.22, -0.05]} />
@@ -419,8 +446,8 @@ export function ChibiAvatar({
             )}
             {look.hairStyle === 2 && level === 0 && (
               <>
-                <Part geometry={GEO.hairCap} material={toon("#ffffff")} position={[0, 0.05, 0]} scale={1.04} rotation={[-0.2, 0, 0]} outlineScale={1.03} />
-                <Part geometry={GEO.capBrim} material={toon("#ffffff")} position={[0, 0.12, 0.22]} rotation={[0.25, 0, 0]} />
+                <Part geometry={GEO.hairCap} material={chibiMat("#ffffff")} position={[0, 0.05, 0]} scale={1.04} rotation={[-0.2, 0, 0]} outlineScale={1.03} />
+                <Part geometry={GEO.capBrim} material={chibiMat("#ffffff")} position={[0, 0.12, 0.22]} rotation={[0.25, 0, 0]} />
               </>
             )}
             {look.hairStyle === 3 && level === 0 &&
@@ -431,21 +458,8 @@ export function ChibiAvatar({
                 {level < 3 ? <NonLa /> : <Crown />}
               </group>
             )}
-            {/* big shiny eyes + smile */}
-            {[-1, 1].map((sx) => (
-              <group key={sx} position={[sx * 0.1, -0.01, 0.262]}>
-                <mesh geometry={GEO.eye} material={eyeM} scale={[1, 1.25, 0.6]} />
-                <mesh geometry={GEO.eyeShine} material={WHITE} position={[0.014, 0.022, 0.03]} userData={{ detail: true }} />
-              </group>
-            ))}
-            <mesh geometry={GEO.mouth} material={eyeM} position={[0, -0.1, 0.285]} rotation={[0, 0, Math.PI]} userData={{ detail: true }} />
-            <mesh geometry={GEO.blush} position={[-0.17, -0.085, 0.247]} rotation={[0, -0.5, 0]} userData={{ detail: true }}>
-              <meshBasicMaterial color="#ff7f9f" transparent opacity={0.55} depthWrite={false} />
-            </mesh>
-            <mesh geometry={GEO.blush} position={[0.17, -0.085, 0.247]} rotation={[0, 0.5, 0]} userData={{ detail: true }}>
-              <meshBasicMaterial color="#ff7f9f" transparent opacity={0.55} depthWrite={false} />
-            </mesh>
           </group>
+        </group>
         </group>
         <sprite ref={label} material={labelMat} position={[0, LABEL_Y, 0]} renderOrder={10} />
         <sprite ref={bar} material={barMat} position={[0, LABEL_Y - 0.2, 0]} renderOrder={10} visible={false} />

@@ -32,6 +32,9 @@ export interface Appearance {
   shirt: string;
   pants: string;
   hairStyle: 0 | 1 | 2 | 3; // bob, buns, cap, spiky
+  /** index into EYE_COLOURS / SHOE_COLOURS (chibiLook.ts) */
+  eye: number;
+  shoe: number;
 }
 
 export function appearanceFromSeed(seed: number): Appearance {
@@ -42,6 +45,8 @@ export function appearanceFromSeed(seed: number): Appearance {
     shirt: SHIRT[(s >>> 7) % SHIRT.length],
     pants: PANTS[(s >>> 11) % PANTS.length],
     hairStyle: ((s >>> 15) % 4) as Appearance["hairStyle"],
+    eye: (s >>> 19) % 5,
+    shoe: (s >>> 23) % 5,
   };
 }
 

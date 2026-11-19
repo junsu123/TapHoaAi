@@ -14,6 +14,7 @@ import { DebugProjector } from "./BehaviorDebugOverlay";
 import { themeOf } from "./themes";
 import { LOD, lodPolicy } from "./lod";
 import { PHONE_ZOOM } from "./phoneSafe";
+import { CHIBI_SCALE as CS } from "./chibiLook";
 import type { PerfReport } from "../types/protocol";
 
 export type Quality = "low" | "medium" | "high" | "ultra";
@@ -79,24 +80,26 @@ function CameraRig({ engine }: { engine: GameEngine }) {
     if (a && !a.removed) {
       if ((a.phase === "show" || a.phase === "hold") && a.held) {
         // close-up: in front of the presented box, slightly above
-        const fx = a.pos.x + Math.sin(a.yaw) * 0.34;
-        const fz = a.pos.z + Math.cos(a.yaw) * 0.34;
+        // (distances follow the Chibi's drawn size, so the framing stays the same)
+        const fx = a.pos.x + Math.sin(a.yaw) * 0.34 * CS;
+        const fz = a.pos.z + Math.cos(a.yaw) * 0.34 * CS;
         // slow push-in while the product is presented: frame the Chibi first, then the box
         const t = a.phase === "show" ? Math.min(1, a.fsm.elapsed / 3) : 0;
         const ease = t * t * (3 - 2 * t);
-        const dist = 2.0 - 0.85 * ease;
-        goalLook.set(fx, 0.5 - 0.1 * ease, fz);
-        goalPos.set(fx + Math.sin(a.yaw) * dist, 0.85 - 0.25 * ease, fz + Math.cos(a.yaw) * dist);
+        const dist = (2.0 - 0.85 * ease) * CS;
+        goalLook.set(fx, (0.5 - 0.1 * ease) * CS, fz);
+        goalPos.set(fx + Math.sin(a.yaw) * dist, (0.85 - 0.25 * ease) * CS, fz + Math.cos(a.yaw) * dist);
         shot = "closeup";
       } else {
-        goalLook.set(a.pos.x, 0.55, a.pos.z);
-        goalPos.set(a.pos.x * 0.7, 4.4, a.pos.z + 6.4);
+        goalLook.set(a.pos.x, 0.55 * CS, a.pos.z);
+        // a little higher than before v0.31: the bigger Chibis in front must not hide the one followed
+        goalPos.set(a.pos.x * 0.7, 5.2, a.pos.z + 6.6);
         shot = "follow";
       }
     } else if (engine.spot && engine.tea.cameraOnTable()) {
       // tea is being served to a gift giver: frame the table
       const T = engine.spot.table;
-      goalLook.set(T.x, 0.45, T.z);
+      goalLook.set(T.x, 0.5, T.z);
       goalPos.set(T.x, 3.1, T.z + 5.0);
       shot = "tea";
     } else if (engine.stageSpot && engine.stageShot()) {

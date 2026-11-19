@@ -7,11 +7,13 @@ import * as THREE from "three";
 import type { GameEngine } from "./GameEngine";
 import { Part } from "./ChibiAvatar";
 import { nameTexture } from "./nameTexture";
-import { GEO, LabelRegistryContext, RenderContext, toon, WHITE } from "./palette";
+import { GEO, LabelRegistryContext, RenderContext, toon } from "./palette";
+import { BANG_OFFSET, bangsMat, CHIBI_SCALE as S, chibiMat, faceMat, LOOK_GEO, shadowMat, type Expression } from "./chibiLook";
 import type { TeaSpot } from "./teahouse";
 
 const tmp = new THREE.Vector3();
-const LABEL_Y = 1.42;
+const LABEL_Y = 1.42 * S;
+const OWNER_EYES = "#4a2c1e";
 
 export function TeaCorner({ engine, spot }: { engine: GameEngine; spot: TeaSpot }) {
   const { shadows } = useContext(RenderContext);
@@ -138,6 +140,7 @@ function OwnerChibi({ engine, spot }: { engine: GameEngine; spot: TeaSpot }) {
   const legL = useRef<THREE.Group>(null!);
   const legR = useRef<THREE.Group>(null!);
   const label = useRef<THREE.Sprite>(null!);
+  const face = useRef<THREE.Mesh>(null!);
   const stand = useRef(0);
   const { camera } = useThree();
   const labels = useContext(LabelRegistryContext);
@@ -161,7 +164,7 @@ function OwnerChibi({ engine, spot }: { engine: GameEngine; spot: TeaSpot }) {
     root.current.position.set(spot.owner.x, 0, spot.owner.z);
     // standing up to greet: turn towards the viewers (the main camera looks along −z)
     root.current.rotation.y = THREE.MathUtils.lerp(spot.ownerYaw, 0.25, s);
-    body.current.position.y = -0.12 * (1 - s);
+    body.current.position.y = -0.08 * (1 - s);
     body.current.rotation.x = bow;
     legL.current.rotation.x = -1.45 * (1 - s);
     legR.current.rotation.x = -1.45 * (1 - s);
@@ -196,41 +199,55 @@ function OwnerChibi({ engine, spot }: { engine: GameEngine; spot: TeaSpot }) {
     armR.current.rotation.set(rArm, 0, rSide);
     head.current.rotation.x = bow * 0.3 + (tea.talking ? Math.sin(t * 5.2) * 0.05 : 0);
     head.current.rotation.y = tea.talking ? Math.sin(t * 0.9) * 0.18 : 0;
+    // face: eyes smile shut while bowing, the mouth moves with the words, a blink now and then
+    const ex: Expression = {
+      eyes: bow > 0.15 ? "happy" : (t + 1.3) % 3.7 < 0.13 ? "closed" : "open",
+      mouth: tea.talking ? (Math.sin(t * 11) > 0.1 ? "grin" : "smile") : s > 0.3 ? "grin" : "smile",
+    };
+    const fm = faceMat(OWNER_EYES, ex);
+    if (face.current.material !== fm) face.current.material = fm;
     const dist = camera.position.distanceTo(root.current.position);
     const sc = THREE.MathUtils.clamp(dist * 0.045, 0.34, 1.7);
     label.current.scale.set(sc * aspect * 0.42, sc * 0.42, 1);
     // where the speech bubble goes: just above the head, in screen space (0..1)
     root.current.getWorldPosition(tmp);
-    tmp.y += 1.2 - 0.12 * (1 - s);
+    tmp.y += (1.2 - 0.08 * (1 - s)) * S;
     tmp.project(camera);
     engine.ownerScreen = { x: (tmp.x + 1) / 2, y: (1 - tmp.y) / 2, visible: tmp.z < 1 && Math.abs(tmp.x) < 1.2 };
   }, -1);
 
-  const skin = toon("#ffd9c2");
-  const hair = toon("#2b1d1a");
-  const shirt = toon("#3f6b3f");
-  const apron = toon("#f3ead6");
-  const pants = toon("#4a3426");
-  const eyeM = toon("#2b1d24");
+  const skin = chibiMat("#ffd9c2");
+  const hairC = "#2b1d1a";
+  const hair = chibiMat(hairC);
+  const shirt = chibiMat("#3f6b3f");
+  const apron = chibiMat("#f3ead6");
+  const pants = chibiMat("#4a3426");
+  const shoe = chibiMat("#5a3a26");
   return (
     <group ref={root}>
-      <mesh geometry={GEO.shadow} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.006, 0]}>
-        <meshBasicMaterial color="#3a2a1a" transparent opacity={0.2} depthWrite={false} />
-      </mesh>
+      <group scale={S}>
+      <mesh geometry={GEO.shadow} material={shadowMat("#3a2a1a", 0.3)} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.006, 0]} />
       <group ref={body}>
-        <group ref={legL} position={[-0.08, 0.2, 0]}>
-          <Part geometry={GEO.leg} material={pants} position={[0, -0.09, 0]} />
-        </group>
-        <group ref={legR} position={[0.08, 0.2, 0]}>
-          <Part geometry={GEO.leg} material={pants} position={[0, -0.09, 0]} />
-        </group>
+        {[-1, 1].map((sx) => (
+          <group key={sx} ref={sx < 0 ? legL : legR} position={[sx * 0.08, 0.2, 0]}>
+            <Part geometry={GEO.leg} material={pants} position={[0, -0.09, 0]} />
+            <group position={[0, -0.158, 0.03]} scale={[1, 0.62, 1.35]}>
+              <Part geometry={LOOK_GEO.shoe} material={shoe} outlineScale={1.1} />
+            </group>
+          </group>
+        ))}
         <Part geometry={GEO.body} material={shirt} position={[0, 0.36, 0]} />
+        <Part geometry={LOOK_GEO.hips} material={pants} position={[0, 0.245, 0]} outlineScale={1.05} />
         {/* apron */}
         <mesh material={apron} position={[0, 0.33, 0.155]} rotation={[-0.08, 0, 0]}>
           <boxGeometry args={[0.24, 0.28, 0.02]} />
         </mesh>
         <mesh material={toon("#c49a62")} position={[0, 0.46, 0.17]}>
           <boxGeometry args={[0.3, 0.025, 0.02]} />
+        </mesh>
+        {/* a little tea leaf on the apron */}
+        <mesh material={toon("#5f8a4a")} position={[0.05, 0.3, 0.167]} rotation={[0, 0, 0.6]} scale={[1, 0.55, 1]}>
+          <circleGeometry args={[0.035, 16]} />
         </mesh>
         <group ref={armL} position={[-0.2, 0.47, 0]}>
           <Part geometry={GEO.arm} material={shirt} position={[0, -0.13, 0]} />
@@ -242,24 +259,15 @@ function OwnerChibi({ engine, spot }: { engine: GameEngine; spot: TeaSpot }) {
         </group>
         <group ref={head} position={[0, 0.8, 0]}>
           <Part geometry={GEO.head} material={skin} />
-          <Part geometry={GEO.hairCap} material={hair} position={[0, 0.02, -0.01]} rotation={[-0.25, 0, 0]} outlineScale={1.03} />
+          <mesh ref={face} geometry={LOOK_GEO.face} material={faceMat(OWNER_EYES, { eyes: "open", mouth: "smile" })} renderOrder={1} />
+          <Part geometry={GEO.hairCap} material={hair} position={BANG_OFFSET} rotation={[-0.53, 0, 0]} outlineScale={1.03} />
+          <mesh geometry={LOOK_GEO.bangs} material={bangsMat(hairC)} position={BANG_OFFSET} />
           <Part geometry={GEO.bun} material={hair} position={[0, 0.3, -0.12]} scale={1.15} />
           <mesh material={toon("#e2b437")} position={[0.06, 0.34, -0.1]} rotation={[0.3, 0, 0.9]}>
             <cylinderGeometry args={[0.008, 0.008, 0.26, 6]} />
           </mesh>
-          {[-1, 1].map((sx) => (
-            <group key={sx} position={[sx * 0.1, -0.01, 0.262]}>
-              <mesh geometry={GEO.eye} material={eyeM} scale={[1, 1.25, 0.6]} />
-              <mesh geometry={GEO.eyeShine} material={WHITE} position={[0.014, 0.022, 0.03]} />
-            </group>
-          ))}
-          <mesh geometry={GEO.mouth} material={eyeM} position={[0, -0.1, 0.285]} rotation={[0, 0, Math.PI]} />
-          {[-1, 1].map((sx) => (
-            <mesh key={sx} geometry={GEO.blush} position={[sx * 0.17, -0.085, 0.247]} rotation={[0, sx * 0.5, 0]}>
-              <meshBasicMaterial color="#ff8f8f" transparent opacity={0.5} depthWrite={false} />
-            </mesh>
-          ))}
         </group>
+      </group>
       </group>
       <sprite ref={label} material={labelMat} position={[0, LABEL_Y, 0]} renderOrder={10} />
     </group>
