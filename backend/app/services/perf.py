@@ -48,6 +48,7 @@ def clean_report(msg: dict[str, Any]) -> dict[str, Any]:
         "lod": {k: int(_num(lod.get(k), 0, 10_000) or 0) for k in ("full", "reduced", "far", "hidden")},
         "window_px": _size(msg.get("window_px")),
         "render_px": _size(msg.get("render_px")),
+        "frame_px": _size(msg.get("frame_px")),
         "at": time.time(),
     }
 

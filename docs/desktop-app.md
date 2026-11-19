@@ -35,7 +35,7 @@ Windows có thể hỏi “Windows protected your PC” vì phần mềm chưa k
 | `Ctrl` + `D` | Mở bảng điều khiển trong trình duyệt |
 | `Ctrl` + `,` | Cài đặt (địa chỉ máy chủ, mã game, chất lượng, kích thước) |
 
-- Kéo góc cửa sổ để đổi cỡ: cửa sổ luôn giữ 9:16. Tiêu đề cửa sổ ghi kích thước thật (ví dụ *1080 × 1920*).
+- Kéo góc cửa sổ để đổi cỡ: cửa sổ luôn giữ 9:16. Cửa sổ không phóng to (maximize) được; kéo vào cạnh màn hình (snap) hay Windows thu cửa sổ lại thì phần trong tự về đúng 9:16 — phần mềm LIVE không bao giờ nhận hình bè ngang. Riêng *Toàn màn hình* (F11) trên màn hình đặt ngang vẫn là khung ngang: đừng dùng khi phát LIVE. Tiêu đề cửa sổ ghi kích thước thật (ví dụ *1080 × 1920*).
 - Vị trí, kích thước và cài đặt được nhớ cho lần sau. Chỉ mở được **một** cửa sổ game.
 - Game vẫn chạy đủ nhanh khi cửa sổ bị che, thu nhỏ hay nằm sau OBS; màn hình không tự tắt khi đang mở.
 - Giọng đọc AI phát ngay, không cần bấm cho phép âm thanh.

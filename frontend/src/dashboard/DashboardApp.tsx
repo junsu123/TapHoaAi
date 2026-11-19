@@ -1035,7 +1035,8 @@ function GameSetupPage() {
           <ol>
             <li>
               Thêm nguồn Window Capture (cửa sổ Chibi Live Game, cách chụp “Windows 10 (1903 and up)”) — hoặc Browser Source (TikTok LIVE Studio: nguồn <b>Link</b>), URL:{" "}
-              <code data-testid="sharp-url">{liveUrl}?quality=ultra</code>, rộng 1080, cao 1920, 30 FPS — cách này luôn đủ 1080 × 1920 dù màn hình máy nhỏ.
+              <code data-testid="sharp-url">{liveUrl}?quality=ultra</code>, rộng 1080, cao 1920, 30 FPS — cách này luôn đủ 1080 × 1920 dù màn hình máy nhỏ. TikTok LIVE Studio: nhớ bật{" "}
+              <b>Độ phân giải tùy chỉnh</b> (Custom resolution) rồi mới nhập 1080 × 1920 — không bật thì trang game chạy ở khung ngang, hình bè ra hai bên.
             </li>
             <li>Khung hình (canvas) 1080 × 1920; nguồn game phủ vừa khít khung, không phóng to. Bitrate càng cao càng nét (nếu mạng tải lên đủ mạnh).</li>
             <li>Cảnh “Shop LIVE”: webcam + mic người thật là chính, game là lớp phụ.</li>

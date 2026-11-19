@@ -403,4 +403,5 @@ export interface PerfReport {
   lod: { full: number; reduced: number; far: number; hidden: number };
   window_px?: [number, number]; // size of the game window in real screen pixels
   render_px?: [number, number]; // size of the picture drawn (bigger with "Nét nhất")
+  frame_px?: [number, number]; // the whole window / Link source the LIVE app captures, bars included
 }

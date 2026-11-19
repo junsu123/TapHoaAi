@@ -12,6 +12,17 @@ test("9:16 sizes: physical pixels on scaled displays, fitting a screen", () => {
   assert.deepEqual(S.fitInto({ width: 400, height: 2000 }, { width: 1080, height: 1920 }), { width: 400, height: 711 });
 });
 
+test("a window that lost the 9:16 shape is brought back to it, never wider than the LIVE frame", () => {
+  assert.equal(S.shapeFix({ width: 1080, height: 1920 }), null);
+  assert.equal(S.shapeFix({ width: 721, height: 1280 }), null); // rounding: already 9:16
+  assert.deepEqual(S.shapeFix({ width: 1080, height: 1050 }), { width: 591, height: 1050 }); // Windows kept it on a Full HD screen
+  assert.deepEqual(S.shapeFix({ width: 960, height: 1040 }), { width: 585, height: 1040 }); // snapped to half the screen
+  assert.deepEqual(S.shapeFix({ width: 1920, height: 1040 }), { width: 585, height: 1040 }); // maximised
+  assert.deepEqual(S.shapeFix({ width: 1064, height: 1881 }), { width: 1058, height: 1881 }); // title bar counted in a drag
+  assert.deepEqual(S.shapeFix({ width: 400, height: 2000 }), { width: 400, height: 711 }); // too tall: shorter
+  assert.equal(S.shapeFix({ width: 0, height: 0 }), null);
+});
+
 test("settings are cleaned and kept between runs", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "chibi-"));
   const file = path.join(dir, "config.json");

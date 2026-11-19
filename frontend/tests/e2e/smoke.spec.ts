@@ -1543,8 +1543,23 @@ test("Sharp LIVE picture: 'Nét nhất' draws twice the pixels; the dashboard sa
   expect([r.width, r.height, r.cssWidth, r.cssHeight]).toEqual([2160, 3840, 1080, 1920]);
   await expect(sharp).toHaveAttribute("data-sharp", "1", { timeout: 60_000 });
   await expect(sharp).toContainText("vẽ ở 2160 × 3840");
+  await expect(page.getByTestId("perf-frame-wide")).toHaveCount(0);
   await game.waitForTimeout(1500);
   await game.screenshot({ path: `${SHOTS}/SHARP-2-ultra-1080x1920.png` });
+
+  // a landscape frame (Link source without its own size, F11 on a landscape screen): the game sits in
+  // the middle with dark bars — wider than TikTok's portrait frame, and the dashboard says how to fix it
+  await game.setViewportSize({ width: 1920, height: 1080 });
+  const wide = page.getByTestId("perf-frame-wide");
+  await expect(wide).toContainText("1920 × 1080", { timeout: 60_000 });
+  await expect(wide).toContainText("Độ phân giải tùy chỉnh");
+  await wide.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${SHOTS}/SHARP-4-dashboard-wide-frame.png` });
+  // a frame only a little wider than 9:16 (window border): the game fills it, no thin dark bars
+  await game.setViewportSize({ width: 1100, height: 1900 });
+  await expect.poll(() => game.evaluate(() => document.querySelector("[data-testid=game-stage]")!.getBoundingClientRect().width)).toBe(1100);
+  await expect(wide).toHaveCount(0, { timeout: 60_000 });
+  await game.setViewportSize({ width: 1080, height: 1920 });
 
   // the same frame at the old default ("vừa" = 1× on a normal PC screen) for comparison
   await game.goto("/game/live?quality=medium");

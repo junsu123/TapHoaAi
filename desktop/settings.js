@@ -84,6 +84,18 @@ function fitInto(area, wanted) {
   return { width, height };
 }
 
+/**
+ * A window whose inside lost the 9:16 shape (snapped to half a screen, maximised, clamped by
+ * Windows, or the frame counted in the drag): the largest 9:16 size inside it, or null when it
+ * is already 9:16. A wider window would show dark bars on both sides and not fit the LIVE frame.
+ */
+function shapeFix(content, tolerance = 2) {
+  if (!(content.width > 0 && content.height > 0)) return null;
+  const fit = fitInto(content, { width: 1e6, height: 1e6 });
+  if (Math.abs(fit.width - content.width) <= tolerance && Math.abs(fit.height - content.height) <= tolerance) return null;
+  return fit;
+}
+
 /** The game page the window shows (always the primary renderer). */
 function gameUrl(cfg) {
   const q = new URLSearchParams();
@@ -145,4 +157,4 @@ function fromArgs(argv, cfg) {
   return sanitize(out);
 }
 
-module.exports = { DEFAULTS, PRESETS, load, save, sanitize, contentSize, fitInto, gameUrl, serverCommand, findServerDir, fromArgs, sharpLive, sticksOut };
+module.exports = { DEFAULTS, PRESETS, load, save, sanitize, contentSize, fitInto, shapeFix, gameUrl, serverCommand, findServerDir, fromArgs, sharpLive, sticksOut };

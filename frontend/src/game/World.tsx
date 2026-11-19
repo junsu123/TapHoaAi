@@ -277,6 +277,8 @@ function PerfMeter({ engine, quality, onPerf }: { engine: GameEngine; quality: Q
       // what a window capture gets (the window's own pixels) and what is drawn inside it
       window_px: [Math.round(gl.domElement.clientWidth * deviceDpr()), Math.round(gl.domElement.clientHeight * deviceDpr())],
       render_px: [gl.domElement.width, gl.domElement.height],
+      // the whole frame the LIVE app gets (dark bars included when it is wider than 9:16)
+      frame_px: [Math.round(window.innerWidth * deviceDpr()), Math.round(window.innerHeight * deviceDpr())],
     });
   }, -3);
   return null;

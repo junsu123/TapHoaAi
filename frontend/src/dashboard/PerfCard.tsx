@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { api, ApiError } from "../lib/api";
+import { frameTooWide } from "../lib/frame";
 
 interface Report {
   fps: number | null;
@@ -17,6 +18,7 @@ interface Report {
   lod: { full: number; reduced: number; far: number; hidden: number };
   window_px?: [number, number] | null;
   render_px?: [number, number] | null;
+  frame_px?: [number, number] | null;
 }
 interface Result {
   target: number;
@@ -269,12 +271,28 @@ function Sharpness({ last }: { last: Report }) {
   const sharp = h >= 1900;
   const render = last.render_px;
   return (
+    <>
+    <FrameShape frame={last.frame_px} />
     <p className={sharp ? "muted small" : "warn-text small"} data-testid="perf-sharpness" data-sharp={sharp ? "1" : "0"}>
       Cửa sổ game: <b>{w} × {h}</b> điểm ảnh
       {render && (render[0] !== w || render[1] !== h) ? <> (vẽ ở {render[0]} × {render[1]} rồi thu nhỏ cho nét)</> : null}.{" "}
       {sharp
         ? "Đủ khung LIVE 1080 × 1920 — hình trên điện thoại sẽ nét."
         : `Nhỏ hơn khung LIVE 1080 × 1920: phần mềm LIVE phải phóng to ${(1920 / Math.max(1, h)).toFixed(1)} lần nên hình trên điện thoại bị mờ. Trong cửa sổ Chibi Live Game: chuột phải → “Nét nhất cho LIVE (1080 × 1920)”, hoặc dùng nguồn Link / Browser Source 1080 × 1920.`}
+    </p>
+    </>
+  );
+}
+
+/** The whole frame the LIVE app captures must be portrait 9:16, or the picture does not fit TikTok's frame. */
+function FrameShape({ frame }: { frame?: [number, number] | null }) {
+  if (!frameTooWide(frame)) return null;
+  const [w, h] = frame!;
+  return (
+    <p className="warn-text small" data-testid="perf-frame-wide">
+      <b>Khung hình game đang rộng hơn 9:16</b> ({w} × {h} điểm ảnh): game chỉ nằm giữa, hai bên là viền tối, nên phần mềm LIVE nhận một hình bè ngang, không vừa khung dọc
+      của TikTok LIVE Studio. Cách sửa: nguồn <b>Link</b> trong TikTok LIVE Studio → sửa nguồn → bật <b>Độ phân giải tùy chỉnh</b> (Custom resolution), Rộng <b>1080</b>, Cao{" "}
+      <b>1920</b>. Cửa sổ Chibi Live Game: tắt Toàn màn hình (F11) nếu màn hình đặt ngang, không kéo cửa sổ vào cạnh màn hình, rồi chuột phải → “Nét nhất cho LIVE (1080 × 1920)”.
     </p>
   );
 }

@@ -109,6 +109,7 @@ function createWindow() {
     frame: !cfg.frameless,
     alwaysOnTop: cfg.alwaysOnTop,
     autoHideMenuBar: true,
+    maximizable: false, // a maximised window is the screen's shape (wide), not 9:16
     enableLargerThanScreen: true, // 1080 × 1920 on a landscape Full HD monitor
     maxWidth: 4320,
     maxHeight: 7680,
@@ -168,7 +169,37 @@ function createWindow() {
       updateTitle();
     }, 400);
   };
-  win.on("will-resize", () => (manualResize = true));
+  // keep the inside exactly 9:16 whatever resized the window (snapped to a screen edge, Windows
+  // clamping it to the screen, the title bar counted in a drag): a wider window shows dark bars on
+  // both sides, and TikTok LIVE Studio / OBS then get a picture wider than the portrait LIVE frame
+  let dragging = false;
+  let shapeT = null;
+  let dragT = null;
+  const keepShape = () => {
+    if (!win || win.isDestroyed() || win.isFullScreen()) return;
+    if (win.isMaximized()) win.unmaximize();
+    const [width, height] = win.getContentSize();
+    const fix = S.shapeFix({ width, height });
+    if (fix) win.setContentSize(fix.width, fix.height);
+  };
+  const keepShapeSoon = () => {
+    clearTimeout(shapeT);
+    if (!dragging) shapeT = setTimeout(keepShape, 250);
+  };
+  const dragEnded = () => {
+    clearTimeout(dragT);
+    dragging = false;
+    keepShapeSoon();
+  };
+  win.on("will-resize", () => {
+    manualResize = true;
+    dragging = true; // the user is dragging a corner: fix the shape only when they let go
+    clearTimeout(dragT);
+    dragT = setTimeout(dragEnded, 1000); // "resized" is not sent on every system
+  });
+  win.on("resized", dragEnded);
+  win.on("maximize", keepShapeSoon);
+  win.on("resize", keepShapeSoon);
   win.on("resize", remember);
   win.on("move", remember);
   w.on("closed", () => {

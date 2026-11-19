@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.30.1 — 2026-11-19 — Hình game vừa khung dọc TikTok LIVE Studio
+
+- Sửa lỗi hình game **rộng hơn khung dọc** của TikTok LIVE Studio (game nằm giữa, hai bên viền tối). Cửa sổ **Chibi Live Game** giờ luôn giữ phần trong đúng 9:16: không phóng to (maximize) được nữa; khi kéo vào cạnh màn hình (snap), khi Windows thu cửa sổ cao hơn màn hình, hay khi kéo góc mà Windows tính cả thanh tiêu đề, cửa sổ tự về đúng 9:16 thay vì để lại khung bè ngang.
+- Trang game: khung chỉ hơi rộng hơn 9:16 (tới 3:5, ví dụ do viền cửa sổ, làm tròn) thì game phủ kín cả khung, không còn hai viền tối mảnh ở mép.
+- Bảng điều khiển → Game 3D & OBS → *Hiệu năng màn hình game* đo cả khung mà phần mềm LIVE nhận (cửa sổ / nguồn Link, tính cả viền) và cảnh báo khi khung rộng hơn 9:16, kèm cách sửa: trong TikTok LIVE Studio bật **Độ phân giải tùy chỉnh** cho nguồn Link rồi nhập 1080 × 1920; không dùng Toàn màn hình (F11) trên màn hình ngang.
+
 ## 0.30.0 — 2026-11-18 — Từ cấm & dạy chủ quán trả lời bình luận
 
 - **Dạy chủ quán trả lời:** dưới mỗi bình luận ở trang Người trực có nút **Dạy chủ quán trả lời**. Bạn gõ câu chủ quán nên nói, bấm lưu; lần sau ai bình luận giống vậy, chủ quán tự trả lời bằng câu đó (không gọi Claude). Câu đã dạy nằm trong *Câu đã học*, sửa hoặc xoá được như mọi câu đã học.

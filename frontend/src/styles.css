@@ -225,6 +225,8 @@ tbody tr:hover td { background: #fafcf8; }
 .game-root { position: fixed; inset: 0; background: #1a1016; display: grid; place-items: center; }
 .game-stage { position: relative; height: 100vh; max-width: 100vw; aspect-ratio: 9 / 16; overflow: hidden; background: #ffeef4; }
 @supports not (aspect-ratio: 1) { .game-stage { width: 56.25vh; } }
+/* a frame only a little wider than 9:16 (window border, rounding): fill it — no thin dark bars at the edges */
+@media (min-aspect-ratio: 9/16) and (max-aspect-ratio: 3/5) { .game-stage { width: 100vw; aspect-ratio: auto; } }
 .overlay { position: absolute; inset: 0; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; }
 .overlay-top { display: flex; gap: 8px; padding: 0 3%; flex-wrap: wrap; }
 .badge-demo, .badge-warn { font-weight: 800; font-size: clamp(12px, 2.2vh, 26px); padding: .35em .8em; border-radius: 999px; }
