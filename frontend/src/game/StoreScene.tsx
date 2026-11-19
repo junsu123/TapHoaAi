@@ -477,12 +477,18 @@ export function StoreScene({ layout, scene, posters }: { layout: StoreLayout; sc
     [scene.sign_text, scene.tagline, theme, herbal],
   );
   const products = useMemo(() => new Map(layout.products.map((p) => [p.id, p])), [layout.products]);
+  const groundColor = useMemo(() => "#" + new THREE.Color(theme.floorPlankB).multiplyScalar(0.78).getHexString(), [theme.floorPlankB]);
   const c = layout.store.counter;
   const sideH = led ? (herbal ? 1.3 : 1.4) : herbal ? wallH * 0.42 : wallH / 2;
   const shown = scene.wall_posters && !led ? posters.slice(0, 2) : [];
   const posterSize = 1.15;
   return (
     <group>
+      {/* the ground around the open front: the camera is zoomed out to fit phones, so it sees past the shop floor */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 3]} receiveShadow={shadows}>
+        <planeGeometry args={[W + 16, D + 14]} />
+        <meshToonMaterial color={groundColor} />
+      </mesh>
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow={shadows}>
         <planeGeometry args={[W, D]} />
         <meshToonMaterial map={floorTex} />

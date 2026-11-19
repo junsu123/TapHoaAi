@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.30.2 — 2026-11-19 — Không bị cắt hai bên trên điện thoại
+
+- TikTok phát khung 9:16 nhưng điện thoại người xem hẹp hơn (khoảng 9:19,5 tới 9:20,5), nên app TikTok **cắt hai bên hình**, mỗi bên khoảng 9–11%. Trước đây các ô sát mép (Sân khấu, Sắp diễn ra, Bảng vàng) và kệ hàng, màn LED hai bên bị cắt mất trên điện thoại.
+- Mọi ô trên màn hình LIVE giờ luôn nằm trong phần điện thoại còn thấy (chừa 11% mỗi bên): chỗ mặc định lùi vào trong, ô đã kéo sát mép từ trước tự dời vào vừa đủ (không cần đặt lại), bong bóng lời chủ quán cũng vậy. Khung **Kéo thả các ô trên màn hình LIVE** hiện hai dải sọc đỏ “Điện thoại cắt mất” và không cho kéo ô vào đó.
+- Camera lùi ra một chút (zoom 0,8) để cả quán lọt vào phần giữa điện thoại thấy; sàn trước quán được nối dài để mép dưới không bị trống.
+- `?safeLeft=` / `?safeRight=` vẫn chỉnh được; mặc định mới 0,11 / 0,15.
+
 ## 0.30.1 — 2026-11-19 — Hình game vừa khung dọc TikTok LIVE Studio
 
 - Sửa lỗi hình game **rộng hơn khung dọc** của TikTok LIVE Studio (game nằm giữa, hai bên viền tối). Cửa sổ **Chibi Live Game** giờ luôn giữ phần trong đúng 9:16: không phóng to (maximize) được nữa; khi kéo vào cạnh màn hình (snap), khi Windows thu cửa sổ cao hơn màn hình, hay khi kéo góc mà Windows tính cả thanh tiêu đề, cửa sổ tự về đúng 9:16 thay vì để lại khung bè ngang.

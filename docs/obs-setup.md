@@ -7,7 +7,7 @@
 3. Chỉ để **một** nguồn game chính. Bản xem trước trên dashboard dùng `?role=viewer` nên không tranh quyền.
 4. Tùy chọn URL:
    - `?quality=low|medium|high` — bỏ trống để tự giảm chất lượng khi FPS < 24.
-   - `?safeTop=0.1&safeBottom=0.2&safeRight=0.15` — vùng an toàn để thẻ sản phẩm không bị giao diện TikTok che.
+   - `?safeTop=0.1&safeBottom=0.2&safeRight=0.15&safeLeft=0.11` — vùng an toàn để thẻ sản phẩm không bị giao diện TikTok che. Hai bên chừa ít nhất 0,11: điện thoại hẹp hơn 9:16 nên app TikTok cắt mất khoảng 9–11% mỗi bên hình.
 5. Cảnh gợi ý:
    - **Shop LIVE**: webcam + mic người thật là chính; game đặt góc/lớp phụ.
    - **Game Demo**: game toàn màn hình — chỉ để kiểm thử.

@@ -2,12 +2,13 @@
 // (The product screen is the LED screen on the shop's back wall: LedWall, in the 3D scene.)
 // Everything sits inside configurable safe areas so TikTok's own UI never covers it (H4).
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import { isChatClip, type SpeechView } from "./SpeechPlayer";
 import { formatVnd } from "../lib/api";
 import type { GameView, LeaderboardView, ProductInfo, SceneConfig, SpeechClip, UpcomingView } from "../types/protocol";
 import type { GameEngine } from "./GameEngine";
 import { SCALE_MAX, SCALE_MIN, spotOf, type OverlayKey } from "./overlayItems";
+import { centreOnPhone, keepOnPhone, PHONE_SIDE } from "./phoneSafe";
 
 export interface SafeArea {
   top: number;
@@ -51,8 +52,10 @@ function OwnerBubble({ engine }: { engine: GameEngine }) {
       const el = ref.current;
       if (el) {
         const p = engine.ownerScreen;
-        // keep the whole bubble (≈ 60 % of the frame width at most) inside the frame
-        el.style.left = `${Math.min(0.69, Math.max(0.31, p.x)) * 100}%`;
+        // keep the whole bubble where phones show it (they cut both sides of the 9:16 picture)
+        const frameW = (el.offsetParent as HTMLElement | null)?.clientWidth || 1;
+        const w = Math.min(1, ((el.firstElementChild as HTMLElement | null)?.offsetWidth ?? 0) / frameW);
+        el.style.left = `${centreOnPhone(p.x, Math.max(w, 0.3)) * 100}%`;
         el.style.top = `${Math.min(0.85, Math.max(0.2, p.y)) * 100}%`;
         el.style.visibility = p.visible ? "visible" : "hidden";
       }
@@ -107,7 +110,8 @@ function useOverlayDrag(editable: boolean, scene: SceneConfig, item: OverlayKey)
     const g = gesture.current;
     if (!g) return;
     if (g.kind === "move") {
-      const x = Math.min(Math.max(0, g.x + (e.clientX - g.px) / g.sw), Math.max(0, 1 - g.w / g.sw));
+      // not into the strips phones cut off (both sides of the 9:16 picture)
+      const x = keepOnPhone(g.x + (e.clientX - g.px) / g.sw, g.w / g.sw);
       const y = Math.min(Math.max(0, g.y + (e.clientY - g.py) / g.sh), Math.max(0, 1 - g.h / g.sh));
       setDrag({ x, y, scale: g.scale });
     } else {
@@ -124,6 +128,22 @@ function useOverlayDrag(editable: boolean, scene: SceneConfig, item: OverlayKey)
   };
   const handlers = { onPointerDown: begin("move"), onPointerMove: move, onPointerUp: end, onPointerCancel: end };
   const resizeHandlers = { onPointerDown: begin("size"), onPointerMove: move, onPointerUp: end, onPointerCancel: end };
+  // a box placed before (maybe at the very edge of the 9:16 frame): moved inside what phones show
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || !placed) return;
+    const fit = () => {
+      const frame = el.offsetParent as HTMLElement | null;
+      if (!frame || !frame.clientWidth) return;
+      const x = keepOnPhone(placed.x, (el.offsetWidth * scale) / frame.clientWidth);
+      el.style.left = `${x * 100}%`;
+    };
+    fit();
+    const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(fit);
+    ro?.observe(el);
+    if (el.offsetParent) ro?.observe(el.offsetParent);
+    return () => ro?.disconnect();
+  });
   /** style for a box placed by hand (null: the box keeps its default spot) */
   const placedStyle: CSSProperties | null = placed
     ? { position: "absolute", left: `${placed.x * 100}%`, top: `${placed.y * 100}%`, right: "auto", bottom: "auto", margin: 0, transform: `scale(${scale})`, transformOrigin: "top left" }
@@ -639,6 +659,16 @@ export function LiveOverlay({
         paddingLeft: `${safe.left * 100}%`,
       }}
     >
+      {editBoard && (
+        <>
+          <div className="phone-cut left" style={{ width: `${PHONE_SIDE * 100}%` }} data-testid="phone-cut" aria-hidden>
+            <span>Điện thoại cắt mất</span>
+          </div>
+          <div className="phone-cut right" style={{ width: `${PHONE_SIDE * 100}%` }} aria-hidden>
+            <span>Điện thoại cắt mất</span>
+          </div>
+        </>
+      )}
       <div className="overlay-top">
         <Badges
           scene={st.scene}

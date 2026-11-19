@@ -13,6 +13,7 @@ import { StageMesh } from "./StageMesh";
 import { DebugProjector } from "./BehaviorDebugOverlay";
 import { themeOf } from "./themes";
 import { LOD, lodPolicy } from "./lod";
+import { PHONE_ZOOM } from "./phoneSafe";
 import type { PerfReport } from "../types/protocol";
 
 export type Quality = "low" | "medium" | "high" | "ultra";
@@ -428,7 +429,8 @@ export function World({
       dpr={dpr}
       shadows={q.shadows ? "soft" : false}
       flat /* no filmic tone mapping: keeps the cel-shaded colours crisp, not washed out */
-      camera={{ fov: 50, near: 0.1, far: 80, position: OVERVIEW_POS.toArray() }}
+      // zoomed out a little: phones cut both sides of the 9:16 picture, the shop must fit their middle
+      camera={{ fov: 50, zoom: PHONE_ZOOM, near: 0.1, far: 80, position: OVERVIEW_POS.toArray() }}
       gl={{ antialias: true, preserveDrawingBuffer: true, powerPreference: "high-performance" }}
       style={{ background: themeOf(engine.scene.theme).background }}
       onCreated={({ gl }) => {

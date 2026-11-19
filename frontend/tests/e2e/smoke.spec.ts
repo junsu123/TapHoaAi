@@ -883,7 +883,9 @@ test("Honour board: drag it anywhere on the LIVE screen and resize it from the d
 
   // the OBS page moved the board right away
   const gb = game.getByTestId("honour-board");
-  await expect.poll(async () => (await gb.evaluate((el) => (el as HTMLElement).style.left))).toBe(`${sized.board_x * 100}%`);
+  // (where it was dropped, or moved just enough that the bigger board stays inside what phones show)
+  await expect.poll(async () => (await gb.evaluate((el) => (el as HTMLElement).style.left)) !== "").toBe(true);
+  await expect.poll(async () => { const r = (await gb.boundingBox())!; return r.x >= 540 * 0.11 - 1 && r.x + r.width <= 540 * 0.89 + 1 && r.x <= sized.board_x * 540 + 1; }).toBe(true);
   await game.waitForTimeout(800);
   await game.screenshot({ path: `${SHOTS}/BOARD-moved-live.png` });
 
@@ -923,6 +925,49 @@ test("Honour board: drag it anywhere on the LIVE screen and resize it from the d
   await page.getByRole("button", { name: "Ô Sân khấu về chỗ mặc định" }).click();
   await expect(page.getByTestId("board-place-note")).toContainText("ô Sân khấu về chỗ mặc định");
   await expect(gs).not.toHaveAttribute("data-placed", "1", { timeout: 10_000 });
+  await game.close();
+});
+
+test("Phones: TikTok cuts both sides of the 9:16 picture — boxes placed at the edges are moved inside what phones show", async ({ page, context }) => {
+  test.setTimeout(150_000);
+  const csrf = await login(page.request);
+  const H = { "X-CSRF-Token": csrf };
+  const cur = (await (await page.request.get("/api/v1/settings/scene")).json()).config;
+  // as in a shop's real layout: the "Sân khấu" box and "Sắp diễn ra" at the very left, the honour board at the very right
+  await page.request.put("/api/v1/settings/scene", {
+    data: { ...cur, board_enabled: true, board_x: 0.7, board_y: 0.02, board_scale: 1, stage_enabled: true, stage_board_enabled: true, stage_board_x: 0, stage_board_y: 0.02, stage_board_scale: 1, upcoming_enabled: true, upcoming_x: 0, upcoming_y: 0.4, upcoming_scale: 1, minigame_enabled: false },
+    headers: H,
+  });
+  const game = await context.newPage();
+  await game.setViewportSize({ width: 540, height: 960 });
+  await game.goto("/game/live?debug=1&quality=low");
+  await game.waitForFunction(() => (window as any).__chibiDebug?.state().layoutVersion > 0);
+  for (const id of ["stage-board", "upcoming-board", "honour-board"]) {
+    const el = game.getByTestId(id);
+    await expect(el).toBeVisible({ timeout: 20_000 });
+    await expect.poll(async () => { const b = (await el.boundingBox())!; return b.x >= 540 * 0.11 - 1 && b.x + b.width <= 540 * 0.89 + 1; }, { message: id }).toBe(true);
+  }
+  await game.screenshot({ path: `${SHOTS}/PHONE-1-edges-moved-inside.png` });
+  // the layout preview shows the strips phones cut off, and a box cannot be dragged into them
+  await page.setViewportSize({ width: 1360, height: 1300 });
+  await page.goto("/dashboard/game");
+  await page.getByRole("button", { name: "Kéo thả các ô trên màn hình LIVE" }).click();
+  const frame = page.frameLocator('[data-testid="board-placer-frame"]');
+  await expect(frame.getByTestId("phone-cut")).toBeVisible({ timeout: 20_000 });
+  await page.getByTestId("board-placer-frame").scrollIntoViewIfNeeded();
+  await frame.locator("body").evaluate(() => new Promise((r) => setTimeout(r, 800)));
+  const iframeBox = (await page.getByTestId("board-placer-frame").boundingBox())!;
+  const sb = (await frame.getByTestId("stage-board").boundingBox())!;
+  await page.mouse.move(sb.x + 20, sb.y + 12);
+  await page.mouse.down();
+  await page.mouse.move(sb.x - 200, sb.y + 40, { steps: 10 });
+  await page.mouse.up();
+  await expect(page.getByTestId("board-place-note")).toContainText("Đã lưu vị trí ô Sân khấu", { timeout: 10_000 });
+  const sc = (await (await page.request.get("/api/v1/settings/scene")).json()).config;
+  expect(sc.stage_board_x).toBeGreaterThanOrEqual(0.109);
+  await page.screenshot({ path: `${SHOTS}/PHONE-2-placer-strips.png` });
+  expect(iframeBox.width).toBeGreaterThan(0);
+  await page.request.put("/api/v1/settings/scene", { data: { ...cur }, headers: H });
   await game.close();
 });
 

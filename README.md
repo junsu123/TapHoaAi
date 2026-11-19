@@ -134,7 +134,8 @@ Hình trên điện thoại chỉ nét khi nguồn game đủ **1080 × 1920 đi
 1. Cửa sổ Chibi Live Game: chuột phải → **Nét nhất cho LIVE (1080 × 1920)** (Ctrl+L). Cửa sổ có thể cao hơn màn hình; phần ngoài màn hình vẫn được phát. Chất lượng Tự động bắt đầu từ *Nét nhất* (vẽ gấp đôi rồi thu nhỏ), chỉ giảm khi máy chậm.
 2. Hoặc dùng nguồn **Link** (TikTok LIVE Studio) / **Browser Source** (OBS): `http://127.0.0.1:8686/game/live?quality=ultra`, rộng 1080, cao 1920 — không phụ thuộc cỡ màn hình. Trong TikTok LIVE Studio phải bật **Độ phân giải tùy chỉnh** (Custom resolution) rồi nhập 1080 × 1920; không bật thì nguồn Link chạy khung ngang, game nằm giữa hai viền tối và không vừa khung dọc. Chỉ mở một màn hình game chính.
 3. Trong phần mềm LIVE: khung hình 1080 × 1920, nguồn game phủ vừa khít khung (không phóng to), bitrate cao nhất mạng tải lên cho phép.
-4. Kiểm tra: Game 3D & OBS → *Hiệu năng màn hình game* ghi cỡ cửa sổ game, báo nếu chưa đủ 1080 × 1920 và báo nếu khung nguồn rộng hơn 9:16 (kèm cách sửa).
+4. Điện thoại người xem hẹp hơn 9:16 nên TikTok cắt mất khoảng 10% mỗi bên hình: các ô trên màn hình LIVE tự nằm trong phần giữa; khung *Kéo thả các ô* hiện dải sọc đỏ chỗ bị cắt.
+5. Kiểm tra: Game 3D & OBS → *Hiệu năng màn hình game* ghi cỡ cửa sổ game, báo nếu chưa đủ 1080 × 1920 và báo nếu khung nguồn rộng hơn 9:16 (kèm cách sửa).
 
 ## Từ cấm & dạy chủ quán trả lời
 

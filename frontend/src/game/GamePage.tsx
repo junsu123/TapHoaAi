@@ -12,6 +12,7 @@ import { pickVoice, SpeechPlayer, vietnameseVoices, type SpeechView, type VoiceL
 import { World, type Quality } from "./World";
 import { isChatClip } from "./SpeechPlayer";
 import { LOD } from "./lod";
+import { PHONE_SIDE } from "./phoneSafe";
 
 const ORDER: Quality[] = ["low", "medium", "high", "ultra"];
 
@@ -26,8 +27,9 @@ export function GamePage() {
   const safe: SafeArea = {
     top: Number(params.get("safeTop") ?? 0.1),
     bottom: Number(params.get("safeBottom") ?? 0.2),
-    right: Number(params.get("safeRight") ?? 0.15),
-    left: Number(params.get("safeLeft") ?? 0.04),
+    // phones cut both sides of the 9:16 picture (PHONE_SIDE each side): nothing important there
+    right: Number(params.get("safeRight") ?? Math.max(0.15, PHONE_SIDE)),
+    left: Number(params.get("safeLeft") ?? PHONE_SIDE),
   };
   const [socketUp, setSocketUp] = useState(false);
   const socketRef = useRef<SequencedSocket<GameSnapshot, ServerGameMessage> | null>(null);

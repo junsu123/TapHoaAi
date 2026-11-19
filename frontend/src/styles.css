@@ -492,8 +492,14 @@ label.check.big { font-size: 15px; }
 @keyframes bubble-pop { from { opacity: 0; transform: translateX(-50%) translateY(.8vh) scale(.92); } to { opacity: 1; transform: translateX(-50%); } }
 
 /* honour board */
-.honour-board { position: absolute; left: 3%; bottom: 27%; width: 46%; transition: opacity .4s; border-radius: 1.2vh; padding: 1vh 1.3vh 1.1vh; color: #fdf3d2; background: linear-gradient(160deg, rgba(74, 44, 22, .94), rgba(43, 26, 14, .94)); border: .35vh solid #e2b437; box-shadow: 0 .8vh 2vh rgba(30, 18, 6, .4), inset 0 0 0 .2vh rgba(255, 230, 160, .25); }
-.honour-board.right { left: auto; right: 3%; }
+.honour-board { position: absolute; left: 11%; bottom: 27%; width: 46%; transition: opacity .4s; border-radius: 1.2vh; padding: 1vh 1.3vh 1.1vh; color: #fdf3d2; background: linear-gradient(160deg, rgba(74, 44, 22, .94), rgba(43, 26, 14, .94)); border: .35vh solid #e2b437; box-shadow: 0 .8vh 2vh rgba(30, 18, 6, .4), inset 0 0 0 .2vh rgba(255, 230, 160, .25); }
+.honour-board.right { left: auto; right: 11%; } /* 11 %: phones cut both sides of the 9:16 picture (phoneSafe.ts) */
+/* layout preview: the strips phones cut off */
+.phone-cut { position: absolute; top: 0; bottom: 0; z-index: 1; pointer-events: none; display: flex; align-items: center; justify-content: center;
+  background: repeating-linear-gradient(135deg, rgba(200, 40, 60, .22) 0 1.2vh, rgba(200, 40, 60, .1) 1.2vh 2.4vh); }
+.phone-cut.left { left: 0; border-right: .25vh dashed rgba(200, 40, 60, .8); }
+.phone-cut.right { right: 0; border-left: .25vh dashed rgba(200, 40, 60, .8); }
+.phone-cut span { writing-mode: vertical-rl; transform: rotate(180deg); color: #fff; font-weight: 800; font-size: clamp(10px, 1.6vh, 24px); text-shadow: 0 0 .5vh rgba(0, 0, 0, .7); }
 .honour-board.away { opacity: 0; }
 .hb-head { display: flex; align-items: center; gap: .8vh; }
 .hb-crown { font-size: clamp(12px, 2vh, 38px); line-height: 1; }
