@@ -17,7 +17,6 @@ TikTokLive types never leave this module: every event becomes a plain raw dict (
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import logging
 import time
 from collections import Counter
@@ -113,6 +112,30 @@ def default_client_factory(unique_id: str, sign_api_key: str | None):
     return TikTokLiveClient(unique_id=unique_id, web_kwargs=web_kwargs)
 
 
+DISCONNECT_TIMEOUT_S = 5.0
+
+
+async def safe_disconnect(client: Any, **kwargs: Any) -> None:
+    """``client.disconnect()`` that never breaks the caller.
+
+    TikTokLive 7.0.1's ``disconnect()`` waits for its own event-loop task but only catches
+    ``Exception``. Stopping the old connection (cancelling the supervisor that awaits that task)
+    cancels the task too, so the wait raises ``CancelledError`` — not an ``Exception`` — and it
+    escaped from POST /live/connect as "RuntimeError: No response returned". That stray
+    cancellation is swallowed here; a real cancellation of the calling task is passed on.
+    A disconnect that hangs (socket never closes) is given up after a few seconds.
+    """
+    try:
+        async with asyncio.timeout(DISCONNECT_TIMEOUT_S):
+            await client.disconnect(**kwargs)
+    except asyncio.CancelledError:
+        me = asyncio.current_task()
+        if me is not None and me.cancelling():
+            raise
+    except Exception:  # the connection is going away anyway
+        log.debug("TikTokLive disconnect failed", exc_info=True)
+
+
 class TikTokLiveAdapter(LiveEventProvider):
     name = "tiktok_unofficial"
 
@@ -193,8 +216,7 @@ class TikTokLiveAdapter(LiveEventProvider):
     async def stop(self) -> None:
         self._stopping = True
         if self.client is not None:
-            with contextlib.suppress(Exception):
-                await self.client.disconnect(close_client=True)
+            await safe_disconnect(self.client, close_client=True)
         await self._set_status(ProviderStatus.DISCONNECTED)
 
     # ------------------------------------------------------------------ helpers
@@ -229,8 +251,7 @@ class TikTokLiveAdapter(LiveEventProvider):
         async def on_end(_event: Any) -> None:
             self._ended = True
             await self._emit({"type": "LIVE_END", "event_id": None, "payload": {}})
-            with contextlib.suppress(Exception):
-                await client.disconnect()
+            await safe_disconnect(client)
 
         for name in ("CommentEvent", "GiftEvent", "LikeEvent", "JoinEvent", "FollowEvent", "ShareEvent",
                      "RoomUserSeqEvent"):

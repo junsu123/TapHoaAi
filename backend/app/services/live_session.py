@@ -172,8 +172,16 @@ class LiveSessionService:
                 await self._supervisor
             self._supervisor = None
         if self.provider:
-            with contextlib.suppress(Exception):
+            try:
                 await self.provider.stop()
+            except asyncio.CancelledError:
+                # a provider's own (already cancelled) task leaking out of stop(): not a reason to
+                # abandon the request that is stopping it (POST /live/connect would get no answer)
+                me = asyncio.current_task()
+                if me is not None and me.cancelling():
+                    raise
+            except Exception:
+                log.debug("provider stop failed", exc_info=True)
             if self.session_id:
                 with self.db.session() as s:
                     row = s.get(LiveSessionRow, self.session_id)

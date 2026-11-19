@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.31.1 — 2026-11-19 — Kết nối lại, Ngắt kết nối không còn lỗi “No response returned”
+
+- Sửa lỗi **“Lỗi bất ngờ khi xử lý POST /api/v1/live/connect” và “… POST /api/v1/live/disconnect: RuntimeError: No response returned”** khi bấm *Kết nối* lúc đang có kết nối cũ (đang phát, đang kết nối hay đang thử kết nối lại). Khi dừng kết nối cũ, thư viện TikTokLive 7.0.1 ném ra một lệnh huỷ (`CancelledError`) mà phần mềm không bắt, nên yêu cầu kết nối bị bỏ dở không trả lời. Giờ lệnh huỷ đó được bỏ qua, kết nối cũ đóng hẳn rồi mới mở kết nối mới; *Ngắt kết nối* cũng vậy. Ngắt kết nối bị treo quá 5 giây thì bỏ qua để không kẹt nút.
 ## 0.31.0 — 2026-11-19 — Chibi to hơn, đẹp hơn
 
 - **Nhân vật to hơn:** mọi Chibi (cả chủ quán) được vẽ to gấp khoảng 1,45 lần, nhìn rõ trong cảnh toàn quán trên điện thoại. Đường đi, chỗ đứng trước kệ, chỗ ngồi ghế dài và đệm bàn trà giữ nguyên; Chibi ngồi đúng mặt ghế / đệm theo cỡ mới. Nhãn tên, bong bóng biểu tượng, thanh lên cấp và bong bóng lời chủ quán dời lên theo đầu.

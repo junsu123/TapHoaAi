@@ -3,6 +3,7 @@ with a fake network client (TikTok is not reachable from CI). Live verification 
 real stream is a manual step — see docs/provider-limitations.md."""
 
 import asyncio
+import contextlib
 import time
 
 import httpx
@@ -318,3 +319,61 @@ def test_live_end_and_viewer_count_make_chibis_leave(admin_client):
     c.portal.call(client.emit, LiveEndEvent())
     st = _wait(c, lambda s: s["status"] == "Đã kết thúc")
     assert st["status"] == "Đã kết thúc" and container.avatars.visible() == []
+
+
+class RealDisconnectClient(FakeClient):
+    """Like TikTokLiveClient 7.0.1: disconnect() waits for its event-loop task but only catches
+    Exception — when that task was cancelled (stopping the old connection cancels it), awaiting it
+    raises CancelledError, which is not an Exception."""
+
+    async def start(self, *, fetch_live_check=True):
+        self._loop_task = await super().start(fetch_live_check=fetch_live_check)
+        return self._loop_task
+
+    async def disconnect(self, close_client=False):
+        self.disconnected = True
+        if self._done and not self._done.done():
+            self._done.set_result(None)
+        with contextlib.suppress(Exception):  # exactly as the library does: CancelledError gets out
+            await self._loop_task
+
+
+def test_connect_again_while_connected_answers(admin_client):
+    """Bấm Kết nối lần nữa khi đang kết nối: trước đây POST /live/connect không trả lời
+    (RuntimeError: No response returned) vì CancelledError lọt ra từ client.disconnect()."""
+    c = admin_client
+    clients = []
+
+    def factory(uid, key):
+        clients.append(RealDisconnectClient(uid, key))
+        return clients[-1]
+    c.app.state.container.tiktok_client_factory = factory
+    body = {"url": "https://www.tiktok.com/@shoptra/live", "policy_ack": True}
+    assert c.post("/api/v1/live/connect", json=body).status_code == 200
+    _wait(c, lambda s: s["status"] == "Đã kết nối")
+    r = c.post("/api/v1/live/connect", json=body)  # the old connection is stopped first
+    assert r.status_code == 200, r.text
+    st = _wait(c, lambda s: s["status"] == "Đã kết nối" and len(clients) == 2)
+    assert st["status"] == "Đã kết nối" and clients[0].disconnected
+    r = c.post("/api/v1/live/disconnect")
+    assert r.status_code == 200 and r.json()["status"] == "Chưa kết nối" and clients[1].disconnected
+
+
+def test_disconnect_answers(admin_client):
+    """Bấm Ngắt kết nối khi đang kết nối: trước đây POST /live/disconnect không trả lời
+    (RuntimeError: No response returned), cùng nguyên nhân với Kết nối lại."""
+    c = admin_client
+    clients = []
+
+    def factory(uid, key):
+        clients.append(RealDisconnectClient(uid, key))
+        return clients[-1]
+    c.app.state.container.tiktok_client_factory = factory
+    body = {"url": "https://www.tiktok.com/@shoptra/live", "policy_ack": True}
+    assert c.post("/api/v1/live/connect", json=body).status_code == 200
+    _wait(c, lambda s: s["status"] == "Đã kết nối")
+    for _ in range(2):  # twice, as in the log (×2): the second press must answer too
+        r = c.post("/api/v1/live/disconnect")
+        assert r.status_code == 200, r.text
+        assert r.json()["status"] == "Chưa kết nối"
+    assert clients[0].disconnected
